@@ -1,5 +1,6 @@
 """Proveedor diario aislado: fuentes originales, SQLite y protocolo JSONL."""
 import argparse
+from contextlib import contextmanager, nullcontext
 from datetime import date
 import json
 import os
@@ -14,6 +15,28 @@ from data_store import MONTHS, REGIMENES, REGIMENES_IMPORTACION, RangeStore, Run
 from runner import run_downloads
 
 
+@contextmanager
+def import_cache_gate(database, cancelled, emit):
+    """Serializar proveedores permite reutilizar la caché sin consultas duplicadas."""
+    announced = False
+    while not cancelled.is_set():
+        gate = RunLock(str(database) + '.proveedor')
+        try:
+            gate.__enter__()
+        except RuntimeError:
+            if not announced:
+                emit('log', message='Esperando la base de importación que está preparando otro bot.')
+                announced = True
+            cancelled.wait(.2)
+            continue
+        try:
+            yield True
+        finally:
+            gate.__exit__(None, None, None)
+        return
+    yield False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--day', required=True, type=date.fromisoformat)
@@ -23,7 +46,9 @@ def main():
     parser.add_argument('--offline-fixture', action='store_true')
     parser.add_argument('--selection', choices=('total', 'transito', 'importacion'), default='total')
     args = parser.parse_args()
-    if args.offline_fixture and any(args.database.resolve().is_relative_to(HERE.parents[1] / 'bots' / module / 'data') for module in ('detalles', 'duas_transito')):
+    protected = [HERE.parents[1] / 'bots' / module / 'data' for module in ('detalles', 'duas_transito', 'talon', 'xmovimientos')]
+    protected.append(HERE / 'data')
+    if args.offline_fixture and any(args.database.resolve().is_relative_to(folder) for folder in protected):
         parser.error('La fixture requiere almacenamiento separado de la instalación normal.')
     sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
     cancelled = threading.Event()
@@ -47,20 +72,24 @@ def main():
     config = {'edge_driver_path': str(args.driver), 'mostrar_navegador': args.visible}
     regimens = REGIMENES if args.selection == 'total' else ['TRANSITO'] if args.selection == 'transito' else [item for item in REGIMENES if item in REGIMENES_IMPORTACION]
     try:
-        pending = run_downloads(
-            args.database, config, regimens, MONTHS[args.day.month - 1], args.day.year,
-            'Rango personalizado', lambda message: emit('log', message=message), cancelled,
-            start=args.day.day, end=args.day.day, **({'factory': factory} if factory else {}))
-        if cancelled.is_set():
-            emit('result', complete=False, stopped=True, message='Descarga detenida.')
-            return 0
-        with RunLock(args.database):
-            store = RangeStore(args.database)
-            try:
-                lists, missing = store.collect(args.day.strftime('%Y-%m'), [(args.day.day, args.day.day)])
-                missing = [message for message in missing if message.partition(':')[0] in regimens]
-            finally:
-                store.close()
+        with (import_cache_gate(args.database, cancelled, emit) if args.selection == 'importacion' else nullcontext(True)) as acquired:
+            if not acquired:
+                emit('result', complete=False, stopped=True, message='Descarga detenida.')
+                return 0
+            pending = run_downloads(
+                args.database, config, regimens, MONTHS[args.day.month - 1], args.day.year,
+                'Rango personalizado', lambda message: emit('log', message=message), cancelled,
+                start=args.day.day, end=args.day.day, **({'factory': factory} if factory else {}))
+            if cancelled.is_set():
+                emit('result', complete=False, stopped=True, message='Descarga detenida.')
+                return 0
+            with RunLock(args.database):
+                store = RangeStore(args.database)
+                try:
+                    lists, missing = store.collect(args.day.strftime('%Y-%m'), [(args.day.day, args.day.day)])
+                    missing = [message for message in missing if message.partition(':')[0] in regimens]
+                finally:
+                    store.close()
         selection = 0 if args.selection == 'total' else 1 if args.selection == 'transito' else 2
         emit('result', complete=not pending and not missing, duas=lists[selection] if not missing else [],
              message='; '.join(missing))

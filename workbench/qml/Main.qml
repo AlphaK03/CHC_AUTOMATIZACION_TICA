@@ -21,17 +21,23 @@ ApplicationWindow {
     Component.onCompleted: Theme.dark = initialDark
     function toggleTheme() { Theme.dark = !Theme.dark; preferences.setDark(Theme.dark) }
     property var transitBridge: typeof transit !== 'undefined' ? transit : null
-    function workersClosed() { return (!details.enabled || details.isClosed) && (!transitBridge || !transitBridge.enabled || transitBridge.isClosed) }
+    property var talonBridge: typeof talon !== 'undefined' ? talon : null
+    property var movementsBridge: typeof movements !== 'undefined' ? movements : null
+    function workersClosed() { return [details,transitBridge,talonBridge,movementsBridge].every(bridge => !bridge || !bridge.enabled || bridge.isClosed) }
     onClosing: function(close) {
         if (!workersClosed()) {
             close.accepted = false
             window.toastMessage = "Guardando pendientes y cerrando módulos…"
             if(details.enabled) details.shutdown()
             if(transitBridge && transitBridge.enabled) transitBridge.shutdown()
+            if(talonBridge && talonBridge.enabled) talonBridge.shutdown()
+            if(movementsBridge && movementsBridge.enabled) movementsBridge.shutdown()
         }
     }
     Connections { target: details; function onClosed() { if (details.closing && window.workersClosed()) Qt.callLater(window.close) } }
     Connections { target: window.transitBridge; function onClosed() { if(window.transitBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
+    Connections { target: window.talonBridge; function onClosed() { if(window.talonBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
+    Connections { target: window.movementsBridge; function onClosed() { if(window.movementsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
 
     Shortcut { sequence: "Ctrl+K"; onActivated: searchInput.forceActiveFocus() }
     Shortcut { sequence: "Ctrl+B"; onActivated: window.sidebarExpanded = !window.sidebarExpanded }
@@ -87,7 +93,7 @@ ApplicationWindow {
                     }
                 }
                 Item { Layout.fillHeight: true }
-                Text { visible: window.sidebarExpanded; text: details.enabled ? (window.transitBridge && window.transitBridge.enabled ? "Detalles y Tránsito · 3 demos" : "Detalles disponible · 4 demos") : "Modo demostración"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.leftMargin: 13; Layout.bottomMargin: 6 }
+                Text { visible: window.sidebarExpanded; text: details.enabled ? (window.talonBridge && window.movementsBridge ? "4 bots · BLs en demo" : "Bots disponibles") : "Modo demostración"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.leftMargin: 13; Layout.bottomMargin: 6 }
                 NavItem { Layout.fillWidth: true; label: "Acerca del Workbench"; iconName: "info"; expanded: window.sidebarExpanded; onClicked: aboutDialog.open() }
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; Layout.topMargin: 7; Layout.bottomMargin: 7 }
                 RowLayout {
@@ -161,10 +167,12 @@ ApplicationWindow {
                 Loader {
                     id: pageLoader
                     anchors.fill: parent; anchors.margins: 32; anchors.bottomMargin: 20
-                    sourceComponent: demo.route === "overview" ? dashboardComponent : demo.route === "detalles" && details.enabled ? detailsComponent : demo.route === "duas_transito" && window.transitBridge && window.transitBridge.enabled ? transitComponent : demoComponent
+                    sourceComponent: demo.route === "overview" ? dashboardComponent : demo.route === "detalles" && details.enabled ? detailsComponent : demo.route === "duas_transito" && window.transitBridge && window.transitBridge.enabled ? transitComponent : demo.route === "talon" && window.talonBridge && window.talonBridge.enabled ? talonComponent : demo.route === "xmovimientos" && window.movementsBridge && window.movementsBridge.enabled ? movementsComponent : demoComponent
                     Component { id: dashboardComponent; Dashboard {} }
                     Component { id: detailsComponent; DetallesPage { moduleBridge: details } }
                     Component { id: transitComponent; DetallesPage { moduleBridge: window.transitBridge } }
+                    Component { id: talonComponent; DetallesPage { moduleBridge: window.talonBridge } }
+                    Component { id: movementsComponent; DetallesPage { moduleBridge: window.movementsBridge } }
                     Component { id: demoComponent; BotPage {} }
                 }
                 Rectangle {
@@ -197,7 +205,7 @@ ApplicationWindow {
         contentItem: ColumnLayout {
             spacing: 15
             Text { text: "Un solo espacio para toda tu operación."; color: Theme.text; font.family: Theme.family; font.pixelSize: 17; font.weight: Font.DemiBold; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-            Text { text: details.enabled ? "Detalles y DUAs Tránsito tienen motores independientes y almacenamiento SQLite. Los otros tres módulos siguen en demostración." : "Modo de demostración: los cinco espacios usan datos sintéticos y no realizan consultas a TICA."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Text { text: details.enabled ? "Detalles, DUAs Tránsito, Talón y XMovimientos tienen motores independientes y almacenamiento SQLite. BLs continúa en demostración." : "Modo de demostración: los cinco espacios usan datos sintéticos y no realizan consultas a TICA."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: "Versión 0.2 · Integración modular\nCtrl+K: buscar  ·  Ctrl+B: contraer navegación"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
         }
     }

@@ -59,10 +59,17 @@
       "engine": "src/core/playwright_processor.py",
       "requirements": "requirements.runtime.txt",
       "resources": [
-        "Names_TicaPortal.xlsx"
+        "Names_TicaPortal.xlsx",
+        "config/captcha_lookup.json"
       ],
       "input_contract": "excel_nrodua",
-      "status": "copied_pending_integration"
+      "status": "integrated",
+      "workbench_adapter": {
+        "kind": "jsonl_worker",
+        "entrypoint": "workbench_worker.py",
+        "lockfile": "requirements.workbench.lock.txt",
+        "data_root": "."
+      }
     },
     {
       "id": "xmovimientos",
@@ -72,10 +79,17 @@
       "engine": "src/core/playwright_processor.py",
       "requirements": "requirements.runtime.txt",
       "resources": [
-        "Names_TicaPortal.xlsx"
+        "Names_TicaPortal.xlsx",
+        "config/captcha_lookup.json"
       ],
       "input_contract": "excel_nrodua",
-      "status": "copied_pending_integration"
+      "status": "integrated",
+      "workbench_adapter": {
+        "kind": "jsonl_worker",
+        "entrypoint": "workbench_worker.py",
+        "lockfile": "requirements.workbench.lock.txt",
+        "data_root": "."
+      }
     }
   ]
 }

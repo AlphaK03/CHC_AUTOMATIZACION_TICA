@@ -11,20 +11,28 @@
   con modos mensual y diario: día anterior, espera hasta 00:01 Costa Rica,
   recuperación de días atrasados y resultados acumulados en su mes correspondiente.
   Piloto diario de Detalles implementado en `feature/detalles-base-diaria-calendario`;
-  leer `docs/PILOTO_DETALLES_DIARIO.md`. Los otros consumidores siguen pendientes.
+  leer `docs/PILOTO_DETALLES_DIARIO.md`. Los cuatro consumidores DUA están integrados.
 - Alcance vigente ampliado: integrar y hacer funcionar Detalles, preservando
   todas sus funciones, SQLite, pendientes, validaciones, configuración y respaldos.
   El usuario autorizó usar datos base originales como prueba. Leerlos sin modificar
   los originales, probar una muestra acotada y usar almacenamiento/salida propios.
 - Alcance ampliado por el usuario: integrar DUAs Tránsito con la estructura de
   Detalles, cambiando extracción y selección de base. Leer `docs/INTEGRACION_TRANSITO.md`.
-  BLs, Talón y XMovimientos siguen en demostración.
+  Talón y XMovimientos también están integrados; leer `docs/INTEGRACION_IMPORTACION.md`.
+  BLs sigue en demostración.
 - La infraestructura activa de ambos bots está en `chc_runtime/`; los workers
   eligen un perfil. Compartir catálogo, cola, coordinador, puente Qt e interfaz,
   manteniendo configuración/datos/procesos separados. No duplicar este soporte.
 - Tránsito usa exclusivamente TRANSITO para su base automática y conserva las
   ocho columnas y el parser de v2. Guardar todas las páginas y el éxito en una
   transacción; nunca confirmar el DUA con solo las primeras 50 líneas.
+- Talón y XMovimientos usan la selección IMPORTACION (cuatro regímenes del
+  generador original) y una caché verificada compartida en
+  `integrations/duas_source/data/importacion/`. Mantener independientes sus colas,
+  calendarios, configuraciones y resultados. Talón conserva siete columnas y el
+  resumen Sftributos1; no paginarlo con el botón del grid Sftributos. XMovimientos
+  conserva seis columnas y agrupa/suma bultos sobre todas las páginas del DUA.
+  Mantener `MultiRowJobStore` común; no migrar índices/CSV antiguos como éxitos.
 - El usuario autorizó subir a Git y crear el piloto diario de Detalles con proveedor
   copiado desde DUAS_SCRAPPING y calendario persistente. Los orígenes quedan intactos.
   El modo automático se inicia por acción del usuario; verificar offline, sin
@@ -73,8 +81,11 @@
   contexto autosuficiente a una nueva sesión.
 - Leer `README.md`, `docs/PLAN_IMPLEMENTACION.md` y `docs/INVENTARIO.md`.
 - Los repositorios originales son fuentes de referencia; hacer cambios aquí.
-- Código activo: `bots/<id>/src/`. Tránsito, Talón y XMovimientos provienen de
-  `v2/`; no incorporar los `src/` antiguos ni crear carpetas por versión.
+- Motores activos del Workbench: `chc_runtime/`, perfiles y
+  `bots/<id>/workbench_worker.py`. Los parsers originales se importan de
+  `bots/<id>/src/flows/`; las GUI y motores clásicos copiados son referencia.
+  Tránsito, Talón y XMovimientos provienen de `v2/`; no incorporar los `src/`
+  antiguos ni crear carpetas por versión.
 - Cada módulo mantiene sus imports aislados. No importar varios motores en un
   mismo proceso mientras existan nombres globales `core`, `utils`, `ui`, `flows`.
 - Preservar identificadores como texto, ceros iniciales, formatos de salida y

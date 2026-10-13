@@ -2,11 +2,10 @@
 from html import escape
 import asyncio
 import json
-import logging
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from .identifiers import normalize_dua
-from .job_store import JobStore, atomic_output
+from .multirow import MultiRowJobStore
 from .playwright_processor import PlaywrightDUAProcessor
 
 FIELDS = ['Item', 'Partida', 'Descripción_Comercial', 'Bultos', 'Tipo_de_Bulto',
@@ -63,27 +62,9 @@ def confirmed_last_page(payload, rows, clean):
         return False
 
 
-class TransitJobStore(JobStore):
-    def complete(self, job, result):
-        rows = validate_rows(result.get('rows', []), job['dua'])
-        # Todas las líneas y el éxito del DUA se confirman en una sola transacción.
-        super().complete(job, {**rows[0], 'rows': rows})
-
-    def result_rows(self, result):
-        return validate_rows(result.get('rows', []), result['numero_del_dua'])
-
-    def migrate_csv(self, path, fields):
-        # El CSV/índice anterior no acredita haber terminado todas las páginas.
-        if path:
-            logging.info('CSV anterior conservado como referencia; no acredita extracción completa de líneas.')
-        return 0
-
-    def export(self, paths, fields):
-        super().export(paths, fields)
-        if 'no_rows_duas' in paths:
-            with self.lock, atomic_output(paths['no_rows_duas']) as stream:
-                for row in self.db.execute("SELECT dua FROM jobs WHERE status!='succeeded' AND error_kind='NoRowsException'"):
-                    stream.write(row[0] + '\n')
+class TransitJobStore(MultiRowJobStore):
+    fields = FIELDS
+    validate_rows = staticmethod(validate_rows)
 
 
 class TransitProcessor(PlaywrightDUAProcessor):

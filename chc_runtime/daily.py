@@ -191,6 +191,11 @@ class DailyCoordinator:
 
     def download(self, day):
         database = self.service.root / 'data' / 'daily' / 'bases.sqlite3'
+        if (self.service.profile['selection'] == 'importacion' and not self.offline
+                and self.service.root.resolve() == self.service.profile['root'].resolve()):
+            # Ambos consumidores reutilizan descargas verificadas. Sus colas,
+            # calendarios y resultados siguen perteneciendo a cada bot.
+            database = SOURCE / 'data' / 'importacion' / 'bases.sqlite3'
         driver = SOURCE / 'drivers' / 'msedgedriver.exe'
         if not self.offline and not driver.is_file():
             raise RuntimeError('Ejecuta Instalar_Base_Diaria.bat para preparar el navegador de descarga.')

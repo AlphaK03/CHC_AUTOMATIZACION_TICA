@@ -1,4 +1,4 @@
-"""CHC Workbench: Detalles y DUAs Tránsito en procesos aislados, tres demos."""
+"""CHC Workbench: cuatro bots en procesos aislados y BLs en demostración."""
 import argparse
 import os
 from pathlib import Path
@@ -28,6 +28,8 @@ def main():
     parser.add_argument('--daily', action='store_true', help='Mostrar el modo diario del módulo seleccionado; no iniciar descargas automáticamente.')
     parser.add_argument('--details-storage', type=Path, help='Almacenamiento aislado para comprobaciones de Detalles.')
     parser.add_argument('--transit-storage', type=Path, help='Almacenamiento aislado para comprobaciones de Tránsito.')
+    parser.add_argument('--talon-storage', type=Path, help='Almacenamiento aislado para comprobaciones de Talón.')
+    parser.add_argument('--movements-storage', type=Path, help='Almacenamiento aislado para comprobaciones de XMovimientos.')
     args = parser.parse_args()
     if args.smoke_test or args.capture:
         os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
@@ -47,13 +49,16 @@ def main():
     QQuickStyle.setStyle('Basic')
     details = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.details_storage)
     transit = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.transit_storage, module_id='duas_transito')
+    talon = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.talon_storage, module_id='talon')
+    movements = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.movements_storage, module_id='xmovimientos')
+    bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements}
     preferences = Preferences(HERE.parent / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
-    backend = DemoBackend(HERE / 'modules.json', details, transit)
-    details.toast.connect(backend.toast.emit)
-    transit.toast.connect(backend.toast.emit)
+    backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements)
+    for bridge in bridges.values():
+        bridge.toast.connect(backend.toast.emit)
     preferences.error.connect(backend.toast.emit)
     backend.navigate(args.page)
-    if args.sample and args.page != 'overview' and (args.page not in ('detalles', 'duas_transito') or not details.enabled):
+    if args.sample and args.page != 'overview' and (args.page not in bridges or not details.enabled):
         backend.loadSample()
         backend.startDemo()
         for _ in range(24):
@@ -63,6 +68,8 @@ def main():
     engine.rootContext().setContextProperty('demo', backend)
     engine.rootContext().setContextProperty('details', details)
     engine.rootContext().setContextProperty('transit', transit)
+    engine.rootContext().setContextProperty('talon', talon)
+    engine.rootContext().setContextProperty('movements', movements)
     engine.rootContext().setContextProperty('preferences', preferences)
     engine.setInitialProperties({'sidebarExpanded': not args.collapsed, 'initialDark': False if args.light else preferences.dark})
     errors = []
@@ -72,13 +79,14 @@ def main():
         return 1
     window = engine.rootObjects()[0]
     window.setProperty('demoBackend', backend)
-    selected_bridge = transit if args.page == 'duas_transito' else details
-    if args.daily and selected_bridge.enabled and args.page in ('detalles', 'duas_transito'):
+    selected_bridge = bridges.get(args.page, details)
+    if args.daily and selected_bridge.enabled and args.page in bridges:
         daily_selected = False
         def select_daily():
             nonlocal daily_selected
             if not daily_selected and selected_bridge.ready:
-                page = window.findChild(QObject, 'transitRealPage' if args.page == 'duas_transito' else 'detailsRealPage')
+                page_name = {'detalles': 'detailsRealPage', 'duas_transito': 'transitRealPage'}.get(args.page, args.page + 'RealPage')
+                page = window.findChild(QObject, page_name)
                 if page:
                     from PySide6.QtCore import QMetaObject, Qt
                     QMetaObject.invokeMethod(page, 'selectDailyMode', Qt.DirectConnection)
@@ -86,8 +94,8 @@ def main():
         selected_bridge.changed.connect(select_daily)
         QTimer.singleShot(0, select_daily)
     if details.enabled:
-        details.connectModule()
-        transit.connectModule()
+        for bridge in bridges.values():
+            bridge.connectModule()
     if not args.smoke_test and not args.capture:
         available = app.primaryScreen().availableGeometry()
         window.setMinimumWidth(min(window.minimumWidth(), available.width() - 32))
@@ -164,12 +172,12 @@ def main():
             if details.enabled:
                 ready = selected_bridge.ready
                 def finish_capture():
-                    if details.isClosed and transit.isClosed:
+                    if all(bridge.isClosed for bridge in bridges.values()):
                         app.exit(0 if saved and not errors and ready else 1)
-                details.closed.connect(finish_capture)
-                transit.closed.connect(finish_capture)
-                details.shutdown()
-                transit.shutdown()
+                for bridge in bridges.values():
+                    bridge.closed.connect(finish_capture)
+                for bridge in bridges.values():
+                    bridge.shutdown()
             else:
                 app.exit(0 if saved and not errors else 1)
 

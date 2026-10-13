@@ -86,10 +86,12 @@ regímenes y cobertura en SQLite. Detalles ya permite agregar DUAs sin perder
 resultados. Estas son bases útiles, pero no constituyen el ciclo automático.
 
 El piloto de Detalles integra el proveedor, las entradas al catálogo, el
-coordinador persistente, el calendario y la acumulación mensual. Falta llevar los
-otros consumidores DUA a recuperación transaccional e integrar sus selecciones.
+coordinador persistente, el calendario y la acumulación mensual. Los cuatro
+consumidores DUA tienen recuperación transaccional y sus selecciones integradas.
 Tránsito ya comparte el soporte `chc_runtime/` con Detalles y usa solo TRANSITO;
-Talón y XMovimientos siguen pendientes. Ver `INTEGRACION_TRANSITO.md`.
+Talón y XMovimientos comparten la caché verificada de importación, serializan
+el proveedor para no duplicar descargas y conservan calendarios/resultados
+independientes. Ver `INTEGRACION_TRANSITO.md` e `INTEGRACION_IMPORTACION.md`.
 La publicación actual de los tres Excel no acumula por sí sola entregas diarias:
 genera el contenido de la entrega indicada y reemplaza los nombres compatibles.
 
@@ -98,6 +100,6 @@ Si debe continuar con la ventana cerrada, integrar ejecución en segundo plano y
 arranque automático; ese comportamiento aún no está implementado. Al arrancar
 después de un apagado, el coordinador debe recuperar las fechas pendientes.
 
-La rama del piloto conserva este requisito y añade su primera implementación
-para Detalles. No inicia descargas al abrir ni modifica DUAS_SCRAPPING original
-o los otros motores. La comprobación de esta entrega usa fixtures offline.
+La rama del piloto conserva este requisito y contiene ya las cuatro integraciones.
+No inicia descargas al abrir ni modifica DUAS_SCRAPPING original. Las comprobaciones
+offline y las consultas reales acotadas se distinguen en el documento de cada bot.

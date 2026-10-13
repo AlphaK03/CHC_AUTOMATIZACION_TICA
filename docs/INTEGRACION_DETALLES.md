@@ -9,7 +9,8 @@ sensibles de motor, datos o recuperación.
 
 Fecha: 12 de octubre de 2026. Esta es la primera integración operativa del
 Workbench. Posteriormente se integró DUAs Tránsito con soporte común en
-`chc_runtime/`; BLs, Talón y XMovimientos siguen en demostración. El motor
+`chc_runtime/`; Talón y XMovimientos también se integraron después, y BLs sigue
+en demostración. Ver `INTEGRACION_IMPORTACION.md`. El motor
 Workbench de Detalles usa ahora esa infraestructura, conservando sus tablas,
 38 campos y la compatibilidad de los resultados. Ver `INTEGRACION_TRANSITO.md`.
 

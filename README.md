@@ -3,23 +3,29 @@
 Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón y
 XMovimientos en un solo lugar y, posteriormente, integrar los generadores de bases.
 
-**Estado actual: Detalles y DUAs Tránsito operativos en QML; tres módulos en demostración.**
+**Estado actual: Detalles, DUAs Tránsito, Talón y XMovimientos integrados en QML; BLs en demostración.**
 Detalles importa bases a SQLite, consulta TICA, retoma pendientes, administra tablas
 y exporta con el motor actual. Esta rama añade **Diario automático**: base propia
 sin Excel, calendario y acumulación mensual. Tránsito usa la misma infraestructura
-con su extracción de líneas y base propia del régimen TRANSITO. BLs, Talón y
-XMovimientos siguen en demo. [Uso y alcance de Tránsito](docs/INTEGRACION_TRANSITO.md).
+con su extracción de líneas y base propia del régimen TRANSITO. Talón y
+XMovimientos conservan sus extracciones v2, SQLite y base diaria de importación
+compartida. [Uso y alcance de Tránsito](docs/INTEGRACION_TRANSITO.md) y de
+[Talón/XMovimientos](docs/INTEGRACION_IMPORTACION.md).
 Los regímenes sin movimientos no bloquean la base diaria: se aceptan como vacíos
 solo con respuesta confirmada de TICA; los errores conservan el estado pendiente.
 
 Para abrir: doble clic en **`Abrir_Workbench.bat`**. En un equipo nuevo ejecutar
-primero `Instalar_Workbench.bat`, `Instalar_Detalles.bat` y `Instalar_Transito.bat`. Consultar el
+primero `Instalar_Workbench.bat` y los instaladores de cada módulo:
+`Instalar_Detalles.bat`, `Instalar_Transito.bat`, `Instalar_Talon.bat` y
+`Instalar_XMovimientos.bat`. Para bases automáticas: `Instalar_Base_Diaria.bat`. Consultar el
 [manual del Workbench](workbench/README.md) y la [integración de Detalles](docs/INTEGRACION_DETALLES.md).
 
 Capturas del prototipo: [vista general oscura](docs/preview/workbench-dark.png),
 [espacio de Detalles](docs/preview/workbench-detalles.png) y
 [tema claro con barra contraída](docs/preview/workbench-light.png).
 Vista operativa actual: [Detalles integrado](docs/preview/detalles-integrado.png).
+Nuevos módulos: [Talón](docs/preview/talon-integrado.png) y
+[XMovimientos](docs/preview/xmovimientos-integrado.png).
 
 ## Objetivo final del proyecto
 
@@ -43,8 +49,9 @@ resultados en el mismo entorno. TICA y el navegador siguen siendo requisitos ext
 y Talón/XMovimientos usan Importación. Cada bot deberá generar su base sin elegir
 Excel, para meses terminados o en un ciclo diario: descargar ayer, procesarlo,
 esperar hasta las 00:01 y continuar, recuperando días atrasados y acumulando el CSV
-del mes correspondiente. Detalles y Tránsito tienen integración diaria; Talón y XMovimientos
-siguen pendientes. Consultar [uso y límites del piloto](docs/PILOTO_DETALLES_DIARIO.md)
+del mes correspondiente. Los cuatro consumidores DUA tienen integración diaria.
+Talón y XMovimientos reutilizan la misma caché verificada para evitar descargas
+duplicadas. Consultar [uso y límites del piloto](docs/PILOTO_DETALLES_DIARIO.md)
 y el [contrato completo](docs/AUTOMATIZACION_DIARIA.md).
 
 El destino va más allá de un menú de ejecutables: motores con contratos comunes
@@ -55,8 +62,8 @@ será una transición técnica cuando se autorice integrar los motores.
 **Tecnologías del panel:** Python + PySide6 + Qt Quick/QML. Python conserva lógica
 y automatización; QML define pantallas y componentes. SQLite es la persistencia
 local; Playwright es el motor activo de los cinco bots copiados. En uso normal,
-Detalles y Tránsito ejecutan sus motores en procesos propios. `chc_runtime/`
-comparte persistencia, protocolo y coordinación; los otros tres módulos son demos.
+Detalles, Tránsito, Talón y XMovimientos ejecutan sus motores en procesos propios.
+`chc_runtime/` comparte persistencia, protocolo y coordinación; BLs sigue en demo.
 `--demo` desactiva todos los motores reales para comprobar solo la interfaz.
 
 El [contexto para otra sesión](docs/CONTEXTO_PROYECTO.md) registra decisiones,

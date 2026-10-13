@@ -235,7 +235,7 @@ class DetailsService:
         return {**dict(row), 'result': result, 'sources': sources, 'attemptHistory': attempts,
                 'evidence': evidence,
                 'values': [{'field': name, 'value': str(result.get(name, ''))} for name in self.fields],
-                'resultRows': result.get('rows', []) if self.profile['id'] == 'duas_transito' else [],
+                'resultRows': result.get('rows', []),
                 'reason': 'Resultado guardado.' if result else 'Consulta en curso.' if row['status'] == 'running' else
                           pending_reason(row['error_kind'], row['last_error']) if row['last_error'] else 'Listo para consultar.'}
 
@@ -364,8 +364,11 @@ def main(module_id="detalles"):
             return await page.content()
         if module_id == 'detalles':
             profile['processor']._fetch_result = local_result
-        else:
+        elif module_id == 'duas_transito':
             from .transit import install_offline_fixture
+            install_offline_fixture(profile['processor'])
+        else:
+            from .import_fixture import install_offline_fixture
             install_offline_fixture(profile['processor'])
     sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
     sys.stdin.reconfigure(encoding='utf-8')

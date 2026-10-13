@@ -1,8 +1,8 @@
 # CHC Workbench
 
-Aplicación de escritorio con Python, PySide6 y Qt Quick/QML. Detalles y DUAs
-Tránsito están integrados con procesos propios y soporte común en `chc_runtime/`.
-BLs, Talón y XMovimientos siguen como demostraciones independientes.
+Aplicación de escritorio con Python, PySide6 y Qt Quick/QML. Detalles, DUAs
+Tránsito, Talón y XMovimientos están integrados con procesos propios y soporte
+común en `chc_runtime/`. BLs sigue en demostración.
 La visión completa está en el [README principal](../README.md) y en el
 [contexto para futuras sesiones](../docs/CONTEXTO_PROYECTO.md).
 
@@ -50,6 +50,17 @@ calendario, configuración y recuperación que Detalles, con almacenamiento prop
 Manual acepta `Total_DUAS - Transito.xlsx`; Diario automático descarga solo TRANSITO.
 Su CSV conserva ocho columnas y todas las líneas de cada DUA. El visor permite
 elegir la línea. [Funciones, compatibilidad y límites](../docs/INTEGRACION_TRANSITO.md).
+
+## Talón y XMovimientos
+
+Seleccionar el bot en la barra lateral. Manual admite la misma base
+`Total_DUAS - Importacion.xlsx`; Diario automático obtiene los cuatro regímenes
+de importación y reutiliza la base verificada entre ambos bots. Cada uno conserva
+sus tablas, calendario, reintentos y resultados. Talón exporta siete columnas
+por tributo; XMovimientos, seis por movimiento con los bultos agrupados y sumados.
+El visor permite seleccionar cada fila. Instalar con `Instalar_Talon.bat` o
+`Instalar_XMovimientos.bat`, más el proveedor para bases automáticas.
+[Uso, formato, compatibilidad y evidencia](../docs/INTEGRACION_IMPORTACION.md).
 
 ## Interfaz y demostraciones
 

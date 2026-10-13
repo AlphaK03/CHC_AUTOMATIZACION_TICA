@@ -27,7 +27,7 @@ class DetailsBridge(QObject):
 
     def __init__(self, enabled=True, storage_root=None, offline_fixture=False, module_id='detalles'):
         super().__init__()
-        if module_id not in ('detalles', 'duas_transito'):
+        if module_id not in ('detalles', 'duas_transito', 'talon', 'xmovimientos'):
             raise ValueError('Módulo sin integración operativa.')
         self._module_id = module_id
         self._bot = ROOT / 'bots' / module_id
@@ -81,7 +81,9 @@ class DetailsBridge(QObject):
     @Property(str, constant=True)
     def moduleId(self): return self._module_id
     @Property(str, constant=True)
-    def moduleTitle(self): return 'Detalles' if self._module_id == 'detalles' else 'DUAs Tránsito'
+    def moduleTitle(self):
+        return {'detalles': 'Detalles', 'duas_transito': 'DUAs Tránsito',
+                'talon': 'Talón', 'xmovimientos': 'XMovimientos'}[self._module_id]
     @Property(bool, constant=True)
     def supportsLightweight(self): return self._module_id == 'detalles'
     @Property(bool, constant=True)
@@ -141,7 +143,8 @@ class DetailsBridge(QObject):
             return
         python = self._bot / '.venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
         if not python.is_file():
-            installer = 'Instalar_Detalles.bat' if self._module_id == 'detalles' else 'Instalar_Transito.bat'
+            installer = {'detalles': 'Instalar_Detalles.bat', 'duas_transito': 'Instalar_Transito.bat',
+                         'talon': 'Instalar_Talon.bat', 'xmovimientos': 'Instalar_XMovimientos.bat'}[self._module_id]
             self._error = f'Falta instalar {self.moduleTitle}. Ejecuta {installer} desde la raíz del Workbench.'
             self._status = 'Requiere instalación'
             self.changed.emit()

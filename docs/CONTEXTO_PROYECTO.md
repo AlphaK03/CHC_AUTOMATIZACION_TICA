@@ -8,6 +8,12 @@ por cambios visuales: una comprobación breve basta; ampliar solo ante cambios
 sensibles de motor, datos o recuperación.
 
 Objetivo del usuario, decisiones aceptadas y estado efectivo del repositorio.
+Estado vigente al 13/10/2026: Detalles, Tránsito, Talón y XMovimientos están
+integrados con el mismo soporte Python/SQLite y panel QML. Solo BLs sigue en demo.
+Talón y XMovimientos usan sus parsers v2 y la selección de cuatro regímenes de
+`Total_DUAS - Importacion.xlsx`; reutilizan una caché común verificada, con
+progreso independiente. Leer `INTEGRACION_IMPORTACION.md`: columnas originales,
+paginación, agrupación de movimientos, comprobaciones y alcance real.
 Incidente del 13/10: Detalles quedó con una reserva `005-2026-685571` activa por
 horas y un worker huérfano bloqueando otra ventana. Se respaldó y recuperó el lote;
 se añadieron límites del intento y limpieza, cierre de hilos acotado y protección
@@ -33,7 +39,7 @@ Reproducción real aislada y validación offline de su respuesta documentadas al
 Contrato de salida vigente: Resultados contiene únicamente el CSV, dentro de una
 carpeta con el nombre actual de la tabla. Sin UUID ni subcarpetas técnicas visibles.
 Los TXT/JSON y diagnósticos se conservan internamente en `bots/detalles/data/exports/`.
-Leer junto con `AGENTS.md` antes de continuar. Fecha: 12 de octubre de 2026.
+Leer junto con `AGENTS.md` antes de continuar. Fecha: 13 de octubre de 2026.
 
 ## 1. Qué quiere lograr el usuario
 
@@ -104,9 +110,8 @@ El cambio de mes se determina por la fecha de los datos, no por cuándo acaba el
 Requisito completo, ejemplos y límites: [AUTOMATIZACION_DIARIA.md](AUTOMATIZACION_DIARIA.md).
 Detalles tiene un piloto en `feature/detalles-base-diaria-calendario`: base propia
 diaria, calendario, espera de 00:01 y acumulación mensual. No inicia al abrir;
-requiere Iniciar automático. Leer `PILOTO_DETALLES_DIARIO.md`. Los otros tres
-consumidores DUA siguen pendientes en la entrega inicial; Tránsito se integró después,
-como se describe a continuación.
+requiere Iniciar automático. Leer `PILOTO_DETALLES_DIARIO.md`. Posteriormente se
+integraron Tránsito, Talón y XMovimientos con el mismo coordinador y contratos.
 
 Alcance posterior: el usuario pidió adaptar DUAs Tránsito con la tecnología y
 estructura de Detalles. Ambos usan ahora `chc_runtime/`, workers aislados y el
@@ -115,8 +120,16 @@ varias líneas por DUA; guarda todas las páginas juntas en SQLite y exporta sus
 líneas al CSV mensual. El proveedor recibe selección TRANSITO para este módulo,
 no los nueve regímenes de Detalles. Datos y ajustes quedan separados por bot.
 Leer `INTEGRACION_TRANSITO.md`: archivos, uso, compatibilidad, pruebas y límites.
-Se validó offline y se abrió la app antes de documentar, siguiendo la preferencia
-del usuario. No se hicieron consultas reales de extracción de Tránsito.
+Su validación inicial fue offline; los incidentes reales posteriores y sus
+correcciones están registrados en `INTEGRACION_TRANSITO.md`.
+
+Talón y XMovimientos también comparten `chc_runtime/`, con parsers propios:
+Talón usa LIQDUA y el resumen de siete columnas Sftributos1; XMovimientos usa
+MANAERMAR y agrupa/suma bultos en seis columnas. La base automática común vive en
+`integrations/duas_source/data/importacion/bases.sqlite3`; el bloqueo del proveedor
+evita descargas duplicadas. Cada bot conserva su calendario, cola SQLite,
+configuración, proceso y CSV mensual. Los cuatro bots heredan el supervisor que
+libera intentos bloqueados sin esperar indefinidamente su cancelación.
 
 El usuario autorizó revisar EXPORTACION TEMPORAL únicamente del 11/10/2026.
 TICA confirmó cero registros. Se corrigió la copia del proveedor para acreditar
@@ -180,13 +193,13 @@ Detalles de funciones, límites y evidencia: `docs/INTEGRACION_DETALLES.md`.
 
 **Todavía pendiente:**
 
-- Integrar BLs, Talón y XMovimientos; sus pantallas siguen siendo demos.
-- Extender a los otros tres consumidores la autonomía diaria ya implementada en
-  Detalles y ampliar generación mensual desde el Workbench.
+- Integrar BLs; su pantalla sigue en demostración.
+- Ampliar generación mensual desde el Workbench y validar más variantes reales
+  del portal para los cuatro consumidores DUA ya integrados.
 - Coordinar procesos, eventos, lotes, errores y concurrencia global.
 - Desacoplar GUI antiguas y convertir imports a namespaces propios.
-- Completar las otras selecciones de DUAS_SCRAPPING y otros generadores/separadores.
-- Validar instalaciones de los otros cuatro motores en su nueva ubicación.
+- Integrar los otros generadores/separadores y ampliar la caché compartida.
+- Validar distribución de los cuatro motores integrados en un equipo limpio.
 - Empaquetar la plataforma y comprobarla en un equipo limpio.
 
 `docs/ESTADO_INICIAL.md` es la entrega histórica de copia. La situación actual del
@@ -200,8 +213,9 @@ La restricción inicial de trabajar solo en el prototipo fue ampliada por el usu
 incluso mediante compatibilidad temporal. También autorizó usar sus bases originales
 como prueba. Estas instrucciones posteriores prevalecen sobre la etapa de demo.
 
-- La integración autorizada incluye Detalles y DUAs Tránsito. BLs, Talón y
-  XMovimientos siguen pendientes; no se modifican sus motores.
+- La integración autorizada incluye Detalles, DUAs Tránsito, Talón y XMovimientos.
+  BLs sigue pendiente. Los parsers v2 copiados permanecen como referencia intacta;
+  el motor del Workbench utiliza los perfiles y servicios comunes.
 - El usuario autorizó subir el estado actual a Git y crear la rama del piloto diario
   con proveedor propio y calendario. Datos, ajustes personales, entornos virtuales
   y binarios permanecen fuera de Git; las comprobaciones nuevas fueron offline.
@@ -227,8 +241,8 @@ con ese alcance y documentar comportamiento, pruebas y limitaciones reales.
 - Importar o cambiar rutas no debe borrar ni sobrescribir progreso o resultados.
 - Aislar módulos: hoy comparten nombres globales `core`, `utils`, `flows`, `ui`.
   No cargarlos juntos en un proceso hasta resolver sus namespaces.
-- Tránsito/Talón/XMovimientos necesitan persistencia más fiable que sus índices
-  antes de ofrecer las garantías actuales de BLs/Detalles.
+- Tránsito/Talón/XMovimientos ya usan persistencia transaccional en el Workbench;
+  no convertir sus índices/CSV históricos en prueba de éxito completo.
 - Actualizar QML mediante eventos; no bloquear la interfaz con trabajos.
 - Definir concurrencia global y conservar perfiles/cookies aislados.
 - Los specs archivados de v2 contienen rutas antiguas: adaptar y validar antes

@@ -8,7 +8,7 @@ ScrollView {
     id: page
     property var moduleBridge: null
     property var worker: moduleBridge || details
-    objectName: worker.moduleId === "duas_transito" ? "transitRealPage" : "detailsRealPage"
+    objectName: worker.moduleId === "detalles" ? "detailsRealPage" : worker.moduleId === "duas_transito" ? "transitRealPage" : worker.moduleId + "RealPage"
     property int tab: 0
     property var selectedIds: []
     property string activeId: worker.activeTable.id || ""
@@ -391,7 +391,7 @@ ScrollView {
             ColumnLayout {
                 width: detailScroll.availableWidth; spacing: 14
                 Text { text: "Resultado"; color: Theme.text; font.family: Theme.family; font.pixelSize: 14; font.weight: Font.DemiBold }
-                Select { id: detailLine; visible: (worker.jobDetail.resultRows || []).length > 1; Layout.fillWidth: true; model: (worker.jobDetail.resultRows || []).map((row,index) => "Línea " + row.Item + " · " + (index+1) + " / " + worker.jobDetail.resultRows.length) }
+                Select { id: detailLine; visible: (worker.jobDetail.resultRows || []).length > 1; Layout.fillWidth: true; model: (worker.jobDetail.resultRows || []).map((row,index) => (row.Item ? "Línea " + row.Item : row.Tributo ? "Tributo " + row.Tributo : row.Movimiento ? "Movimiento " + row.Movimiento : "Fila " + (index+1)) + " · " + (index+1) + " / " + worker.jobDetail.resultRows.length) }
                 Repeater {
                     model: worker.jobDetail.values || []
                     ColumnLayout {

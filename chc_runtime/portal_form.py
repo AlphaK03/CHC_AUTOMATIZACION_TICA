@@ -32,7 +32,9 @@ async def wait_form_ready(page, timeout_ms):
         && !!document.querySelector('#_cfield')""", timeout=timeout_ms)
 
 
-async def fill_and_submit(page, row, captcha, timeout_ms, captcha_source=None):
+async def fill_and_submit(page, row, captcha, timeout_ms, captcha_source=None, button_name='DETALLE'):
+    if button_name not in ('DETALLE', 'MANAERMAR'):
+        raise ValueError('Acción de consulta no permitida.')
     expected = expected_fields(row, captcha)
     await wait_form_ready(page, timeout_ms)
     captcha_src = await page.locator('#captchaImage img').get_attribute('src')
@@ -85,18 +87,18 @@ async def fill_and_submit(page, row, captcha, timeout_ms, captcha_source=None):
     try:
         # Comprobar y hacer clic en la misma tarea JS: ningún cambio de foco
         # puede redirigir pulsaciones de teclado a otro campo.
-        verdict = await page.evaluate("""({fields, src}) => {
+        verdict = await page.evaluate("""({fields, src, buttonName}) => {
             for (const [id, value] of Object.entries(fields))
                 if (document.getElementById(id)?.value !== value) return id;
             if (document.querySelector('#captchaImage img')?.getAttribute('src') !== src)
                 return 'captcha';
-            const button = document.querySelector('[name="DETALLE"]');
-            if (!button || button.disabled) return 'DETALLE';
+            const button = document.querySelector('[name="'+buttonName+'"]');
+            if (!button || button.disabled) return buttonName;
             window.__duaSubmitted = true;
             window.__duaSubmissionBlocked = false;
             button.click();
             return '';
-        }""", {'fields': expected, 'src': captcha_src})
+        }""", {'fields': expected, 'src': captcha_src, 'buttonName': button_name})
         if verdict:
             raise FormChangedError(f'El formulario cambió antes del envío: {verdict}')
         try:

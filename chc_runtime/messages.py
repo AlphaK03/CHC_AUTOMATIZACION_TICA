@@ -4,6 +4,8 @@
 def pending_reason(kind, error=''):
     if kind == 'NoRowsException':
         return 'El DUA no tiene líneas confirmadas; se conserva para revisión o reintento.'
+    if kind == 'NoMovimientosError':
+        return 'El DUA no tiene movimientos confirmados; se conserva para revisión o reintento.'
     if kind == 'extra_step':
         return 'El portal requiere un paso adicional.'
     if kind == 'PortalResponseError':

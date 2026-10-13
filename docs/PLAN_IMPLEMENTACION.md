@@ -1,6 +1,6 @@
 # Plan de implementación — CHC Workbench
 
-Fecha de revisión: 12 de octubre de 2026.
+Fecha de revisión: 13 de octubre de 2026.
 
 Estado actual: fases 0 y 1A completadas. Detalles es el primer piloto operativo
 de las fases 1B/2: controles nativos QML, worker aislado, SQLite y entorno propio.
@@ -8,8 +8,10 @@ Se comprobaron 50 pruebas del bot, cinco de integración y dos consultas reales
 comparadas contra sus 38 campos originales. Los otros cuatro motores permanecen
 en demo en esa primera entrega. Después se integró DUAs Tránsito con extracción
 de líneas, SQLite y bases diarias TRANSITO sobre `chc_runtime/`, compartido con
-Detalles. BLs, Talón y XMovimientos siguen pendientes. Consultar
-`INTEGRACION_DETALLES.md` e `INTEGRACION_TRANSITO.md` para alcance y evidencia.
+Detalles. Después se integraron Talón y XMovimientos con sus parsers v2, SQLite,
+calendario y una caché común de importación. BLs sigue pendiente. Consultar
+`INTEGRACION_DETALLES.md`, `INTEGRACION_TRANSITO.md` e `INTEGRACION_IMPORTACION.md`
+para alcance y evidencia.
 
 ## Objetivo y alcance inicial
 
@@ -73,8 +75,8 @@ La primera interfaz puede abrir ventanas independientes como transición.
 - Extraer contratos de entrada, validación, ejecución, cancelación y eventos.
 - Migrar un módulo a la vez; comenzar por Detalles como referencia de colas y
   BLs como referencia de sesiones y validación. No sustituir de golpe ambos motores.
-- Llevar Tránsito, Talón y XMovimientos a resultados/estados transaccionales;
-  su progreso por índice no tiene las garantías actuales de BLs/Detalles.
+- Implementado para Tránsito, Talón y XMovimientos: resultados y estados
+  transaccionales sobre el soporte de Detalles, conservando sus parsers v2.
 - Separar presentación y motor para que los módulos puedan usar la misma interfaz.
 - Centralizar servicios solo después de demostrar compatibilidad: catálogo,
   rutas, logs, esquemas de entrada, configuración y preparación de navegador.
@@ -136,7 +138,7 @@ motor de navegador siguen siendo requisitos externos que deben prepararse.
 | Imports globales repetidos | Procesos separados; namespaces propios en la refactorización |
 | Specs de v2 apuntan al repositorio original | Conservar referencia; adaptar antes de empaquetar |
 | Requisitos antiguos omiten Playwright/requests o no existen | Archivo runtime inicial por imports; validar instalación en fase 1 |
-| Tránsito/Talón/XMovimientos reanudan por índices | Migración transaccional antes de ejecución integrada |
+| Índices históricos de Tránsito/Talón/XMovimientos | Workbench ya usa SQLite; no tratar índices antiguos como prueba de éxito |
 | Algunos logs de Tk se actualizan desde workers | Revisar cola de eventos al desacoplar las interfaces |
 | Documentación antigua describe Selenium como motor activo | Dar prioridad al import de la GUI: los cinco usan Playwright |
 | Generadores de entrada fuera del repositorio | Integración explícita por contrato en fase 3 |
@@ -144,13 +146,12 @@ motor de navegador siguen siendo requisitos externos que deben prepararse.
 
 ## Orden de trabajo siguiente
 
-1. Validar y revisar el panel QML de prueba, sin tocar los bots.
-2. Cuando se amplíe el alcance, validar instalaciones y acceso a los cinco motores
-   desde el catálogo, con procesos separados.
-3. Definir el contrato de ejecución y adaptar un módulo piloto.
-4. Adaptar y validar los demás motores, con persistencia fiable primero.
-5. Integrar generadores de bases y eliminar pasos manuales auxiliares.
-6. Preparar distribución y probar en un equipo limpio.
+1. Integrar BLs sobre los contratos del Workbench.
+2. Ampliar evidencia real de los cuatro motores DUA ya integrados, sin repetir
+   consultas masivas como pruebas ni interrumpir instancias activas.
+3. Coordinar concurrencia global y mejorar la caché común de bases.
+4. Integrar los generadores/separadores restantes.
+5. Preparar distribución y probar en un equipo limpio.
 
-No se asignan plazos aún: faltan la validación de instalación y las pruebas de
-equivalencia de los tres módulos v2. Cada fase debe cerrar con evidencia concreta.
+No se asignan plazos aún. Las tres integraciones v2 tienen evidencia descrita por
+módulo; quedan más variantes reales y validación de distribución en equipo limpio.

@@ -282,7 +282,8 @@ class PlaywrightDUAProcessor:
         captcha_text = await self._resolve_captcha(page, timeout_ms)
         try:
             await fill_and_submit(page, row, captcha_text, timeout_ms,
-                                  captcha_source=page._dua_captcha_source)
+                                  captcha_source=page._dua_captcha_source,
+                                  button_name=getattr(self._flow, 'submit_button', 'DETALLE'))
         except Exception:
             if await extra.count():
                 raise ExtraStepRequired('El resultado requiere clic adicional') from None
