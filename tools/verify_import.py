@@ -65,7 +65,17 @@ def main():
         except (SyntaxError, UnicodeError) as error:
             failures.append(f'Sintaxis: {path.relative_to(ROOT)}: {error}')
     ids = [module['id'] for module in registry['modules']]
-    if len(ids) != len(set(ids)) or set(ids) != {module['id'] for module in manifest['modules']}:
+    additional = ROOT/'bots/manifiestos/source_manifest.json'
+    additional_ids = set()
+    if additional.is_file():
+        extra = json.loads(additional.read_text(encoding='utf-8-sig'))
+        additional_ids.add('manifiestos')
+        for item in extra['files']:
+            path = safe_path(ROOT/'bots/manifiestos',item['path'])
+            if not path.is_file() or digest(path).upper() != item['sha256'].upper():
+                failures.append(f"Copia Manifiestos ausente o modificada: {item['path']}")
+            count += 1
+    if len(ids) != len(set(ids)) or set(ids) != {module['id'] for module in manifest['modules']} | additional_ids:
         failures.append('IDs duplicados o módulos distintos entre registro y manifiesto.')
     for module in registry['modules']:
         base = safe_path(ROOT, module['root'])

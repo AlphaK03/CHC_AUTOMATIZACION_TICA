@@ -9,7 +9,9 @@ comparadas contra sus 38 campos originales. Los otros cuatro motores permanecen
 en demo en esa primera entrega. Después se integró DUAs Tránsito con extracción
 de líneas, SQLite y bases diarias TRANSITO sobre `chc_runtime/`, compartido con
 Detalles. Después se integraron Talón y XMovimientos con sus parsers v2, SQLite,
-calendario y una caché común de importación. BLs sigue pendiente. Consultar
+calendario y una caché común de importación. También se incorporaron Manifiestos
+—cinco procedimientos y generador de bases BLs—, el motor BLs y la instancia única.
+Ver `INTEGRACION_MANIFIESTOS.md`: verificación local, sin nuevas consultas a TICA. Consultar
 `INTEGRACION_DETALLES.md`, `INTEGRACION_TRANSITO.md` e `INTEGRACION_IMPORTACION.md`
 para alcance y evidencia.
 
@@ -93,7 +95,8 @@ y cancelación comprobada. Recién entonces integrar sus controles en el Workben
 
 Piloto diario de Detalles implementado en la rama `feature/detalles-base-diaria-calendario`.
 Incluye proveedor aislado, calendario, append mensual y coordinador de 00:01;
-verificado offline. Los otros consumidores siguen pendientes. Ver `PILOTO_DETALLES_DIARIO.md`.
+verificado offline. La integración se extendió a Tránsito, Talón y XMovimientos.
+Ver `PILOTO_DETALLES_DIARIO.md` e `INTEGRACION_IMPORTACION.md`.
 
 - Integrar `D:/PortafolioDesarrollador/DUAS_SCRAPPING` como proveedor de bases DUA.
   Conservar clasificación, cobertura de períodos y entregas verificadas actuales.
@@ -103,9 +106,10 @@ verificado offline. Los otros consumidores siguen pendientes. Ver `PILOTO_DETALL
 - Incorporar coordinador persistente por fecha: descargar ayer, procesar,
   esperar hasta 00:01 Costa Rica o recuperar días atrasados, sin ciclos simultáneos
   del mismo bot. Acumular y deduplicar en la tabla/CSV del mes de los datos.
-- Inventariar el generador de Conocimientos/Manifiestos que alimenta BLs; todavía
-  no está incluido en el alcance ni se conoce aquí su ruta. `DUAS_SCRAPPING` no
-  sustituye esa fuente: genera DUAs, no las cinco columnas de BLS.
+- Integrado el generador de Conocimientos/Manifiestos desde
+  `D:/PortafolioDesarrollador/Manifiestos_Bot2`: prepara las cinco columnas BLS
+  y las entrega al motor BLs. Su calendario diario continuo sigue pendiente.
+  `DUAS_SCRAPPING` no sustituye esa fuente: genera listas NroDUA por régimen.
 - Introducir un catálogo local de datasets con identidad, período, régimen,
   esquema, procedencia, versión y evidencia de cobertura.
 - Alimentar motores desde consultas a datasets/SQLite, sin pasos manuales de

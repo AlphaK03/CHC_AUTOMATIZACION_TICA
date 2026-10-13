@@ -6,6 +6,9 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 
 PRESENTATION = {
+    'manifiestos': {'title':'Manifiestos', 'subtitle':'Manifiestos y conocimientos', 'icon':'ship',
+                   'color':'#78c5df', 'description':'Consulta manifiestos, conocimientos, DUAs, movimientos y contenedores.',
+                   'inputLabel':'Período y modalidad', 'format':'TICA · SQLite', 'outputLabel':'Registros por manifiesto'},
     'bls': {'title': 'BLs', 'subtitle': 'Conocimientos de embarque', 'icon': 'ship',
             'color': '#6daff2', 'description': 'Explora y organiza los conocimientos de embarque asociados a tus manifiestos.',
             'inputLabel': 'Base de conocimientos', 'format': 'XLSX · SQLite', 'outputLabel': 'Líneas de BL'},
@@ -28,7 +31,7 @@ class DemoBackend(QObject):
     changed = Signal()
     toast = Signal(str)
 
-    def __init__(self, registry: Path, details=None, transit=None, talon=None, movements=None):
+    def __init__(self, registry: Path, details=None, transit=None, talon=None, movements=None, manifests=None, bls=None):
         super().__init__()
         entries = json.loads(registry.read_text(encoding='utf-8'))['modules']
         self._modules = []
@@ -45,7 +48,8 @@ class DemoBackend(QObject):
         self._query = ''
         self._activity = []
         self.details = details
-        self._bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements}
+        self._bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
+                         'manifiestos': manifests, 'bls': bls}
         for bridge in self._bridges.values():
             if bridge and bridge.enabled:
                 bridge.changed.connect(self.changed.emit)

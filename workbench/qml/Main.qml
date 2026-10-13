@@ -23,7 +23,9 @@ ApplicationWindow {
     property var transitBridge: typeof transit !== 'undefined' ? transit : null
     property var talonBridge: typeof talon !== 'undefined' ? talon : null
     property var movementsBridge: typeof movements !== 'undefined' ? movements : null
-    function workersClosed() { return [details,transitBridge,talonBridge,movementsBridge].every(bridge => !bridge || !bridge.enabled || bridge.isClosed) }
+    property var manifestsBridge: typeof manifests !== 'undefined' ? manifests : null
+    property var blsBridge: typeof bls !== 'undefined' ? bls : null
+    function workersClosed() { return [details,transitBridge,talonBridge,movementsBridge,manifestsBridge,blsBridge].every(bridge => !bridge || !bridge.enabled || bridge.isClosed) }
     onClosing: function(close) {
         if (!workersClosed()) {
             close.accepted = false
@@ -32,12 +34,16 @@ ApplicationWindow {
             if(transitBridge && transitBridge.enabled) transitBridge.shutdown()
             if(talonBridge && talonBridge.enabled) talonBridge.shutdown()
             if(movementsBridge && movementsBridge.enabled) movementsBridge.shutdown()
+            if(manifestsBridge && manifestsBridge.enabled) manifestsBridge.shutdown()
+            if(blsBridge && blsBridge.enabled) blsBridge.shutdown()
         }
     }
     Connections { target: details; function onClosed() { if (details.closing && window.workersClosed()) Qt.callLater(window.close) } }
     Connections { target: window.transitBridge; function onClosed() { if(window.transitBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
     Connections { target: window.talonBridge; function onClosed() { if(window.talonBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
     Connections { target: window.movementsBridge; function onClosed() { if(window.movementsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
+    Connections { target: window.manifestsBridge; function onClosed() { if(window.manifestsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
+    Connections { target: window.blsBridge; function onClosed() { if(window.blsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
 
     Shortcut { sequence: "Ctrl+K"; onActivated: searchInput.forceActiveFocus() }
     Shortcut { sequence: "Ctrl+B"; onActivated: window.sidebarExpanded = !window.sidebarExpanded }
@@ -93,7 +99,7 @@ ApplicationWindow {
                     }
                 }
                 Item { Layout.fillHeight: true }
-                Text { visible: window.sidebarExpanded; text: details.enabled ? (window.talonBridge && window.movementsBridge ? "4 bots · BLs en demo" : "Bots disponibles") : "Modo demostración"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.leftMargin: 13; Layout.bottomMargin: 6 }
+                Text { visible: window.sidebarExpanded; text: details.enabled ? "Módulos independientes" : "Modo demostración"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.leftMargin: 13; Layout.bottomMargin: 6 }
                 NavItem { Layout.fillWidth: true; label: "Acerca del Workbench"; iconName: "info"; expanded: window.sidebarExpanded; onClicked: aboutDialog.open() }
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; Layout.topMargin: 7; Layout.bottomMargin: 7 }
                 RowLayout {
@@ -167,12 +173,14 @@ ApplicationWindow {
                 Loader {
                     id: pageLoader
                     anchors.fill: parent; anchors.margins: 32; anchors.bottomMargin: 20
-                    sourceComponent: demo.route === "overview" ? dashboardComponent : demo.route === "detalles" && details.enabled ? detailsComponent : demo.route === "duas_transito" && window.transitBridge && window.transitBridge.enabled ? transitComponent : demo.route === "talon" && window.talonBridge && window.talonBridge.enabled ? talonComponent : demo.route === "xmovimientos" && window.movementsBridge && window.movementsBridge.enabled ? movementsComponent : demoComponent
+                    sourceComponent: demo.route === "overview" ? dashboardComponent : demo.route === "detalles" && details.enabled ? detailsComponent : demo.route === "duas_transito" && window.transitBridge && window.transitBridge.enabled ? transitComponent : demo.route === "talon" && window.talonBridge && window.talonBridge.enabled ? talonComponent : demo.route === "xmovimientos" && window.movementsBridge && window.movementsBridge.enabled ? movementsComponent : demo.route === "manifiestos" && window.manifestsBridge && window.manifestsBridge.enabled ? manifestsComponent : demo.route === "bls" && window.blsBridge && window.blsBridge.enabled ? blsComponent : demoComponent
                     Component { id: dashboardComponent; Dashboard {} }
                     Component { id: detailsComponent; DetallesPage { moduleBridge: details } }
                     Component { id: transitComponent; DetallesPage { moduleBridge: window.transitBridge } }
                     Component { id: talonComponent; DetallesPage { moduleBridge: window.talonBridge } }
                     Component { id: movementsComponent; DetallesPage { moduleBridge: window.movementsBridge } }
+                    Component { id: manifestsComponent; ManifiestosPage { moduleBridge: window.manifestsBridge } }
+                    Component { id: blsComponent; ManifiestosPage { moduleBridge: window.blsBridge } }
                     Component { id: demoComponent; BotPage {} }
                 }
                 Rectangle {
@@ -205,7 +213,7 @@ ApplicationWindow {
         contentItem: ColumnLayout {
             spacing: 15
             Text { text: "Un solo espacio para toda tu operación."; color: Theme.text; font.family: Theme.family; font.pixelSize: 17; font.weight: Font.DemiBold; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-            Text { text: details.enabled ? "Detalles, DUAs Tránsito, Talón y XMovimientos tienen motores independientes y almacenamiento SQLite. BLs continúa en demostración." : "Modo de demostración: los cinco espacios usan datos sintéticos y no realizan consultas a TICA."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+            Text { text: details.enabled ? "Los módulos tienen motores independientes y almacenamiento propio. Manifiestos incluye cinco procedimientos y preparación de bases para BLs." : "Modo de demostración: los espacios usan datos sintéticos y no realizan consultas a TICA."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: "Versión 0.2 · Integración modular\nCtrl+K: buscar  ·  Ctrl+B: contraer navegación"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
         }
     }

@@ -19,8 +19,15 @@
 - Alcance ampliado por el usuario: integrar DUAs Tránsito con la estructura de
   Detalles, cambiando extracción y selección de base. Leer `docs/INTEGRACION_TRANSITO.md`.
   Talón y XMovimientos también están integrados; leer `docs/INTEGRACION_IMPORTACION.md`.
-  BLs sigue en demostración.
-- La infraestructura activa de ambos bots está en `chc_runtime/`; los workers
+  BLs y Manifiestos ya están integrados; leer `docs/INTEGRACION_MANIFIESTOS.md`.
+- Manifiestos tiene cinco procedimientos, un generador local de bases BLs y
+  procesos independientes. BLs conserva su motor original aislado. Adaptadores:
+  `batch_worker.py`, `manifest_service.py`, `manifest_adapters.py` y
+  `workbench/batch_bridge.py`. No forzarlos al perfil DUA ni sustituir sus fuentes.
+- Mantener instancia única con `single_instance.py`: otra apertura activa la
+  ventana existente antes de crear workers. No interrumpir consultas al actualizar.
+  Capturas y smoke quedan aislados, sin una nueva ventana interactiva.
+- La infraestructura activa de los cuatro bots DUA está en `chc_runtime/`; los workers
   eligen un perfil. Compartir catálogo, cola, coordinador, puente Qt e interfaz,
   manteniendo configuración/datos/procesos separados. No duplicar este soporte.
 - Tránsito usa exclusivamente TRANSITO para su base automática y conserva las

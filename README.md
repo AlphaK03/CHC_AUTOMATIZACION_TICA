@@ -1,9 +1,12 @@
 # CHC Workbench — Automatización TICA
 
-Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón y
-XMovimientos en un solo lugar y, posteriormente, integrar los generadores de bases.
+Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón,
+XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada.
 
-**Estado actual: Detalles, DUAs Tránsito, Talón y XMovimientos integrados en QML; BLs en demostración.**
+**Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
+Manifiestos reúne cinco procedimientos independientes y genera bases locales
+para BLs. Una segunda apertura activa la misma ventana de la plataforma.
+[Uso, contratos y límites comprobados](docs/INTEGRACION_MANIFIESTOS.md).
 Detalles importa bases a SQLite, consulta TICA, retoma pendientes, administra tablas
 y exporta con el motor actual. Esta rama añade **Diario automático**: base propia
 sin Excel, calendario y acumulación mensual. Tránsito usa la misma infraestructura
@@ -17,7 +20,8 @@ solo con respuesta confirmada de TICA; los errores conservan el estado pendiente
 Para abrir: doble clic en **`Abrir_Workbench.bat`**. En un equipo nuevo ejecutar
 primero `Instalar_Workbench.bat` y los instaladores de cada módulo:
 `Instalar_Detalles.bat`, `Instalar_Transito.bat`, `Instalar_Talon.bat` y
-`Instalar_XMovimientos.bat`. Para bases automáticas: `Instalar_Base_Diaria.bat`. Consultar el
+`Instalar_XMovimientos.bat`, `Instalar_Manifiestos.bat` e `Instalar_BLs.bat`.
+Para bases automáticas DUA: `Instalar_Base_Diaria.bat`. Consultar el
 [manual del Workbench](workbench/README.md) y la [integración de Detalles](docs/INTEGRACION_DETALLES.md).
 
 Capturas del prototipo: [vista general oscura](docs/preview/workbench-dark.png),
@@ -63,7 +67,8 @@ será una transición técnica cuando se autorice integrar los motores.
 y automatización; QML define pantallas y componentes. SQLite es la persistencia
 local; Playwright es el motor activo de los cinco bots copiados. En uso normal,
 Detalles, Tránsito, Talón y XMovimientos ejecutan sus motores en procesos propios.
-`chc_runtime/` comparte persistencia, protocolo y coordinación; BLs sigue en demo.
+`chc_runtime/` comparte persistencia, protocolo y coordinación. Manifiestos y BLs
+tienen adaptadores propios por manifiesto/conocimiento y motores originales aislados.
 `--demo` desactiva todos los motores reales para comprobar solo la interfaz.
 
 El [contexto para otra sesión](docs/CONTEXTO_PROYECTO.md) registra decisiones,
@@ -80,6 +85,7 @@ CHC_AUTOMATIZACION_TICA/
     duas_transito/       # DuasTransito BOT: contenido actual de v2/
     talon/               # Talon_BOT: contenido actual de v2/
     xmovimientos/        # XMovimientos_BOT: contenido actual de v2/
+    manifiestos/         # Cinco procedimientos y generador de bases BLs
   workbench/             # Panel QML, puente de Detalles, demos y registro
   chc_runtime/           # Infraestructura operativa común y perfiles por bot
   integrations/          # Generadores de bases: integración futura

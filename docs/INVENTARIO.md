@@ -33,6 +33,18 @@ BLs conserva 18 columnas de líneas más `manifiesto` y `bls`. Detalles conserva
 38 columnas. Los campos particulares de Tránsito/Talón/XMovimientos se mantienen
 en sus flows; la copia no transforma ni unifica esquemas de salida.
 
+## Módulo añadido: Manifiestos — 13/10/2026
+
+Origen real en disco: `D:/PortafolioDesarrollador/Manifiestos_Bot2`. Copia en
+`bots/manifiestos/`, con 28 fuentes/pruebas verificadas por SHA-256 en su
+`source_manifest.json`. Contiene cinco procedimientos y generador local para BLs.
+Motores originales conservados; adaptadores nuevos en `chc_runtime/`, interfaz
+QML y entornos independientes. Los paquetes instalados tienen lock por módulo.
+
+BLs ya tiene worker QML operativo sobre su motor original. Manifiestos produce
+la tabla BLS compatible; no sustituye las bases NroDUA del proveedor por regímenes.
+Alcance y evidencia nuevos: `INTEGRACION_MANIFIESTOS.md`.
+
 ## Dependencias
 
 - BLs trae requisitos fijados: pandas, openpyxl, beautifulsoup4, lxml y Playwright.

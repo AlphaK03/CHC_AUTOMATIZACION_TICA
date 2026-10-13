@@ -1,0 +1,118 @@
+﻿{
+    "copied_at":  "2026-10-13T17:10:10.3117901-06:00",
+    "files":  [
+                  {
+                      "sha256":  "C59512C28FAE6CFD9C2EA411D81F99F7A8DFF723836BE5B25E31F6598AD116DE",
+                      "path":  "src/bls_base.py"
+                  },
+                  {
+                      "sha256":  "32EA030F2DB7361240C8C4864074D5AD97B0A3331C73315C6DC2775AFA2AEDAA",
+                      "path":  "src/bls_base_cli.py"
+                  },
+                  {
+                      "sha256":  "B6DFDF988C9A4CCA5EB306628A938A2E9E54A434F14511DE9EA4C15BC5E58E53",
+                      "path":  "src/bls_base_panel.py"
+                  },
+                  {
+                      "sha256":  "8DACB842EE0490070AA6C036143C9D7F953D58D6B2238908227C4000B599C9FD",
+                      "path":  "src/conocimientos.py"
+                  },
+                  {
+                      "sha256":  "9BB9E20A906FA8C8B6665115C129B68725073757D848BDAED05C200D4875A054",
+                      "path":  "src/conocimientos_cli.py"
+                  },
+                  {
+                      "sha256":  "15043B07F4D01E558F29BD1B09EC7E0F9940895989C31D7DB1C46BE57BD89A9A",
+                      "path":  "src/conocimientos_flow.py"
+                  },
+                  {
+                      "sha256":  "57F12E9236126B8DA85A4D4638C15755F5C5CAA8C9FE51E7A5E0507E30400D2F",
+                      "path":  "src/conocimientos_panel.py"
+                  },
+                  {
+                      "sha256":  "1E580EBC5E96DE1CCD154DF0442202AC4E6A80C90EA3FBDB65B60F9330BFB256",
+                      "path":  "src/conocimientos_queue.py"
+                  },
+                  {
+                      "sha256":  "A175ACCB84C01E340D862739EA106B821C1AC216F6118E6FAD15173ECDA6026E",
+                      "path":  "src/dividir_csv.py"
+                  },
+                  {
+                      "sha256":  "B41EC12B83884B4461601C5D39A526B16D3BDF4C15D25F6924536F0532D5E3E0",
+                      "path":  "src/limpiar_resultados.py"
+                  },
+                  {
+                      "sha256":  "DF68796DBB4770C13AD3464880B2674245DE1F26B810A0F3D09C62A64508F455",
+                      "path":  "src/manifest_gui.py"
+                  },
+                  {
+                      "sha256":  "8A7D9755CC63D4285C7879206AA0A1D9B58833E185071EC3D36E24F9EE9BAA0E",
+                      "path":  "src/manifest_scraper.py"
+                  },
+                  {
+                      "sha256":  "C0311FC5BA6F0C2137F1F1E84C0FB7074B6723AC178CCBDE8BBAC9CDD15CC2A1",
+                      "path":  "src/organizar_resultados.py"
+                  },
+                  {
+                      "sha256":  "ECED9CEA0C5A79872373AF2AA33BD350669FFFC93582D22B099B55E8A752F096",
+                      "path":  "src/resultados.py"
+                  },
+                  {
+                      "sha256":  "1271E407CCB7A17B8DB88E4377284DB1D155A50486D0B671B05EA1679E9C9C77",
+                      "path":  "src/tablas_flow.py"
+                  },
+                  {
+                      "sha256":  "62B0FFFB74E2BC8C091EB2D82BE6C1E942EFDD0210EF699470DE13EE6B54FB9B",
+                      "path":  "src/tablas_manifiesto.py"
+                  },
+                  {
+                      "sha256":  "8B7ECE59F5AD1FEC6220D0F0D2DDD4607CC014C5EF64C139F40D48063382F9F3",
+                      "path":  "src/utils.py"
+                  },
+                  {
+                      "sha256":  "4A1019BC114DEFE32238B648A501D9CB19EDE63CAF650E17A2B46B658B68B76C",
+                      "path":  "tests/test_bls_base.py"
+                  },
+                  {
+                      "sha256":  "CC8D276509B1335DBBFA198D3CEF5786CAD9C2666E5BA46B70103D033D03EF11",
+                      "path":  "tests/test_bls_loading.py"
+                  },
+                  {
+                      "sha256":  "AAE2F7D3F34D6BE48102B299421920B2D5D5E5C1DE9412C7F0601B52E6DB5B34",
+                      "path":  "tests/test_bls_periods.py"
+                  },
+                  {
+                      "sha256":  "90CA9F56E5F590985C0AA2E843A0C540B2146777CC68C2EDB808FE0F989E5658",
+                      "path":  "tests/test_conocimientos.py"
+                  },
+                  {
+                      "sha256":  "D198358573825A3FECB97944780056DEE49AC6F8C2907E5F7810FDCEA39770A6",
+                      "path":  "tests/test_conocimientos_queue.py"
+                  },
+                  {
+                      "sha256":  "7917D9CEE39326F27DDEDC24C0EB9F471ED8C3E4A7972A9FBF9AFF0DE842DD45",
+                      "path":  "tests/test_conocimientos_resume.py"
+                  },
+                  {
+                      "sha256":  "C15A11AF73BD614A14C5203642B5AF6F803866B186C4E555FC016CDAE4AF37CB",
+                      "path":  "tests/test_duas_contadores.py"
+                  },
+                  {
+                      "sha256":  "04E4976A566AEDC70346C2F1C99A0986949018FA745D9785FC21B4E9466A2101",
+                      "path":  "tests/test_duas_exclusiones.py"
+                  },
+                  {
+                      "sha256":  "166238FBEBE50FEDC6922AAD592ECF64482E73E815E99F1C69D95590BA1F1617",
+                      "path":  "tests/test_duas_independientes.py"
+                  },
+                  {
+                      "sha256":  "88692E8F507473CA708AA248BEE24360B741550BFDD2A13A2438610B3B40D720",
+                      "path":  "tests/test_resultados_layout.py"
+                  },
+                  {
+                      "sha256":  "F497B9FB1313FE3E6D32E4BA27921A717927E3A2ED1642D5F0DC5286D2F20318",
+                      "path":  "tests/test_tablas_manifiesto.py"
+                  }
+              ],
+    "source":  "D:\\PortafolioDesarrollador\\Manifiestos_Bot2"
+}

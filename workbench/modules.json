@@ -10,7 +10,8 @@
       "requirements": "requirements.txt",
       "resources": [],
       "input_contract": "bls_xlsx_or_sqlite",
-      "status": "copied_pending_integration"
+      "status": "integrated",
+      "workbench_adapter": {"kind":"jsonl_worker", "entrypoint":"workbench_worker.py", "data_root":"."}
     },
     {
       "id": "detalles",
@@ -90,6 +91,18 @@
         "lockfile": "requirements.workbench.lock.txt",
         "data_root": "."
       }
+    }
+    ,{
+      "id":"manifiestos",
+      "name":"Manifiestos",
+      "root":"bots/manifiestos",
+      "entrypoint":"run_bot.py",
+      "engine":"src/manifest_scraper.py",
+      "requirements":"requirements.workbench.txt",
+      "resources":[],
+      "input_contract":"periodo_modalidad_manifiesto",
+      "status":"integrated",
+      "workbench_adapter":{"kind":"jsonl_worker", "entrypoint":"workbench_worker.py", "data_root":"."}
     }
   ]
 }

@@ -1,4 +1,4 @@
-"""CHC Workbench: cuatro bots en procesos aislados y BLs en demostración."""
+"""CHC Workbench: bots independientes, Manifiestos y una sola ventana interactiva."""
 import argparse
 import os
 from pathlib import Path
@@ -11,7 +11,9 @@ from PySide6.QtQuickControls2 import QQuickStyle
 
 from demo import DemoBackend
 from details_bridge import DetailsBridge
+from batch_bridge import BatchBridge
 from preferences import Preferences
+from single_instance import SingleInstance
 
 HERE = Path(__file__).resolve().parent
 
@@ -30,6 +32,8 @@ def main():
     parser.add_argument('--transit-storage', type=Path, help='Almacenamiento aislado para comprobaciones de Tránsito.')
     parser.add_argument('--talon-storage', type=Path, help='Almacenamiento aislado para comprobaciones de Talón.')
     parser.add_argument('--movements-storage', type=Path, help='Almacenamiento aislado para comprobaciones de XMovimientos.')
+    parser.add_argument('--manifest-storage', type=Path, help='Almacenamiento aislado para Manifiestos.')
+    parser.add_argument('--bls-storage', type=Path, help='Almacenamiento aislado para BLs.')
     args = parser.parse_args()
     if args.smoke_test or args.capture:
         os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
@@ -37,6 +41,10 @@ def main():
     app = QGuiApplication([sys.argv[0]])
     app.setApplicationName('CHC Workbench')
     app.setOrganizationName('CHC Consultores')
+    instance = SingleInstance()
+    if not (args.smoke_test or args.capture) and not instance.acquire():
+        return 0
+    app.aboutToQuit.connect(instance.close)
     # La plataforma offscreen de Windows no descubre automáticamente fuentes.
     # Registrar las del sistema permite revisar capturas con el mismo diseño.
     if os.environ.get('QT_QPA_PLATFORM') == 'offscreen' and sys.platform == 'win32':
@@ -51,9 +59,12 @@ def main():
     transit = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.transit_storage, module_id='duas_transito')
     talon = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.talon_storage, module_id='talon')
     movements = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.movements_storage, module_id='xmovimientos')
-    bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements}
+    manifests = BatchBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.manifest_storage)
+    bls = BatchBridge(module_id='bls', enabled=not (args.demo or args.smoke_test), storage_root=args.bls_storage)
+    bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
+               'manifiestos': manifests, 'bls': bls}
     preferences = Preferences(HERE.parent / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
-    backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements)
+    backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls)
     for bridge in bridges.values():
         bridge.toast.connect(backend.toast.emit)
     preferences.error.connect(backend.toast.emit)
@@ -70,6 +81,8 @@ def main():
     engine.rootContext().setContextProperty('transit', transit)
     engine.rootContext().setContextProperty('talon', talon)
     engine.rootContext().setContextProperty('movements', movements)
+    engine.rootContext().setContextProperty('manifests', manifests)
+    engine.rootContext().setContextProperty('bls', bls)
     engine.rootContext().setContextProperty('preferences', preferences)
     engine.setInitialProperties({'sidebarExpanded': not args.collapsed, 'initialDark': False if args.light else preferences.dark})
     errors = []
@@ -78,9 +91,10 @@ def main():
     if not engine.rootObjects():
         return 1
     window = engine.rootObjects()[0]
+    instance.window = window
     window.setProperty('demoBackend', backend)
     selected_bridge = bridges.get(args.page, details)
-    if args.daily and selected_bridge.enabled and args.page in bridges:
+    if args.daily and selected_bridge.enabled and isinstance(selected_bridge, DetailsBridge):
         daily_selected = False
         def select_daily():
             nonlocal daily_selected
@@ -107,7 +121,7 @@ def main():
 
         def check():
             try:
-                assert len(backend.modules) == 5
+                assert len(backend.modules) == 6
                 for module in backend.modules:
                     backend.navigate(module['id'])
                     app.processEvents()
@@ -149,7 +163,7 @@ def main():
                     if getattr(module, '__file__', None)
                 ), 'El panel importó fuentes de bots.'
                 assert not errors, '\n'.join(errors)
-                print('OK: QML, cinco vistas, estado independiente, simulación, pausa, reinicio, búsqueda, barra lateral y tema.')
+                print('OK: QML, seis vistas, estado independiente, simulación, pausa, reinicio, búsqueda, barra lateral y tema.')
                 app.exit(0)
             except Exception as error:
                 print(f'ERROR: {error}', file=sys.stderr)

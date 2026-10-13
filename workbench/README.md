@@ -2,7 +2,8 @@
 
 Aplicación de escritorio con Python, PySide6 y Qt Quick/QML. Detalles, DUAs
 Tránsito, Talón y XMovimientos están integrados con procesos propios y soporte
-común en `chc_runtime/`. BLs sigue en demostración.
+común en `chc_runtime/`. BLs y Manifiestos también tienen motores integrados.
+Una segunda apertura activa la ventana existente, sin iniciar otros motores.
 La visión completa está en el [README principal](../README.md) y en el
 [contexto para futuras sesiones](../docs/CONTEXTO_PROYECTO.md).
 
@@ -62,10 +63,24 @@ El visor permite seleccionar cada fila. Instalar con `Instalar_Talon.bat` o
 `Instalar_XMovimientos.bat`, más el proveedor para bases automáticas.
 [Uso, formato, compatibilidad y evidencia](../docs/INTEGRACION_IMPORTACION.md).
 
+## Manifiestos y BLs
+
+En **Manifiestos**, elegir procedimiento, período y modalidad y pulsar **Iniciar
+consulta**. Cada procedimiento conserva su historial y funciona independientemente.
+Las opciones técnicas, importación de progreso SQLite y herramientas están en
+**Más**. **Ver resultados** abre únicamente sus CSV de datos.
+
+**Crear base para BLs** permite cargar meses de Conocimientos, seleccionar fuentes
+y generar SQLite o Excel Courier=N. **Abrir base en BLs** prepara la entrada del bot;
+las consultas empiezan al pulsar Iniciar. También se admiten entradas externas.
+
+Instalación nueva: `Instalar_Manifiestos.bat` e `Instalar_BLs.bat`.
+[Contratos, recuperación, rutas y alcance comprobado](../docs/INTEGRACION_MANIFIESTOS.md).
+
 ## Interfaz y demostraciones
 
 - Navegación lateral expandible y contraíble, con iconos y ayudas.
-- Vista general y acceso independiente a cinco módulos.
+- Vista general y acceso independiente a seis módulos; Manifiestos agrupa cinco procedimientos.
 - Búsqueda por nombre o descripción y estado de búsqueda vacía.
 - Temas oscuro y claro, transiciones y componentes reutilizables.
 - Base sintética de 240 registros por módulo de demo: **Cargar base de ejemplo**.
@@ -119,7 +134,7 @@ La interfaz sigue el
 py -3.12 tools/verify_import.py --check-sources
 ```
 
-El smoke test carga QML, recorre cinco vistas y comprueba simulación, pausa,
+El smoke test carga QML, recorre seis vistas y comprueba simulación, pausa,
 estado conservado al cambiar de módulo, reinicio, búsqueda, barra contraída y
 tema; también confirma la finalización de un lote sintético y que no se hayan
 importado fuentes de bots. Los modos de comprobación/captura usan offscreen y renderizado software;

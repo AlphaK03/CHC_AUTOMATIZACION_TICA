@@ -9,7 +9,10 @@ sensibles de motor, datos o recuperación.
 
 Objetivo del usuario, decisiones aceptadas y estado efectivo del repositorio.
 Estado vigente al 13/10/2026: Detalles, Tránsito, Talón y XMovimientos están
-integrados con el mismo soporte Python/SQLite y panel QML. Solo BLs sigue en demo.
+integrados con el mismo soporte Python/SQLite y panel QML. También se integraron
+BLs y Manifiestos: cinco procedimientos, creación local de bases BLs, importación
+de progreso y una única instancia interactiva. Leer `INTEGRACION_MANIFIESTOS.md`.
+La entrega nueva se comprobó con un portal local, sin nuevas consultas reales.
 Talón y XMovimientos usan sus parsers v2 y la selección de cuatro regímenes de
 `Total_DUAS - Importacion.xlsx`; reutilizan una caché común verificada, con
 progreso independiente. Leer `INTEGRACION_IMPORTACION.md`: columnas originales,
@@ -193,7 +196,7 @@ Detalles de funciones, límites y evidencia: `docs/INTEGRACION_DETALLES.md`.
 
 **Todavía pendiente:**
 
-- Integrar BLs; su pantalla sigue en demostración.
+- Ampliar opciones avanzadas de BLs cuando se necesiten; su motor ya está integrado.
 - Ampliar generación mensual desde el Workbench y validar más variantes reales
   del portal para los cuatro consumidores DUA ya integrados.
 - Coordinar procesos, eventos, lotes, errores y concurrencia global.
@@ -213,8 +216,9 @@ La restricción inicial de trabajar solo en el prototipo fue ampliada por el usu
 incluso mediante compatibilidad temporal. También autorizó usar sus bases originales
 como prueba. Estas instrucciones posteriores prevalecen sobre la etapa de demo.
 
-- La integración autorizada incluye Detalles, DUAs Tránsito, Talón y XMovimientos.
-  BLs sigue pendiente. Los parsers v2 copiados permanecen como referencia intacta;
+- La integración autorizada incluye Detalles, DUAs Tránsito, Talón, XMovimientos,
+  BLs y los cinco procedimientos de Manifiestos con su generador de bases.
+  BLs ya tiene un adaptador independiente. Los parsers v2 copiados permanecen intactos;
   el motor del Workbench utiliza los perfiles y servicios comunes.
 - El usuario autorizó subir el estado actual a Git y crear la rama del piloto diario
   con proveedor propio y calendario. Datos, ajustes personales, entornos virtuales
@@ -247,6 +251,32 @@ con ese alcance y documentar comportamiento, pruebas y limitaciones reales.
 - Definir concurrencia global y conservar perfiles/cookies aislados.
 - Los specs archivados de v2 contienen rutas antiguas: adaptar y validar antes
   de usar como compilación del monorepo.
+
+## Incorporación de Manifiestos, BLs e instancia única — 13/10/2026
+
+El usuario autorizó integrar `D:/PortafolioDesarrollador/Manifiestos_Bot2` manteniendo
+su funcionamiento. También pidió una única instancia del Workbench. Implementado:
+Manifiestos, Conocimientos, DUAs por manifiesto, Movimientos y Contenedores, con
+configuración e historial independientes; generador de bases BLs y envío directo al
+módulo BLs, cuyo motor pasa de demo a operativo. Tabla/Contenedores añaden SQLite;
+los otros tres mantienen sus colas originales y sus excepciones. Los 28 archivos
+Python copiados están intactos; la documentación original está en `docs/reference/`.
+
+La GUI sigue siendo QML sencilla. Motores por proceso y protocolo JSONL en
+`chc_runtime/batch_worker.py`, adaptación en `manifest_service.py`/`manifest_adapters.py`,
+puente en `workbench/batch_bridge.py`. La interfaz no importa fuentes ni entornos de bots.
+No usar el perfil DUA para estos procedimientos ni mezclar Movimientos con XMovimientos.
+
+Pruebas locales enfocadas: cinco procedimientos, reanudación, vacíos y errores,
+exclusiones, cancelación, copia de progreso intacta, CSV ajenos protegidos,
+generación de base y procesamiento BLs mediante botones QML. No se hicieron nuevas
+consultas reales a TICA. Se abrió la versión integrada antes de documentar y se
+comprobó que una segunda apertura conserva la misma ventana.
+
+Leer `INTEGRACION_MANIFIESTOS.md` y `bots/manifiestos/AGENTS.md` antes de cambios.
+Pendiente: automatización diaria continua y calendario de Manifiestos/BLs, pruebas
+reales acotadas de esta integración y ampliación de opciones avanzadas de BLs si se
+necesitan. Los calendarios de los cuatro bots DUA permanecen operativos.
 
 ## 8. Cómo continuar desde otra sesión
 

@@ -37,6 +37,11 @@ runtime/
 *.csv
 *.xlsx
 *.xls
+**/manifest_prefs.json
+bots/manifiestos/datos_app/
+bots/manifiestos/resultados/
+bots/manifiestos/bases_bls/
+bots/manifiestos/src/output_manifest*/
 
 # Recursos requeridos por las versiones activas
 !bots/duas_transito/Names_TicaPortal.xlsx

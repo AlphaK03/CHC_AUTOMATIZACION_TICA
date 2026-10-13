@@ -1,11 +1,11 @@
 {
-  "checked_at_utc": "2026-10-12T22:50:33.731145+00:00",
+  "checked_at_utc": "2026-10-13T23:36:07.921205+00:00",
   "ok": true,
-  "files_checked": 138,
-  "python_syntax_checked": 101,
-  "modules_checked": 5,
+  "files_checked": 166,
+  "python_syntax_checked": 138,
+  "modules_checked": 6,
   "failures": [],
-  "source_files_checked": 127,
-  "original_git_status_checked": true,
+  "source_files_checked": 0,
+  "original_git_status_checked": false,
   "scope": "copy_integrity_syntax_registry_only_no_bot_execution"
 }
