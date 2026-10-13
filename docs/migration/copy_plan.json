@@ -1,0 +1,1327 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-12T21:35:24.333825+00:00",
+  "modules": [
+    {
+      "id": "bls",
+      "source_repository": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT",
+      "source_active_root": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT",
+      "destination_root": "bots/bls",
+      "branch": "AstraCode/bls-asyncio",
+      "head_commit": "82dd3798344d78ee356b4134b703399c4d642031",
+      "working_tree_status": [
+        "M .gitignore",
+        " D .idea/BLs_BOT.iml",
+        " D .idea/inspectionProfiles/Project_Default.xml",
+        " D .idea/inspectionProfiles/profiles_settings.xml",
+        " D .idea/misc.xml",
+        " D .idea/modules.xml",
+        " D .idea/vcs.xml",
+        " D .idea/workspace.xml",
+        " M CLAUDE.md",
+        " D legacy/config/config.json",
+        " D legacy/src/data/Datos_Cargados/Sheet6.xlsx",
+        " D legacy/src/filtradorDUASbls.py",
+        " D legacy/src/main.py",
+        " D legacy/src/processors.py",
+        " D legacy/src/test_retry_logic.py",
+        " D legacy/src/utils.py",
+        " D src/build.bat",
+        " D src/config.json",
+        " M src/config_manager.py",
+        " M src/data_reader.py",
+        " D src/driver_updater.py",
+        " M src/main.py",
+        " M src/paths.py",
+        " D src/playwright_processor.py",
+        " D src/processor.py",
+        " D src/state_manager.py",
+        " D src/temp_cleanup.py",
+        " D src/version_info_5_1.txt",
+        " D tests/test_playwright_processor.py",
+        " D tools/download_driver.py",
+        "?? AGENTS.md",
+        "?? README.md",
+        "?? build.bat",
+        "?? config.example.json",
+        "?? docs/",
+        "?? requirements-dev.txt",
+        "?? run_bot.py",
+        "?? run_cli.py",
+        "?? scripts/",
+        "?? src/cli.py",
+        "?? src/core/",
+        "?? src/input_cache.py",
+        "?? src/input_files.py",
+        "?? tests/test_bls_asyncio.py",
+        "?? tests/test_browser_runtime.py",
+        "?? tests/test_input_cache.py",
+        "?? tests/test_input_files.py",
+        "?? tests/test_internet.py",
+        "?? tests/test_layout.py",
+        "?? tests/test_ui.py"
+      ],
+      "excluded": [
+        {
+          "path": ".git",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": ".venv",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "build",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "dist",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "tmp",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": ".gitignore",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "config.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "scripts/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/core/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "tests/__pycache__",
+          "reason": "operational_directory_or_link"
+        }
+      ],
+      "files": [
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\AGENTS.md",
+          "destination": "bots/bls/AGENTS.md",
+          "bytes": 1000,
+          "sha256": "0afbf106ca922eea7c88768a1d37c0ddb7528031c06a016935fdb668ba10037a"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\CLAUDE.md",
+          "destination": "bots/bls/CLAUDE.md",
+          "bytes": 5231,
+          "sha256": "9d0ac8c6fa22f9ad60854d6d240c990877d58f95e075f787bde26576a6410024"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\README.md",
+          "destination": "bots/bls/README.md",
+          "bytes": 12420,
+          "sha256": "15d73301c5b3a28fb6b76f0f86a31138f8af8977d4db3119397f0519ae70ded5"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\build.bat",
+          "destination": "bots/bls/build.bat",
+          "bytes": 767,
+          "sha256": "458aa9fb2af68e1c3eff9d5766e4eb26e121c206c28884af5017cb6a3baddbec"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\config.example.json",
+          "destination": "bots/bls/config.example.json",
+          "bytes": 404,
+          "sha256": "cf9e424b06f396e8a0ba6bdd373354e2a50c5e978b6f0c0220dad257e00ce9d1"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\requirements-dev.txt",
+          "destination": "bots/bls/requirements-dev.txt",
+          "bytes": 40,
+          "sha256": "4d71c0e2c58b2725ed87199430d77554bb58c8536c9a1d393c061baf2bc3b6a2"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\requirements.txt",
+          "destination": "bots/bls/requirements.txt",
+          "bytes": 84,
+          "sha256": "66fb13e5e0c00d3f7df43b28d9df2714f25e5d3e04996a95a09469ee0380f700"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\run_bot.py",
+          "destination": "bots/bls/run_bot.py",
+          "bytes": 257,
+          "sha256": "1755e54ab94b71ed327a3dbae57a75beb4f5ecbf187b724015b51f3d8e68c580"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\run_cli.py",
+          "destination": "bots/bls/run_cli.py",
+          "bytes": 264,
+          "sha256": "f5ec2ad4c437ae70f01964cc350879d218df38c08c2c4884511dcd3ec6020255"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\docs\\ARQUITECTURA.md",
+          "destination": "bots/bls/docs/ARQUITECTURA.md",
+          "bytes": 7128,
+          "sha256": "f242a663fb9f07e93ba1e63863a709b5dc8c7642aaab280dcd99c761bbb92ae4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\docs\\ARRANQUE.md",
+          "destination": "bots/bls/docs/ARRANQUE.md",
+          "bytes": 4178,
+          "sha256": "e5b748a609d8125623ff199b79f121c385852ae7192b3b14f9769f0448191925"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\docs\\COMPATIBILIDAD_CONOCIMIENTOS_20261012.md",
+          "destination": "bots/bls/docs/COMPATIBILIDAD_CONOCIMIENTOS_20261012.md",
+          "bytes": 4614,
+          "sha256": "8b096b37c9d2294af1a119a69e10bfd402d56d26d5770187d4da6878da31d2d4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\docs\\MANUAL_BLS_BOT.md",
+          "destination": "bots/bls/docs/MANUAL_BLS_BOT.md",
+          "bytes": 22592,
+          "sha256": "4305affa5ee409b601554a8d993216e68c26d9f0157af351552966d967f47fd8"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\docs\\OPTIMIZACION_20261006.md",
+          "destination": "bots/bls/docs/OPTIMIZACION_20261006.md",
+          "bytes": 13479,
+          "sha256": "f81204c1e1ba2f29d1729f5147e2781f740abfbe881cb7e476468b25be6ec2c4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\scripts\\README.md",
+          "destination": "bots/bls/scripts/README.md",
+          "bytes": 1109,
+          "sha256": "83c6b22505fccc93fbb0c0c5678fd37a3979c0a316110091530422a2471806c8"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\scripts\\benchmark_bls.py",
+          "destination": "bots/bls/scripts/benchmark_bls.py",
+          "bytes": 3564,
+          "sha256": "75da390fbab0665a05efa65a3ba9e738beac031ca21ed566180cf6a11f48aa93"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\scripts\\verify_conocimientos_input.py",
+          "destination": "bots/bls/scripts/verify_conocimientos_input.py",
+          "bytes": 6202,
+          "sha256": "56ba0d87d0251d59d1d43ded8f3e3b99a1db6404a87e3c316510deea1ae093c4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\cli.py",
+          "destination": "bots/bls/src/cli.py",
+          "bytes": 2464,
+          "sha256": "b92f371b1e915ff3df2caa610d070ffc74b77de46ddcf1db32c030053ec79268"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\config_manager.py",
+          "destination": "bots/bls/src/config_manager.py",
+          "bytes": 1690,
+          "sha256": "f69dbb4182351721b73d0123a334f509f6cbde08b702a286033585126aeb51a1"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\data_reader.py",
+          "destination": "bots/bls/src/data_reader.py",
+          "bytes": 4068,
+          "sha256": "f995cb76489bea84317a86f28815cea791f1058f650503590e9a4039a315e34d"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\input_cache.py",
+          "destination": "bots/bls/src/input_cache.py",
+          "bytes": 5118,
+          "sha256": "3ca6b5d0514f8ee3697533c66e7a5e22b4855db288dd8b93a9448c5f8027fd82"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\input_files.py",
+          "destination": "bots/bls/src/input_files.py",
+          "bytes": 3957,
+          "sha256": "d87afc7863ae80e9798d3e77c93210f461069ca84b817050e14d8d0adb4054a0"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\main.py",
+          "destination": "bots/bls/src/main.py",
+          "bytes": 45027,
+          "sha256": "30ac1521bfff9238da686d13540254cb6a91c68beb8db1b70407e0cc92c5d837"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\paths.py",
+          "destination": "bots/bls/src/paths.py",
+          "bytes": 775,
+          "sha256": "52b7eac97cabcb643c2e6a6ed2a87d933e1002b056b348b80318c6c8d79bde5f"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\__init__.py",
+          "destination": "bots/bls/src/core/__init__.py",
+          "bytes": 67,
+          "sha256": "49278986809e4fbb306a5d66a96dea034b2b87aa285192e91c19ce4bec9e9bdb"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\browser_runtime.py",
+          "destination": "bots/bls/src/core/browser_runtime.py",
+          "bytes": 7209,
+          "sha256": "13589a35601277624bccc3149b9f4a270d4fb1ffc1bdcc25479bda47351d5eb3"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\engine.py",
+          "destination": "bots/bls/src/core/engine.py",
+          "bytes": 11254,
+          "sha256": "32303ff97cb3649461c039d86f1a1dc4af343e2c5af6177e5efd7d73675487a0"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\inputs.py",
+          "destination": "bots/bls/src/core/inputs.py",
+          "bytes": 2778,
+          "sha256": "15e400d3bd8348ca12b0112d550d1cfad06e385c4bbe55a373141264d14f1976"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\internet.py",
+          "destination": "bots/bls/src/core/internet.py",
+          "bytes": 4651,
+          "sha256": "9b0c1c7e37b22668d992fd0403b07f322dc87aaa8e9833751cfecb4c3c54d6f4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\self_test.py",
+          "destination": "bots/bls/src/core/self_test.py",
+          "bytes": 6527,
+          "sha256": "3be2946bd98f06ee4fbf553a799d53aa8c6692c13f8f5d35c03a93c8b83bcfb4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\store.py",
+          "destination": "bots/bls/src/core/store.py",
+          "bytes": 14210,
+          "sha256": "f13476c095e95cba8ebfb493a29879e232f9b0d6e67ea613bfb86abc1ab4d46e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\tables.py",
+          "destination": "bots/bls/src/core/tables.py",
+          "bytes": 7552,
+          "sha256": "ceb172f0a22c4c7615c22b71b363ed8fd50489773c8c0cd7f42f611456ecd0f5"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\src\\core\\tica.py",
+          "destination": "bots/bls/src/core/tica.py",
+          "bytes": 8666,
+          "sha256": "5a322607229ea3961bf7f9f431e622803050dc6963d039e89d83e9c232e8ef24"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\tests\\test_bls_asyncio.py",
+          "destination": "bots/bls/tests/test_bls_asyncio.py",
+          "bytes": 21153,
+          "sha256": "0e65b2fc2fb001ba905ee12f247a42a7ec4a9a260fe0d336588a311c0bb89f55"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\tests\\test_browser_runtime.py",
+          "destination": "bots/bls/tests/test_browser_runtime.py",
+          "bytes": 6414,
+          "sha256": "a97f1c634a8277bd6a7e47f10f0efef22a8ed59e335eca4ab53950e0831b28c5"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\tests\\test_input_cache.py",
+          "destination": "bots/bls/tests/test_input_cache.py",
+          "bytes": 2496,
+          "sha256": "3551d73c06a8cc9f0310007eebc7dbf39b0c299d96f09824d2c23a1c127b28e4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\tests\\test_input_files.py",
+          "destination": "bots/bls/tests/test_input_files.py",
+          "bytes": 9302,
+          "sha256": "1d6c9e877db6a1b8b8a450555ffd1516ac799c1c2f92c717e88121b7d42b222c"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\tests\\test_internet.py",
+          "destination": "bots/bls/tests/test_internet.py",
+          "bytes": 3298,
+          "sha256": "e9e3f30e46fff869b7ac76a2b66ab4465942a9bb7540db3a3079f87506604353"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\tests\\test_layout.py",
+          "destination": "bots/bls/tests/test_layout.py",
+          "bytes": 1207,
+          "sha256": "875dd29f13cf81662a95a30e471c4c01756eec6bb4fd79c0bebf8c23cd11130e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\BLs_BOT\\tests\\test_ui.py",
+          "destination": "bots/bls/tests/test_ui.py",
+          "bytes": 12289,
+          "sha256": "01b897cabf166d91672a72e5cb8e095b0a995091c15a652c5130fad0973d1aec"
+        }
+      ]
+    },
+    {
+      "id": "detalles",
+      "source_repository": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT",
+      "source_active_root": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT",
+      "destination_root": "bots/detalles",
+      "branch": "AstraCode",
+      "head_commit": "5db4db03b415fcd33742df6addb8418237e5232d",
+      "working_tree_status": [
+        "M .gitignore",
+        " M .idea/workspace.xml",
+        " M CLAUDE.md",
+        " M config/machine.json",
+        " M docs/migracion_selenium_a_playwright.md",
+        " M src/core/playwright_processor.py",
+        " M src/ui/app.py",
+        " M src/utils.py",
+        "?? DetallesBot.spec",
+        "?? README.md",
+        "?? config/captcha_lookup.json",
+        "?? docs/GUIA_REPLICACION_BOTS.md",
+        "?? docs/analisis_astracode.md",
+        "?? docs/analisis_integracion_duas_scrapping.md",
+        "?? docs/concurrencia_detalles_20261006.md",
+        "?? docs/diagnostico_formulario.md",
+        "?? docs/optimizacion_navegacion_20261006.md",
+        "?? requirements.txt",
+        "?? scripts/",
+        "?? src/core/captcha.py",
+        "?? src/core/catalog.py",
+        "?? src/core/detail_navigation.py",
+        "?? src/core/identifiers.py",
+        "?? src/core/job_store.py",
+        "?? src/core/messages.py",
+        "?? src/core/portal_form.py",
+        "?? src/ui/database_manager.py",
+        "?? src/ui/import_dialog.py",
+        "?? src/ui/pending.py",
+        "?? src/ui/theme.py",
+        "?? tests/"
+      ],
+      "excluded": [
+        {
+          "path": ".claude",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": ".git",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": ".idea",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "build",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "codigo viejo",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "dist",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": ".gitignore",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "DetallesBot_AstraCode.exe",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "Names_TicaPortal.xlsx",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "debug.log",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "config/config.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "config/machine.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "config/session.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "scripts/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/screenshots",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/core/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/flows/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/ui/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "tests/__pycache__",
+          "reason": "operational_directory_or_link"
+        }
+      ],
+      "files": [
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\CLAUDE.md",
+          "destination": "bots/detalles/CLAUDE.md",
+          "bytes": 2955,
+          "sha256": "5330bda7bee0f6deba48bda4f706b815025600d7fd0327b56b3aefc1a595eff5"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\DetallesBot.spec",
+          "destination": "bots/detalles/DetallesBot.spec",
+          "bytes": 1059,
+          "sha256": "2b8bc14b2555fd3512f62cb11c78fe4657df450abb32d86e6ababe2006a0a0c5"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\README.md",
+          "destination": "bots/detalles/README.md",
+          "bytes": 10737,
+          "sha256": "b0df9483e868e7d13922178d77b46183e771afcea09a0667126704d7536d750e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\requirements.txt",
+          "destination": "bots/detalles/requirements.txt",
+          "bytes": 112,
+          "sha256": "306c991cd670d8401bfcaddb33f85623bfe0b1b7b26bfada992508c6cf11c37a"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\config\\captcha_lookup.json",
+          "destination": "bots/detalles/config/captcha_lookup.json",
+          "bytes": 3495,
+          "sha256": "8aaff42bae22ae1a08583e9ff6ad01ffb329802f9c4931665b92521ecb5f6c92"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\docs\\GUIA_REPLICACION_BOTS.md",
+          "destination": "bots/detalles/docs/GUIA_REPLICACION_BOTS.md",
+          "bytes": 35725,
+          "sha256": "ce1fa26f97d920bd6b1d4d4a4cb9273c3260acdf72784d5d1f9904ddeb4612df"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\docs\\analisis_astracode.md",
+          "destination": "bots/detalles/docs/analisis_astracode.md",
+          "bytes": 7282,
+          "sha256": "ead0a876fdab38cf2590b692fc35eb498ffb2542f8013bd54c3d5baac98004a4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\docs\\analisis_integracion_duas_scrapping.md",
+          "destination": "bots/detalles/docs/analisis_integracion_duas_scrapping.md",
+          "bytes": 9241,
+          "sha256": "0b5be97b4aa7ecf17de36298e5928104df7ddf32f867c5de2c614c5cfaac9b69"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\docs\\concurrencia_detalles_20261006.md",
+          "destination": "bots/detalles/docs/concurrencia_detalles_20261006.md",
+          "bytes": 3906,
+          "sha256": "7808b5d913d8539f50ec19db5e3be03db4f1e3e815c9a7cd969ff09b5f95a735"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\docs\\diagnostico_formulario.md",
+          "destination": "bots/detalles/docs/diagnostico_formulario.md",
+          "bytes": 3153,
+          "sha256": "f6de11b47b97e7406a2e6a9cbf3c6a66e178c0bb4fb94775bf0644112806ec05"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\docs\\migracion_selenium_a_playwright.md",
+          "destination": "bots/detalles/docs/migracion_selenium_a_playwright.md",
+          "bytes": 9072,
+          "sha256": "641e675feabfbe650e76b60391d2249e7369a7cb05a0b00caa947118a9870918"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\docs\\optimizacion_navegacion_20261006.md",
+          "destination": "bots/detalles/docs/optimizacion_navegacion_20261006.md",
+          "bytes": 6089,
+          "sha256": "063f166b8250ebfee6ea2d5a2a83ca0dd2792754559c031a2fdbd7d10de59824"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\scripts\\benchmark_navegacion.py",
+          "destination": "bots/detalles/scripts/benchmark_navegacion.py",
+          "bytes": 5333,
+          "sha256": "a89228dd8c656faef315e019d2832ce84e47e5ed2fbac3f25678ba62f3d1aeff"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\scripts\\probe_portal.py",
+          "destination": "bots/detalles/scripts/probe_portal.py",
+          "bytes": 2901,
+          "sha256": "8437b30602b3ea65c27782705864a94dc2826b03812a90ef32435cd98d0fd5dd"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\driver_updater.py",
+          "destination": "bots/detalles/src/driver_updater.py",
+          "bytes": 5337,
+          "sha256": "9c61a3989f8cf9ba8660b85f5ae7cf31137fcf11879714dd8df735af197a64e2"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\main.py",
+          "destination": "bots/detalles/src/main.py",
+          "bytes": 327,
+          "sha256": "6e3c26032ebe939fed20ef39dc2fd45d9617fbe68296fa8ccf5ccabbae5daa6e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\processors.py",
+          "destination": "bots/detalles/src/processors.py",
+          "bytes": 24390,
+          "sha256": "46bae4ca7e23a92ee6dc53972798eacb13d04c9cdbbabc927d5801c1f26a5cad"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\utils.py",
+          "destination": "bots/detalles/src/utils.py",
+          "bytes": 5250,
+          "sha256": "dede739fbc71ef7259968de406aa6d700083497e2bd5aa42afdad0c416543f33"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\__init__.py",
+          "destination": "bots/detalles/src/core/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\browser.py",
+          "destination": "bots/detalles/src/core/browser.py",
+          "bytes": 4278,
+          "sha256": "66fd43dded0b45dfa39e763327a2f8a9ea923e16408da3380fed9206881797c3"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\captcha.py",
+          "destination": "bots/detalles/src/core/captcha.py",
+          "bytes": 1274,
+          "sha256": "f71fac7cb383a5ee8c7ed1b8db289e8792c7e03c82c8409964e81e758495d1bf"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\catalog.py",
+          "destination": "bots/detalles/src/core/catalog.py",
+          "bytes": 10231,
+          "sha256": "5591c6d5d443b67148b7bbb19d97e7d3c479c785d4fa732c66a3484e40bb1633"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\detail_navigation.py",
+          "destination": "bots/detalles/src/core/detail_navigation.py",
+          "bytes": 2557,
+          "sha256": "96b981c1a7b229d4978644e90476edf438646a093b4a84aa16ae314c79df167d"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\http_processor.py",
+          "destination": "bots/detalles/src/core/http_processor.py",
+          "bytes": 9633,
+          "sha256": "54a12ec1bf199623f1d903d68cd246c568424529374764077f74d357f4851f81"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\identifiers.py",
+          "destination": "bots/detalles/src/core/identifiers.py",
+          "bytes": 1256,
+          "sha256": "6f104e8a24735b20dba34e7bf0f62f08620f49f6f82f4c8f3d5e185e1c54571e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\job_store.py",
+          "destination": "bots/detalles/src/core/job_store.py",
+          "bytes": 17260,
+          "sha256": "070bcf1e2b359dff219ce057eed4594ff1b2561411304312b21e4183e2fc4290"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\messages.py",
+          "destination": "bots/detalles/src/core/messages.py",
+          "bytes": 831,
+          "sha256": "d591d9dba7ae1f4c3363c82814ca4d5c2f4556b590c787d30e00811317c6823c"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\playwright_processor.py",
+          "destination": "bots/detalles/src/core/playwright_processor.py",
+          "bytes": 11905,
+          "sha256": "a50ff0abecd9733ff96163bb0595187097e99aeb38a9e27fa76cd321031f601b"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\portal_form.py",
+          "destination": "bots/detalles/src/core/portal_form.py",
+          "bytes": 5958,
+          "sha256": "d36eed66df0230f56a7da57d1bab0b9f542e6b4a1571fa8bee26ba07a9718250"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\core\\processor.py",
+          "destination": "bots/detalles/src/core/processor.py",
+          "bytes": 8678,
+          "sha256": "175b600d0dab75acd056b1b88da6f0365727b47cf37dee7beaaa2cae4e99cd58"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\flows\\__init__.py",
+          "destination": "bots/detalles/src/flows/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\flows\\base_flow.py",
+          "destination": "bots/detalles/src/flows/base_flow.py",
+          "bytes": 2217,
+          "sha256": "b92f9c66fa98060d92777a9559f1b499d1fad1461ed61775a6bce5e0634931b4"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\flows\\detalles_flow.py",
+          "destination": "bots/detalles/src/flows/detalles_flow.py",
+          "bytes": 7573,
+          "sha256": "b8c93a791e164520d688eb8e9bbee2d47a2515b448c7e76598f76f1d534d9b05"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\ui\\__init__.py",
+          "destination": "bots/detalles/src/ui/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\ui\\app.py",
+          "destination": "bots/detalles/src/ui/app.py",
+          "bytes": 35107,
+          "sha256": "f37edbe0f5875f9664c16295a34609ddf0061426459aff646b7869c0758dda14"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\ui\\database_manager.py",
+          "destination": "bots/detalles/src/ui/database_manager.py",
+          "bytes": 9837,
+          "sha256": "41b860368c056c0feb56d351fde042694077ecf63470c44bc86dee390893b18b"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\ui\\import_dialog.py",
+          "destination": "bots/detalles/src/ui/import_dialog.py",
+          "bytes": 2953,
+          "sha256": "cb4fbbb907e04475cceb971b50cd81c427836bc77c9873d9b81af6f021ca19a2"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\ui\\pending.py",
+          "destination": "bots/detalles/src/ui/pending.py",
+          "bytes": 5566,
+          "sha256": "0f7924c2d85672834f4610cda2420d9f5f88053559e071b2e71167aa1cba672f"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\src\\ui\\theme.py",
+          "destination": "bots/detalles/src/ui/theme.py",
+          "bytes": 7450,
+          "sha256": "322dfacac758e4ba59e42be74c5a160eef570d41996a0d694522db9f9bd038cc"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\tests\\test_catalog.py",
+          "destination": "bots/detalles/tests/test_catalog.py",
+          "bytes": 10334,
+          "sha256": "78783f0d8873711c45e359717195f3d1c3e357ff0698b4f0daabb6e2d2a45988"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\tests\\test_navigation_optimizations.py",
+          "destination": "bots/detalles/tests/test_navigation_optimizations.py",
+          "bytes": 5553,
+          "sha256": "f73085898a82edbebbab86adac7c3399912b6de2b72615f6cf751a25b7becc87"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\tests\\test_portal_form.py",
+          "destination": "bots/detalles/tests/test_portal_form.py",
+          "bytes": 6726,
+          "sha256": "10fb94c85deffb93d7c4fa0836b8df02bc38b898d38b12fbcf60601e06bd06dc"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\tests\\test_queue.py",
+          "destination": "bots/detalles/tests/test_queue.py",
+          "bytes": 13893,
+          "sha256": "fd3e7a00d8f95f9f9dfe60ae881003a9f791bae9e8d57624c5bc0612af11db1d"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Detalles_BOT\\tests\\test_ui.py",
+          "destination": "bots/detalles/tests/test_ui.py",
+          "bytes": 8464,
+          "sha256": "dc9ec194a7fe89159ab09a2c858bcd281cffabe9bb338bcdb9b974014ef875ac"
+        }
+      ]
+    },
+    {
+      "id": "duas_transito",
+      "source_repository": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT",
+      "source_active_root": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2",
+      "destination_root": "bots/duas_transito",
+      "branch": "master",
+      "head_commit": "599e0f094fa21e98672ee7a6b56b04919e7ac221",
+      "working_tree_status": [
+        "M .idea/misc.xml",
+        " M .idea/workspace.xml",
+        " M config/config.json",
+        " M src/corregirColumnas.py",
+        " M src/main.py",
+        " M src/processors.py",
+        " M src/utils.py",
+        " M v2/Names_TicaPortal.xlsx",
+        " M v2/config/machine.json",
+        " M v2/config/session.json",
+        " M v2/logs/debug.log",
+        " M v2/src/__pycache__/utils.cpython-312.pyc",
+        " M v2/src/core/playwright_processor.py",
+        " M v2/src/flows/__pycache__/base_flow.cpython-312.pyc",
+        " M v2/src/flows/__pycache__/transito_flow.cpython-312.pyc",
+        " M v2/src/flows/transito_flow.py",
+        " M v2/src/ui/__pycache__/app.cpython-312.pyc",
+        "?? DuasTransitoBot_v2.spec",
+        "?? build/",
+        "?? comparar_duas.py",
+        "?? dist/",
+        "?? src/__pycache__/",
+        "?? src/data/",
+        "?? src/logs/",
+        "?? v2/build/",
+        "?? v2/data/",
+        "?? v2/dist/",
+        "?? v2/src/core/__pycache__/playwright_processor.cpython-312.pyc"
+      ],
+      "excluded": [
+        {
+          "path": ".claude",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "build",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "dist",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "config/machine.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "config/session.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "src/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/screenshots",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/core/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/flows/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/ui/__pycache__",
+          "reason": "operational_directory_or_link"
+        }
+      ],
+      "files": [
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\Names_TicaPortal.xlsx",
+          "destination": "bots/duas_transito/Names_TicaPortal.xlsx",
+          "bytes": 11807,
+          "sha256": "1d15b9666bbadc22d9aa65b8c17e865d9ef48ebb80469acd2ca2820a8af9a074"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\driver_updater.py",
+          "destination": "bots/duas_transito/src/driver_updater.py",
+          "bytes": 5337,
+          "sha256": "9c61a3989f8cf9ba8660b85f5ae7cf31137fcf11879714dd8df735af197a64e2"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\main.py",
+          "destination": "bots/duas_transito/src/main.py",
+          "bytes": 346,
+          "sha256": "87e4df0ebc5ca13812987a752c4673d6ad5e2c668cd2304f75c542d0ae810b4e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\utils.py",
+          "destination": "bots/duas_transito/src/utils.py",
+          "bytes": 4620,
+          "sha256": "60a8baf9e87b2ba565a66999a5689c5140ca404a598a66424021ea74135f86ad"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\core\\__init__.py",
+          "destination": "bots/duas_transito/src/core/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\core\\browser.py",
+          "destination": "bots/duas_transito/src/core/browser.py",
+          "bytes": 4295,
+          "sha256": "11e86bd2be105e9af3e75a8211e10914d5ed44a9ccab1d3bf10c908a09a60d88"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\core\\playwright_processor.py",
+          "destination": "bots/duas_transito/src/core/playwright_processor.py",
+          "bytes": 12520,
+          "sha256": "bc6c292e09e5fdb65573b2f10cc075324fda3ed6692a9c749218ce67b18e292f"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\core\\processor.py",
+          "destination": "bots/duas_transito/src/core/processor.py",
+          "bytes": 10318,
+          "sha256": "e2d79fd25de9e6520a3d7d9d20b7944ca7915b450bba306e5bf9d9a944105d12"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\flows\\__init__.py",
+          "destination": "bots/duas_transito/src/flows/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\flows\\base_flow.py",
+          "destination": "bots/duas_transito/src/flows/base_flow.py",
+          "bytes": 1332,
+          "sha256": "b13a42bdfd2f0668613300200dd5af8796e93a879f270672808765358080f392"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\flows\\transito_flow.py",
+          "destination": "bots/duas_transito/src/flows/transito_flow.py",
+          "bytes": 3336,
+          "sha256": "04c348bb1011a9a1b18f0d433b934fc4e6a21d40b2a5f0e41e16213100ce566d"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\ui\\__init__.py",
+          "destination": "bots/duas_transito/src/ui/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\v2\\src\\ui\\app.py",
+          "destination": "bots/duas_transito/src/ui/app.py",
+          "bytes": 31281,
+          "sha256": "5db721945699cbaf6f3e3f5f279e5a4602cd9d365f0cc9e3cfb82bc282d103a1"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\DuasTransito BOT\\DuasTransitoBot_v2.spec",
+          "destination": "bots/duas_transito/docs/reference/DuasTransitoBot_v2.spec",
+          "bytes": 1114,
+          "sha256": "7dff469350a413fcb6cb76cf0b23bcc901a5ceb202ad222fb70b96daff6d929a"
+        }
+      ]
+    },
+    {
+      "id": "talon",
+      "source_repository": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT",
+      "source_active_root": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2",
+      "destination_root": "bots/talon",
+      "branch": "master",
+      "head_commit": "81daa948af7571aaf164c4916def732c64e45ff1",
+      "working_tree_status": [
+        "M .idea/workspace.xml",
+        " M config/config.json",
+        " M src/main.py",
+        " M src/processors.py",
+        " M v2/Names_TicaPortal.xlsx",
+        " M v2/config/machine.json",
+        " M v2/config/session.json",
+        " M v2/logs/debug.log",
+        " M v2/src/core/playwright_processor.py",
+        " M v2/src/flows/talon_flow.py",
+        "?? .venv/",
+        "?? TalonBot_v2.spec",
+        "?? build/",
+        "?? dist/",
+        "?? src/__pycache__/",
+        "?? src/screenshots/",
+        "?? v2/build/",
+        "?? v2/data/",
+        "?? v2/dist/",
+        "?? v2/src/__pycache__/",
+        "?? v2/src/core/__pycache__/",
+        "?? v2/src/flows/__pycache__/",
+        "?? v2/src/ui/__pycache__/"
+      ],
+      "excluded": [
+        {
+          "path": ".claude",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "build",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "dist",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "config/machine.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "config/session.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "src/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/screenshots",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/core/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/flows/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/ui/__pycache__",
+          "reason": "operational_directory_or_link"
+        }
+      ],
+      "files": [
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\Names_TicaPortal.xlsx",
+          "destination": "bots/talon/Names_TicaPortal.xlsx",
+          "bytes": 11807,
+          "sha256": "1d15b9666bbadc22d9aa65b8c17e865d9ef48ebb80469acd2ca2820a8af9a074"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\driver_updater.py",
+          "destination": "bots/talon/src/driver_updater.py",
+          "bytes": 5337,
+          "sha256": "9c61a3989f8cf9ba8660b85f5ae7cf31137fcf11879714dd8df735af197a64e2"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\main.py",
+          "destination": "bots/talon/src/main.py",
+          "bytes": 346,
+          "sha256": "87e4df0ebc5ca13812987a752c4673d6ad5e2c668cd2304f75c542d0ae810b4e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\utils.py",
+          "destination": "bots/talon/src/utils.py",
+          "bytes": 4607,
+          "sha256": "9e3b031e3c66465e539979199780144d979a8d2174aeccf9957c68f9b0ef2138"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\core\\__init__.py",
+          "destination": "bots/talon/src/core/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\core\\browser.py",
+          "destination": "bots/talon/src/core/browser.py",
+          "bytes": 4295,
+          "sha256": "11e86bd2be105e9af3e75a8211e10914d5ed44a9ccab1d3bf10c908a09a60d88"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\core\\playwright_processor.py",
+          "destination": "bots/talon/src/core/playwright_processor.py",
+          "bytes": 11725,
+          "sha256": "e897434c3ccf97ca8ad32bd85858a731cf835405ce1140a49438982204f3f831"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\core\\processor.py",
+          "destination": "bots/talon/src/core/processor.py",
+          "bytes": 10106,
+          "sha256": "d9772dcbc21742ed6b13be47a2c06482cbb91a637ed275f785b4093cf8a6edcf"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\flows\\__init__.py",
+          "destination": "bots/talon/src/flows/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\flows\\base_flow.py",
+          "destination": "bots/talon/src/flows/base_flow.py",
+          "bytes": 1332,
+          "sha256": "b13a42bdfd2f0668613300200dd5af8796e93a879f270672808765358080f392"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\flows\\talon_flow.py",
+          "destination": "bots/talon/src/flows/talon_flow.py",
+          "bytes": 3424,
+          "sha256": "411af995845e19bb44ee0ff93ec73e4da3f51a529198b7778aa471db84de10c1"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\ui\\__init__.py",
+          "destination": "bots/talon/src/ui/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\v2\\src\\ui\\app.py",
+          "destination": "bots/talon/src/ui/app.py",
+          "bytes": 30843,
+          "sha256": "e82eea93d9fafe4695dc9e24cd8599450765a44de8e2657f9391daa477cf9fbb"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\Talon_BOT\\TalonBot_v2.spec",
+          "destination": "bots/talon/docs/reference/TalonBot_v2.spec",
+          "bytes": 1085,
+          "sha256": "7e05e2782052afbd17c80db00d8c8085f648f7c04bd756eda37353f20850a0ab"
+        }
+      ]
+    },
+    {
+      "id": "xmovimientos",
+      "source_repository": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT",
+      "source_active_root": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2",
+      "destination_root": "bots/xmovimientos",
+      "branch": "playwright-migration",
+      "head_commit": "fc31bfa6bf4c863b65e9745599acad3eebc41894",
+      "working_tree_status": [
+        "M .idea/workspace.xml",
+        " M config/config.json",
+        " M separador_app/filtradorDUAs.py",
+        " M src/processors.py",
+        " M v2/src/core/playwright_processor.py",
+        " M v2/src/core/processor.py",
+        " M v2/src/flows/xmovimientos_flow.py",
+        "?? CLAUDE.md",
+        "?? XMovimientosBot_v2.spec",
+        "?? build/",
+        "?? dist/",
+        "?? separador_app/FiltradorDUAs.exe",
+        "?? src/__pycache__/",
+        "?? src/data/",
+        "?? src/logs/",
+        "?? v2/Names_TicaPortal.xlsx",
+        "?? v2/config/",
+        "?? v2/data/",
+        "?? v2/dist/",
+        "?? v2/logs/",
+        "?? v2/migracion_selenium_a_playwright.md",
+        "?? v2/src/__pycache__/",
+        "?? v2/src/core/__init__.py",
+        "?? v2/src/core/__pycache__/",
+        "?? v2/src/core/browser.py",
+        "?? v2/src/data/",
+        "?? v2/src/driver_updater.py",
+        "?? v2/src/flows/__init__.py",
+        "?? v2/src/flows/__pycache__/",
+        "?? v2/src/logs/",
+        "?? v2/src/main.py",
+        "?? v2/src/ui/__init__.py",
+        "?? v2/src/ui/__pycache__/"
+      ],
+      "excluded": [
+        {
+          "path": ".claude",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "build",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "dist",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "temp",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "config/machine.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "config/session.json",
+          "reason": "outside_code_and_required_assets"
+        },
+        {
+          "path": "src/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/data",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/logs",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/screenshots",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/core/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/flows/__pycache__",
+          "reason": "operational_directory_or_link"
+        },
+        {
+          "path": "src/ui/__pycache__",
+          "reason": "operational_directory_or_link"
+        }
+      ],
+      "files": [
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\Names_TicaPortal.xlsx",
+          "destination": "bots/xmovimientos/Names_TicaPortal.xlsx",
+          "bytes": 11807,
+          "sha256": "1d15b9666bbadc22d9aa65b8c17e865d9ef48ebb80469acd2ca2820a8af9a074"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\migracion_selenium_a_playwright.md",
+          "destination": "bots/xmovimientos/migracion_selenium_a_playwright.md",
+          "bytes": 8815,
+          "sha256": "f7f0871eae15f8a07cd8dbf788d44d1473f13b0b64cd8ca8eac322a957a11d92"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\driver_updater.py",
+          "destination": "bots/xmovimientos/src/driver_updater.py",
+          "bytes": 5337,
+          "sha256": "9c61a3989f8cf9ba8660b85f5ae7cf31137fcf11879714dd8df735af197a64e2"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\main.py",
+          "destination": "bots/xmovimientos/src/main.py",
+          "bytes": 346,
+          "sha256": "87e4df0ebc5ca13812987a752c4673d6ad5e2c668cd2304f75c542d0ae810b4e"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\utils.py",
+          "destination": "bots/xmovimientos/src/utils.py",
+          "bytes": 4633,
+          "sha256": "8c66e30ffbb5efc394ba57d4268afeb49171f89dab09ac35fb2de37e7ac56696"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\core\\__init__.py",
+          "destination": "bots/xmovimientos/src/core/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\core\\browser.py",
+          "destination": "bots/xmovimientos/src/core/browser.py",
+          "bytes": 9029,
+          "sha256": "2a7047f6011bce365f13df2abde31008e6d5ad19cb4f473d1bf8e5037084e60c"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\core\\playwright_processor.py",
+          "destination": "bots/xmovimientos/src/core/playwright_processor.py",
+          "bytes": 10645,
+          "sha256": "9b68a7de99406a153860f8d3c940981999cf41b258386aaaa4b12c0fb3715440"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\core\\processor.py",
+          "destination": "bots/xmovimientos/src/core/processor.py",
+          "bytes": 10866,
+          "sha256": "0a0e669f4199cd49137b1fd74dae0d49284b12861948f9ffeb1d6b07afb8394a"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\flows\\__init__.py",
+          "destination": "bots/xmovimientos/src/flows/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\flows\\base_flow.py",
+          "destination": "bots/xmovimientos/src/flows/base_flow.py",
+          "bytes": 1332,
+          "sha256": "b13a42bdfd2f0668613300200dd5af8796e93a879f270672808765358080f392"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\flows\\xmovimientos_flow.py",
+          "destination": "bots/xmovimientos/src/flows/xmovimientos_flow.py",
+          "bytes": 4350,
+          "sha256": "3df1b8b3dc0811dbd049e08a35e7aa7964d4dfbbb9d8a74eb1d61fdc61009ba0"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\ui\\__init__.py",
+          "destination": "bots/xmovimientos/src/ui/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\v2\\src\\ui\\app.py",
+          "destination": "bots/xmovimientos/src/ui/app.py",
+          "bytes": 30817,
+          "sha256": "d87402f2f2e0ba24b4bfda4f2ccb431ecb0b555c73b71a4d764679d2c1169db6"
+        },
+        {
+          "source": "D:\\CHC_CONSULTORES\\Repositorios\\XMovimientos_BOT\\XMovimientosBot_v2.spec",
+          "destination": "bots/xmovimientos/docs/reference/XMovimientosBot_v2.spec",
+          "bytes": 1113,
+          "sha256": "97344d1e8e8bc2527f34202c8c9d13951b69eed814ea08b97e05db7b04948d8f"
+        }
+      ]
+    }
+  ]
+}

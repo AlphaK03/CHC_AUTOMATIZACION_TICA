@@ -1,0 +1,157 @@
+"""CHC Workbench: Detalles operativo en proceso aislado y cuatro módulos de demo."""
+import argparse
+import os
+from pathlib import Path
+import sys
+
+from PySide6.QtCore import QObject, QTimer, QUrl
+from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuickControls2 import QQuickStyle
+
+from demo import DemoBackend
+from details_bridge import DetailsBridge
+from preferences import Preferences
+
+HERE = Path(__file__).resolve().parent
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--smoke-test', action='store_true', help='Comprobar navegación y simulación; salir sin abrir bots.')
+    parser.add_argument('--capture', type=Path, help='Guardar una captura del panel y salir.')
+    parser.add_argument('--page', default='detalles', help='Vista inicial: overview o ID de módulo.')
+    parser.add_argument('--collapsed', action='store_true', help='Iniciar con la barra lateral contraída.')
+    parser.add_argument('--light', action='store_true', help='Iniciar en tema claro.')
+    parser.add_argument('--sample', action='store_true', help='Preparar una simulación pausada en la vista de un módulo.')
+    parser.add_argument('--demo', action='store_true', help='Desactivar motores reales y mostrar solo simulaciones.')
+    parser.add_argument('--details-storage', type=Path, help='Almacenamiento aislado para comprobaciones de Detalles.')
+    args = parser.parse_args()
+    if args.smoke_test or args.capture:
+        os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+        os.environ.setdefault('QT_QUICK_BACKEND', 'software')
+    app = QGuiApplication([sys.argv[0]])
+    app.setApplicationName('CHC Workbench')
+    app.setOrganizationName('CHC Consultores')
+    # La plataforma offscreen de Windows no descubre automáticamente fuentes.
+    # Registrar las del sistema permite revisar capturas con el mismo diseño.
+    if os.environ.get('QT_QPA_PLATFORM') == 'offscreen' and sys.platform == 'win32':
+        font_folder = Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts'
+        for name in ('segoeui.ttf', 'segoeuib.ttf', 'seguisb.ttf', 'segoeuil.ttf', 'consola.ttf'):
+            font_file = font_folder / name
+            if font_file.is_file():
+                QFontDatabase.addApplicationFont(str(font_file))
+    app.setFont(QFont('Segoe UI', 10))
+    QQuickStyle.setStyle('Basic')
+    details = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.details_storage)
+    preferences = Preferences(HERE.parent / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
+    backend = DemoBackend(HERE / 'modules.json', details)
+    details.toast.connect(backend.toast.emit)
+    preferences.error.connect(backend.toast.emit)
+    backend.navigate(args.page)
+    if args.sample and args.page != 'overview' and (args.page != 'detalles' or not details.enabled):
+        backend.loadSample()
+        backend.startDemo()
+        for _ in range(24):
+            backend._tick()
+        backend.pauseDemo()
+    engine = QQmlApplicationEngine()
+    engine.rootContext().setContextProperty('demo', backend)
+    engine.rootContext().setContextProperty('details', details)
+    engine.rootContext().setContextProperty('preferences', preferences)
+    engine.setInitialProperties({'sidebarExpanded': not args.collapsed, 'initialDark': False if args.light else preferences.dark})
+    errors = []
+    engine.warnings.connect(lambda warnings: errors.extend(warning.toString() for warning in warnings))
+    engine.load(QUrl.fromLocalFile(str(HERE / 'qml' / 'Main.qml')))
+    if not engine.rootObjects():
+        return 1
+    window = engine.rootObjects()[0]
+    window.setProperty('demoBackend', backend)
+    if details.enabled:
+        details.connectModule()
+    if not args.smoke_test and not args.capture:
+        available = app.primaryScreen().availableGeometry()
+        window.setMinimumWidth(min(window.minimumWidth(), available.width() - 32))
+        window.setMinimumHeight(min(window.minimumHeight(), available.height() - 48))
+        window.setWidth(min(window.width(), available.width() - 32))
+        window.setHeight(min(window.height(), available.height() - 48))
+    if args.smoke_test:
+        from PySide6.QtCore import QMetaObject, Qt
+
+        def check():
+            try:
+                assert len(backend.modules) == 5
+                for module in backend.modules:
+                    backend.navigate(module['id'])
+                    app.processEvents()
+                    assert window.findChild(QObject, 'modulePage') is not None
+                    backend.loadSample()
+                    backend.startDemo()
+                    backend._tick()
+                    backend.pauseDemo()
+                    assert backend.selectedModule['status'] == 'paused'
+                    assert backend.selectedModule['progress'] > 0
+                    backend.startDemo()
+                    assert backend.selectedModule['status'] == 'running'
+                    backend.pauseDemo()
+                backend.navigate('bls')
+                assert backend.selectedModule['status'] == 'paused'
+                backend.resetDemo()
+                assert not backend.selectedModule['loaded']
+                backend.loadSample()
+                backend.setWorkers(4)
+                backend.startDemo()
+                for _ in range(30):
+                    backend._tick()
+                assert backend.selectedModule['status'] == 'completed'
+                assert backend.selectedModule['progress'] == 240
+                assert all(row['status'] == 'Confirmado' for row in backend.previewRows)
+                backend.search('tránsito')
+                assert len(backend.filteredModules) == 1
+                backend.search('ningún módulo')
+                assert len(backend.filteredModules) == 0
+                backend.search('')
+                backend.navigate('overview')
+                window.setProperty('sidebarExpanded', False)
+                QMetaObject.invokeMethod(window, 'toggleTheme', Qt.DirectConnection)
+                app.processEvents()
+                bot_root = HERE.parent / 'bots'
+                assert not any(
+                    Path(module.__file__).resolve().is_relative_to(bot_root)
+                    for module in sys.modules.values()
+                    if getattr(module, '__file__', None)
+                ), 'El panel importó fuentes de bots.'
+                assert not errors, '\n'.join(errors)
+                print('OK: QML, cinco vistas, estado independiente, simulación, pausa, reinicio, búsqueda, barra lateral y tema.')
+                app.exit(0)
+            except Exception as error:
+                print(f'ERROR: {error}', file=sys.stderr)
+                app.exit(1)
+
+        QTimer.singleShot(600, check)
+    elif args.capture:
+        capture_attempts = 0
+        def capture():
+            nonlocal capture_attempts
+            if details.enabled and not details.ready and not details.error and capture_attempts < 60:
+                capture_attempts += 1
+                QTimer.singleShot(500, capture)
+                return
+            args.capture.parent.mkdir(parents=True, exist_ok=True)
+            saved = window.grabWindow().save(str(args.capture))
+            print(f'Captura: {args.capture}; QML warnings: {len(errors)}; Detalles listo: {details.ready if details.enabled else "demo"}')
+            if errors:
+                print('\n'.join(errors), file=sys.stderr)
+            if details.enabled:
+                ready = details.ready
+                details.closed.connect(lambda: app.exit(0 if saved and not errors and ready else 1))
+                details.shutdown()
+            else:
+                app.exit(0 if saved and not errors else 1)
+
+        QTimer.singleShot(900, capture)
+    return app.exec()
+
+
+if __name__ == '__main__':
+    sys.exit(main())

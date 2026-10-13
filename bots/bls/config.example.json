@@ -1,0 +1,15 @@
+{
+    "sheet_name": "BLS",
+    "cant_hilos": 2,
+    "output_base_path": "",
+    "max_retries": 3,
+    "timeout": 30,
+    "headless": true,
+    "target_url": "https://ticaconsultas.hacienda.go.cr/Tica/hcgconocimientos.aspx",
+    "fecha_inicio": "01/01/2025",
+    "fecha_fin": "31/12/2025",
+    "dates_from_input": true,
+    "reuse_context": true,
+    "detail_strategy": "http",
+    "batch_revision": ""
+}

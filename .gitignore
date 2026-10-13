@@ -1,0 +1,44 @@
+# Instalaciones, cachés y compilaciones
+**/.venv/
+**/venv/
+**/node_modules/
+**/__pycache__/
+*.py[cod]
+**/build/
+**/dist/
+**/.idea/
+**/.claude/
+.pytest_cache/
+
+# Configuración local y datos operativos
+.env
+.env.*
+!.env.example
+**/config.json
+**/machine.json
+**/session.json
+**/ultima_seleccion.json
+**/data/
+**/output/
+**/outputs/
+**/logs/
+**/tmp/
+**/temp/
+**/screenshots/
+**/Descargas/
+runtime/
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.log
+*.exe
+*.csv
+*.xlsx
+*.xls
+
+# Recursos requeridos por las versiones activas
+!bots/duas_transito/Names_TicaPortal.xlsx
+!bots/talon/Names_TicaPortal.xlsx
+!bots/xmovimientos/Names_TicaPortal.xlsx

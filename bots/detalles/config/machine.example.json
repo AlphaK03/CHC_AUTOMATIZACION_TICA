@@ -1,0 +1,11 @@
+{
+  "base_path": "",
+  "output_base_path": "",
+  "max_retries": 3,
+  "timeout": 30,
+  "cant_hilos": 1,
+  "reuse_context": true,
+  "lightweight_details": true,
+  "headless": true,
+  "dark_mode": true
+}
