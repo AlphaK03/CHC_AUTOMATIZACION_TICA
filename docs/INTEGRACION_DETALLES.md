@@ -107,6 +107,11 @@ ejecución que el usuario ya tenía activa, con el mismo rango y configuración.
 Una lectura posterior confirmó seis DUAs activos, 23.084 guardados y el DUA
 `001-2026-079444` completado. Son contadores de esa comprobación, no una afirmación
 de que el rango completo hubiera terminado. La ventana permaneció abierta.
+La comprobación final confirmó los 93 DUAs del bloqueo guardados: 91 en la
+primera ronda de la ejecución recuperada y 2 en la segunda. La tabla alcanzó
+23.144 éxitos sin pendientes; el día 6 quedó completed (5.390/5.390) y el
+coordinador pasó a descargar el día 7. Esto verifica también el cambio de ronda
+real, además de las fixtures, sin detener ni cerrar la GUI.
 
 ## Uso
 
