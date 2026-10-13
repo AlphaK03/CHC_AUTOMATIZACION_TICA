@@ -1,10 +1,81 @@
 {
   "schema_version": 1,
   "modules": [
-    {"id": "bls", "name": "BLs", "root": "bots/bls", "entrypoint": "run_bot.py", "engine": "src/core/engine.py", "requirements": "requirements.txt", "resources": [], "input_contract": "bls_xlsx_or_sqlite", "status": "copied_pending_integration"},
-    {"id": "detalles", "name": "Detalles", "root": "bots/detalles", "entrypoint": "src/main.py", "engine": "src/core/playwright_processor.py", "requirements": "requirements.txt", "resources": ["config/captcha_lookup.json"], "input_contract": "excel_nrodua", "status": "integrated", "workbench_adapter": {"kind": "jsonl_worker", "entrypoint": "workbench_worker.py", "lockfile": "requirements.workbench.lock.txt", "data_root": "."}},
-    {"id": "duas_transito", "name": "DUAs Tránsito", "root": "bots/duas_transito", "entrypoint": "src/main.py", "engine": "src/core/playwright_processor.py", "requirements": "requirements.runtime.txt", "resources": ["Names_TicaPortal.xlsx"], "input_contract": "excel_nrodua", "status": "copied_pending_integration"},
-    {"id": "talon", "name": "Talón", "root": "bots/talon", "entrypoint": "src/main.py", "engine": "src/core/playwright_processor.py", "requirements": "requirements.runtime.txt", "resources": ["Names_TicaPortal.xlsx"], "input_contract": "excel_nrodua", "status": "copied_pending_integration"},
-    {"id": "xmovimientos", "name": "XMovimientos", "root": "bots/xmovimientos", "entrypoint": "src/main.py", "engine": "src/core/playwright_processor.py", "requirements": "requirements.runtime.txt", "resources": ["Names_TicaPortal.xlsx"], "input_contract": "excel_nrodua", "status": "copied_pending_integration"}
+    {
+      "id": "bls",
+      "name": "BLs",
+      "root": "bots/bls",
+      "entrypoint": "run_bot.py",
+      "engine": "src/core/engine.py",
+      "requirements": "requirements.txt",
+      "resources": [],
+      "input_contract": "bls_xlsx_or_sqlite",
+      "status": "copied_pending_integration"
+    },
+    {
+      "id": "detalles",
+      "name": "Detalles",
+      "root": "bots/detalles",
+      "entrypoint": "src/main.py",
+      "engine": "src/core/playwright_processor.py",
+      "requirements": "requirements.txt",
+      "resources": [
+        "config/captcha_lookup.json"
+      ],
+      "input_contract": "excel_nrodua",
+      "status": "integrated",
+      "workbench_adapter": {
+        "kind": "jsonl_worker",
+        "entrypoint": "workbench_worker.py",
+        "lockfile": "requirements.workbench.lock.txt",
+        "data_root": "."
+      }
+    },
+    {
+      "id": "duas_transito",
+      "name": "DUAs Tránsito",
+      "root": "bots/duas_transito",
+      "entrypoint": "src/main.py",
+      "engine": "src/core/playwright_processor.py",
+      "requirements": "requirements.runtime.txt",
+      "resources": [
+        "Names_TicaPortal.xlsx",
+        "config/captcha_lookup.json"
+      ],
+      "input_contract": "excel_nrodua",
+      "status": "integrated",
+      "workbench_adapter": {
+        "kind": "jsonl_worker",
+        "entrypoint": "workbench_worker.py",
+        "lockfile": "requirements.workbench.lock.txt",
+        "data_root": "."
+      }
+    },
+    {
+      "id": "talon",
+      "name": "Talón",
+      "root": "bots/talon",
+      "entrypoint": "src/main.py",
+      "engine": "src/core/playwright_processor.py",
+      "requirements": "requirements.runtime.txt",
+      "resources": [
+        "Names_TicaPortal.xlsx"
+      ],
+      "input_contract": "excel_nrodua",
+      "status": "copied_pending_integration"
+    },
+    {
+      "id": "xmovimientos",
+      "name": "XMovimientos",
+      "root": "bots/xmovimientos",
+      "entrypoint": "src/main.py",
+      "engine": "src/core/playwright_processor.py",
+      "requirements": "requirements.runtime.txt",
+      "resources": [
+        "Names_TicaPortal.xlsx"
+      ],
+      "input_contract": "excel_nrodua",
+      "status": "copied_pending_integration"
+    }
   ]
 }

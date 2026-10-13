@@ -6,7 +6,10 @@ Estado actual: fases 0 y 1A completadas. Detalles es el primer piloto operativo
 de las fases 1B/2: controles nativos QML, worker aislado, SQLite y entorno propio.
 Se comprobaron 50 pruebas del bot, cinco de integración y dos consultas reales
 comparadas contra sus 38 campos originales. Los otros cuatro motores permanecen
-en demo. Consultar `INTEGRACION_DETALLES.md` para alcance y evidencia del piloto.
+en demo en esa primera entrega. Después se integró DUAs Tránsito con extracción
+de líneas, SQLite y bases diarias TRANSITO sobre `chc_runtime/`, compartido con
+Detalles. BLs, Talón y XMovimientos siguen pendientes. Consultar
+`INTEGRACION_DETALLES.md` e `INTEGRACION_TRANSITO.md` para alcance y evidencia.
 
 ## Objetivo y alcance inicial
 

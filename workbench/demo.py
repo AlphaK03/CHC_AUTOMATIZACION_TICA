@@ -28,7 +28,7 @@ class DemoBackend(QObject):
     changed = Signal()
     toast = Signal(str)
 
-    def __init__(self, registry: Path, details=None):
+    def __init__(self, registry: Path, details=None, transit=None):
         super().__init__()
         entries = json.loads(registry.read_text(encoding='utf-8'))['modules']
         self._modules = []
@@ -45,8 +45,10 @@ class DemoBackend(QObject):
         self._query = ''
         self._activity = []
         self.details = details
-        if details and details.enabled:
-            details.changed.connect(self.changed.emit)
+        self._bridges = {'detalles': details, 'duas_transito': transit}
+        for bridge in self._bridges.values():
+            if bridge and bridge.enabled:
+                bridge.changed.connect(self.changed.emit)
         self._timer = QTimer(self)
         self._timer.setInterval(350)
         self._timer.timeout.connect(self._tick)
@@ -57,9 +59,10 @@ class DemoBackend(QObject):
         modules = [{key: value for key, value in item.items() if key != 'events'} for item in self._modules]
         for item in modules:
             item['mode'] = 'demo'
-            if item['id'] == 'detalles' and self.details and self.details.enabled:
-                item.update(mode='real', status='running' if self.details.running else 'available' if self.details.ready else 'unavailable',
-                            progress=self.details.summary['succeeded'], total=self.details.summary['total'])
+            bridge = self._bridges.get(item['id'])
+            if bridge and bridge.enabled:
+                item.update(mode='real', status='running' if bridge.running or bridge.dailyActive else 'available' if bridge.ready else 'unavailable',
+                            progress=bridge.summary['succeeded'], total=bridge.summary['total'])
         return modules
 
     @Property('QVariantList', notify=changed)
@@ -116,8 +119,9 @@ class DemoBackend(QObject):
     def navigate(self, route):
         if route == 'overview' or any(item['id'] == route for item in self._modules):
             self._route = route
-            if route == 'detalles' and self.details and self.details.enabled:
-                self.details.connectModule()
+            bridge = self._bridges.get(route)
+            if bridge and bridge.enabled:
+                bridge.connectModule()
             self.changed.emit()
 
     @Slot(str)

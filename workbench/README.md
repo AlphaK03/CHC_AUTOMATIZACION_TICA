@@ -1,8 +1,8 @@
 # CHC Workbench
 
-Aplicación de escritorio con Python, PySide6 y Qt Quick/QML. Detalles está
-integrado y ejecuta su motor copiado mediante un proceso aislado. BLs, Tránsito,
-Talón y XMovimientos siguen como demostraciones independientes.
+Aplicación de escritorio con Python, PySide6 y Qt Quick/QML. Detalles y DUAs
+Tránsito están integrados con procesos propios y soporte común en `chc_runtime/`.
+BLs, Talón y XMovimientos siguen como demostraciones independientes.
 La visión completa está en el [README principal](../README.md) y en el
 [contexto para futuras sesiones](../docs/CONTEXTO_PROYECTO.md).
 
@@ -12,7 +12,7 @@ Desde la raíz del repositorio, hacer doble clic en `Abrir_Workbench.bat`.
 Abre directamente Detalles con dos pestañas: Procesamiento y Configuración.
 Base de datos abre una ventana aparte; las acciones secundarias están en Más.
 El entorno local está preparado. En un equipo nuevo, ejecutar primero
-`Instalar_Workbench.bat` e `Instalar_Detalles.bat` (requiere Python 3.12).
+`Instalar_Workbench.bat`, `Instalar_Detalles.bat` e `Instalar_Transito.bat` (Python 3.12).
 
 Alternativa en PowerShell:
 
@@ -42,6 +42,14 @@ Esta rama añade **Diario automático** en Modo: indicar Desde, pulsar Iniciar
 automático y revisar Calendario. No requiere Excel y conserva Manual. En un
 equipo nuevo ejecutar `Instalar_Base_Diaria.bat`. [Uso y límites](../docs/PILOTO_DETALLES_DIARIO.md).
 `--daily` abre esa vista sin iniciar descargas.
+
+## DUAs Tránsito operativo
+
+Seleccionar **DUAs Tránsito** en la barra lateral. Usa la misma interfaz, tablas,
+calendario, configuración y recuperación que Detalles, con almacenamiento propio.
+Manual acepta `Total_DUAS - Transito.xlsx`; Diario automático descarga solo TRANSITO.
+Su CSV conserva ocho columnas y todas las líneas de cada DUA. El visor permite
+elegir la línea. [Funciones, compatibilidad y límites](../docs/INTEGRACION_TRANSITO.md).
 
 ## Interfaz y demostraciones
 

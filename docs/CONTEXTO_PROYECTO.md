@@ -83,7 +83,18 @@ Requisito completo, ejemplos y límites: [AUTOMATIZACION_DIARIA.md](AUTOMATIZACI
 Detalles tiene un piloto en `feature/detalles-base-diaria-calendario`: base propia
 diaria, calendario, espera de 00:01 y acumulación mensual. No inicia al abrir;
 requiere Iniciar automático. Leer `PILOTO_DETALLES_DIARIO.md`. Los otros tres
-consumidores DUA siguen pendientes.
+consumidores DUA siguen pendientes en la entrega inicial; Tránsito se integró después,
+como se describe a continuación.
+
+Alcance posterior: el usuario pidió adaptar DUAs Tránsito con la tecnología y
+estructura de Detalles. Ambos usan ahora `chc_runtime/`, workers aislados y el
+mismo puente/componente QML. Tránsito conserva el parser de v2, ocho columnas y
+varias líneas por DUA; guarda todas las páginas juntas en SQLite y exporta sus
+líneas al CSV mensual. El proveedor recibe selección TRANSITO para este módulo,
+no los nueve regímenes de Detalles. Datos y ajustes quedan separados por bot.
+Leer `INTEGRACION_TRANSITO.md`: archivos, uso, compatibilidad, pruebas y límites.
+Se validó offline y se abrió la app antes de documentar, siguiendo la preferencia
+del usuario. No se hicieron consultas reales de extracción de Tránsito.
 
 El usuario autorizó revisar EXPORTACION TEMPORAL únicamente del 11/10/2026.
 TICA confirmó cero registros. Se corrigió la copia del proveedor para acreditar
@@ -147,7 +158,7 @@ Detalles de funciones, límites y evidencia: `docs/INTEGRACION_DETALLES.md`.
 
 **Todavía pendiente:**
 
-- Integrar los otros cuatro motores; sus pantallas siguen siendo demos.
+- Integrar BLs, Talón y XMovimientos; sus pantallas siguen siendo demos.
 - Extender a los otros tres consumidores la autonomía diaria ya implementada en
   Detalles y ampliar generación mensual desde el Workbench.
 - Coordinar procesos, eventos, lotes, errores y concurrencia global.
@@ -167,7 +178,8 @@ La restricción inicial de trabajar solo en el prototipo fue ampliada por el usu
 incluso mediante compatibilidad temporal. También autorizó usar sus bases originales
 como prueba. Estas instrucciones posteriores prevalecen sobre la etapa de demo.
 
-- La integración autorizada se limita a Detalles. Los otros bots no se modifican.
+- La integración autorizada incluye Detalles y DUAs Tránsito. BLs, Talón y
+  XMovimientos siguen pendientes; no se modifican sus motores.
 - El usuario autorizó subir el estado actual a Git y crear la rama del piloto diario
   con proveedor propio y calendario. Datos, ajustes personales, entornos virtuales
   y binarios permanecen fuera de Git; las comprobaciones nuevas fueron offline.

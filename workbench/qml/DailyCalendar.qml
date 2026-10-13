@@ -5,8 +5,10 @@ import "components"
 
 Dialog {
     id: calendarDialog
+    property var moduleBridge: null
+    property var worker: moduleBridge || details
     objectName: "detailsDailyCalendar"
-    title: "Calendario de Detalles"
+    title: "Calendario de " + worker.moduleTitle
     modal: true; padding: 20
     palette.windowText: Theme.text; palette.buttonText: Theme.text; palette.button: Theme.raised
     background: Panel {}
@@ -20,7 +22,7 @@ Dialog {
     onOpened: { rangeStart = initialStart; rangeEnd = initialEnd; choosingEnd = false }
     function chooseDay(item) {
         selectedDay = item
-        if(details.busy || !item.available) return
+        if(worker.busy || !item.available) return
         if(!choosingEnd) { rangeStart = item.date; rangeEnd = ""; choosingEnd = true }
         else {
             const first = rangeStart
@@ -31,7 +33,7 @@ Dialog {
     }
     function inRange(day) { return !!day && !!rangeStart && day >= rangeStart && day <= (rangeEnd || rangeStart) }
     function applyRange() {
-        if(details.busy || !rangeStart || !rangeEnd) return
+        if(worker.busy || !rangeStart || !rangeEnd) return
         rangeSelected(rangeStart, rangeEnd)
         close()
     }
@@ -42,30 +44,30 @@ Dialog {
     footer: RowLayout {
         implicitHeight: 56
         Text { Layout.leftMargin: 20; Layout.fillWidth: true; text: calendarDialog.rangeStart ? calendarDialog.rangeStart + " → " + (calendarDialog.rangeEnd || "…") : ""; color: Theme.text; font.family: Theme.family; font.pixelSize: 11 }
-        ActionButton { objectName: "detailsApplyCalendarRange"; text: "Usar rango"; primary: true; enabled: !details.busy && !!calendarDialog.rangeStart && !!calendarDialog.rangeEnd; onClicked: calendarDialog.applyRange() }
+        ActionButton { objectName: "detailsApplyCalendarRange"; text: "Usar rango"; primary: true; enabled: !worker.busy && !!calendarDialog.rangeStart && !!calendarDialog.rangeEnd; onClicked: calendarDialog.applyRange() }
         ActionButton { text: "Cerrar"; Layout.rightMargin: 20; onClicked: calendarDialog.close() }
     }
     Connections {
-        target: details
+        target: worker
         function onChanged() {
             if(calendarDialog.selectedDay.date) {
-                for(let item of details.daily.days) if(item.date === calendarDialog.selectedDay.date) { calendarDialog.selectedDay = item; break }
+                for(let item of worker.daily.days) if(item.date === calendarDialog.selectedDay.date) { calendarDialog.selectedDay = item; break }
             }
         }
     }
     function shiftMonth(amount) {
-        const parts = details.daily.month.split("-")
+        const parts = worker.daily.month.split("-")
         const date = new Date(Number(parts[0]), Number(parts[1]) - 1 + amount, 1)
-        details.loadCalendar(date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2,"0"))
+        worker.loadCalendar(date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2,"0"))
         selectedDay = ({})
     }
     contentItem: ColumnLayout {
         spacing: 14
         RowLayout {
             Layout.fillWidth: true
-            ActionButton { text: "‹"; enabled: details.ready; onClicked: calendarDialog.shiftMonth(-1) }
-            Text { text: details.daily.monthLabel; color: Theme.text; font.family: Theme.family; font.pixelSize: 17; font.weight: Font.DemiBold; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
-            ActionButton { text: "›"; enabled: details.ready; onClicked: calendarDialog.shiftMonth(1) }
+            ActionButton { text: "‹"; enabled: worker.ready; onClicked: calendarDialog.shiftMonth(-1) }
+            Text { text: worker.daily.monthLabel; color: Theme.text; font.family: Theme.family; font.pixelSize: 17; font.weight: Font.DemiBold; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+            ActionButton { text: "›"; enabled: worker.ready; onClicked: calendarDialog.shiftMonth(1) }
         }
         GridLayout {
             columns: 7; columnSpacing: 7; rowSpacing: 7; Layout.fillWidth: true
@@ -74,7 +76,7 @@ Dialog {
                 Text { required property string modelData; text: modelData; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
             }
             Repeater {
-                model: details.daily.days
+                model: worker.daily.days
                 Button {
                     id: dayButton
                     required property var modelData

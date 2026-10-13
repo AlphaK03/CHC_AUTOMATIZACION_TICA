@@ -16,7 +16,15 @@
   todas sus funciones, SQLite, pendientes, validaciones, configuración y respaldos.
   El usuario autorizó usar datos base originales como prueba. Leerlos sin modificar
   los originales, probar una muestra acotada y usar almacenamiento/salida propios.
-- Los otros cuatro módulos siguen en demostración y no se refactorizan en esta fase.
+- Alcance ampliado por el usuario: integrar DUAs Tránsito con la estructura de
+  Detalles, cambiando extracción y selección de base. Leer `docs/INTEGRACION_TRANSITO.md`.
+  BLs, Talón y XMovimientos siguen en demostración.
+- La infraestructura activa de ambos bots está en `chc_runtime/`; los workers
+  eligen un perfil. Compartir catálogo, cola, coordinador, puente Qt e interfaz,
+  manteniendo configuración/datos/procesos separados. No duplicar este soporte.
+- Tránsito usa exclusivamente TRANSITO para su base automática y conserva las
+  ocho columnas y el parser de v2. Guardar todas las páginas y el éxito en una
+  transacción; nunca confirmar el DUA con solo las primeras 50 líneas.
 - El usuario autorizó subir a Git y crear el piloto diario de Detalles con proveedor
   copiado desde DUAS_SCRAPPING y calendario persistente. Los orígenes quedan intactos.
   El modo automático se inicia por acción del usuario; verificar offline, sin
@@ -30,7 +38,7 @@
   meses. Hasta vacío mantiene el ciclo continuo; un rango con Hasta se detiene
   al completarse. No consultar pendientes de otros días de la tabla mensual:
   conservar la selección diaria de DailyJobStore y el CSV mensual acumulado.
-- Aislar el motor de Detalles en un proceso: la GUI Qt no importa paquetes de bots.
+- Aislar cada motor en su propio proceso: la GUI Qt no importa paquetes de bots.
   El backend de demo nunca realiza consultas reales. No anunciar demos como éxitos.
 - Las pruebas reales de esta integración están limitadas a dos DUAs de la base
   original y una ronda por DUA, con un trabajador y carpetas separadas.
@@ -43,7 +51,7 @@
   a la vista. Conservar funciones secundarias en menús, ventanas o secciones plegadas.
 - En Resultados mostrar únicamente el CSV, en una carpeta con el nombre elegido
   de la tabla, sin subcarpetas de UUID. TXT/JSON y diagnósticos son internos en
-  `bots/detalles/data/exports/<id>/`; mantener SQLite y recuperación intactos.
+  `bots/<id>/data/exports/<id>/`; mantener SQLite y recuperación intactos.
 - Ajustar la verificación al riesgo. En cambios visuales hacer una comprobación
   breve de carga/captura; no repetir suites completas ni consultas reales.
   Reservar pruebas amplias para cambios sensibles de motor, datos o recuperación.

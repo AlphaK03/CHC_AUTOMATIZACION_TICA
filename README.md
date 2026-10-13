@@ -3,15 +3,17 @@
 Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón y
 XMovimientos en un solo lugar y, posteriormente, integrar los generadores de bases.
 
-**Estado actual: Detalles operativo en QML y cuatro módulos en demostración.**
+**Estado actual: Detalles y DUAs Tránsito operativos en QML; tres módulos en demostración.**
 Detalles importa bases a SQLite, consulta TICA, retoma pendientes, administra tablas
 y exporta con el motor actual. Esta rama añade **Diario automático**: base propia
-sin Excel, calendario y acumulación mensual. Los demás bots siguen en demo.
+sin Excel, calendario y acumulación mensual. Tránsito usa la misma infraestructura
+con su extracción de líneas y base propia del régimen TRANSITO. BLs, Talón y
+XMovimientos siguen en demo. [Uso y alcance de Tránsito](docs/INTEGRACION_TRANSITO.md).
 Los regímenes sin movimientos no bloquean la base diaria: se aceptan como vacíos
 solo con respuesta confirmada de TICA; los errores conservan el estado pendiente.
 
 Para abrir: doble clic en **`Abrir_Workbench.bat`**. En un equipo nuevo ejecutar
-primero `Instalar_Workbench.bat` y `Instalar_Detalles.bat`. Consultar el
+primero `Instalar_Workbench.bat`, `Instalar_Detalles.bat` y `Instalar_Transito.bat`. Consultar el
 [manual del Workbench](workbench/README.md) y la [integración de Detalles](docs/INTEGRACION_DETALLES.md).
 
 Capturas del prototipo: [vista general oscura](docs/preview/workbench-dark.png),
@@ -41,7 +43,7 @@ resultados en el mismo entorno. TICA y el navegador siguen siendo requisitos ext
 y Talón/XMovimientos usan Importación. Cada bot deberá generar su base sin elegir
 Excel, para meses terminados o en un ciclo diario: descargar ayer, procesarlo,
 esperar hasta las 00:01 y continuar, recuperando días atrasados y acumulando el CSV
-del mes correspondiente. Detalles tiene el primer piloto; los otros consumidores
+del mes correspondiente. Detalles y Tránsito tienen integración diaria; Talón y XMovimientos
 siguen pendientes. Consultar [uso y límites del piloto](docs/PILOTO_DETALLES_DIARIO.md)
 y el [contrato completo](docs/AUTOMATIZACION_DIARIA.md).
 
@@ -53,7 +55,8 @@ será una transición técnica cuando se autorice integrar los motores.
 **Tecnologías del panel:** Python + PySide6 + Qt Quick/QML. Python conserva lógica
 y automatización; QML define pantallas y componentes. SQLite es la persistencia
 local; Playwright es el motor activo de los cinco bots copiados. En uso normal,
-Detalles ejecuta su motor en un proceso propio y los otros cuatro módulos son demos.
+Detalles y Tránsito ejecutan sus motores en procesos propios. `chc_runtime/`
+comparte persistencia, protocolo y coordinación; los otros tres módulos son demos.
 `--demo` desactiva todos los motores reales para comprobar solo la interfaz.
 
 El [contexto para otra sesión](docs/CONTEXTO_PROYECTO.md) registra decisiones,
@@ -71,6 +74,7 @@ CHC_AUTOMATIZACION_TICA/
     talon/               # Talon_BOT: contenido actual de v2/
     xmovimientos/        # XMovimientos_BOT: contenido actual de v2/
   workbench/             # Panel QML, puente de Detalles, demos y registro
+  chc_runtime/           # Infraestructura operativa común y perfiles por bot
   integrations/          # Generadores de bases: integración futura
   docs/                  # Plan, arquitectura, inventario y trazabilidad
   tools/                 # Mantenimiento y verificaciones; prueba real solo explícita

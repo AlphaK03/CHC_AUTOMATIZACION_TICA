@@ -1,4 +1,4 @@
-"""Adaptador Qt para Detalles. Importa metadatos, nunca los paquetes del motor."""
+"""Adaptador Qt común por módulo; nunca importa los paquetes del motor."""
 import json
 import os
 from pathlib import Path
@@ -24,10 +24,14 @@ class DetailsBridge(QObject):
     # leaves those fields inaccessible and prevents save/start acknowledgements.
     eventReceived = Signal('QVariantMap')
 
-    def __init__(self, enabled=True, storage_root=None, offline_fixture=False):
+    def __init__(self, enabled=True, storage_root=None, offline_fixture=False, module_id='detalles'):
         super().__init__()
+        if module_id not in ('detalles', 'duas_transito'):
+            raise ValueError('Módulo sin integración operativa.')
+        self._module_id = module_id
+        self._bot = ROOT / 'bots' / module_id
         self._enabled = enabled
-        self._storage_root = str(storage_root or BOT)
+        self._storage_root = str(storage_root or self._bot)
         self._offline_fixture = offline_fixture
         self._snapshot = {'tables': [], 'activeTable': {}, 'summary': dict(EMPTY), 'config': {}, 'session': {}, 'fields': [], 'outputFolder': ''}
         self._runtime = {'chromiumReady': False, 'captchaEntries': 0}
@@ -68,6 +72,14 @@ class DetailsBridge(QObject):
 
     @Property(bool, constant=True)
     def enabled(self): return self._enabled
+    @Property(str, constant=True)
+    def moduleId(self): return self._module_id
+    @Property(str, constant=True)
+    def moduleTitle(self): return 'Detalles' if self._module_id == 'detalles' else 'DUAs Tránsito'
+    @Property(bool, constant=True)
+    def supportsLightweight(self): return self._module_id == 'detalles'
+    @Property(bool, constant=True)
+    def supportsClassic(self): return self._module_id == 'detalles'
     @Property(bool, notify=changed)
     def ready(self): return self._ready
     @Property(bool, notify=changed)
@@ -121,9 +133,10 @@ class DetailsBridge(QObject):
     def connectModule(self):
         if not self._enabled or self._closing or self._process.state() != QProcess.NotRunning:
             return
-        python = BOT / '.venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+        python = self._bot / '.venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
         if not python.is_file():
-            self._error = 'Falta instalar Detalles. Ejecuta Instalar_Detalles.bat desde la raíz del Workbench.'
+            installer = 'Instalar_Detalles.bat' if self._module_id == 'detalles' else 'Instalar_Transito.bat'
+            self._error = f'Falta instalar {self.moduleTitle}. Ejecuta {installer} desde la raíz del Workbench.'
             self._status = 'Requiere instalación'
             self.changed.emit()
             return
@@ -131,8 +144,8 @@ class DetailsBridge(QObject):
         self._stderr = ''
         self._error = ''
         self._status = 'Preparando módulo…'
-        self._process.setWorkingDirectory(str(BOT))
-        arguments = ['-u', str(BOT / 'workbench_worker.py'), '--storage-root', self._storage_root]
+        self._process.setWorkingDirectory(str(self._bot))
+        arguments = ['-u', str(self._bot / 'workbench_worker.py'), '--storage-root', self._storage_root]
         if self._offline_fixture:
             arguments.append('--offline-fixture')
         self._process.start(str(python), arguments)
@@ -292,7 +305,7 @@ class DetailsBridge(QObject):
         if self._closing:
             self.closed.emit()
         else:
-            self._error = 'El proceso de Detalles se cerró. Los resultados SQLite se conservan. Reconecta para continuar.'
+            self._error = f'El proceso de {self.moduleTitle} se cerró. Los resultados SQLite se conservan. Reconecta para continuar.'
             if self._stderr:
                 self._error += '\n' + self._stderr[-1500:]
             self._status = 'Módulo desconectado'
@@ -388,14 +401,17 @@ class DetailsBridge(QObject):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
     @Slot()
     def openClassic(self):
+        if not self.supportsClassic:
+            self.toast.emit('La interfaz anterior de Tránsito usa datos independientes; utiliza el módulo del Workbench.')
+            return
         if self._busy or self._running:
             self.toast.emit('Detén la ejecución antes de abrir la interfaz clásica.')
             return
-        if Path(self._storage_root).resolve() != BOT.resolve():
+        if Path(self._storage_root).resolve() != self._bot.resolve():
             self.toast.emit('La interfaz clásica usa la instalación normal; no está disponible en pruebas aisladas.')
             return
-        python = BOT / '.venv' / 'Scripts' / 'pythonw.exe'
-        result = QProcess.startDetached(str(python), [str(BOT / 'src' / 'main.py')], str(BOT))
+        python = self._bot / '.venv' / 'Scripts' / 'pythonw.exe'
+        result = QProcess.startDetached(str(python), [str(self._bot / 'src' / 'main.py')], str(self._bot))
         self.toast.emit('Interfaz clásica abierta: comparte las tablas de esta copia.' if result[0] else 'No se pudo abrir la interfaz clásica.')
     @Slot()
     def shutdown(self):

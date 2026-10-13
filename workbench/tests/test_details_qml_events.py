@@ -27,8 +27,8 @@ class RecordingBridge(DetailsBridge):
         # DemoBackend.navigate calls this; this unit check must stay in-memory.
         pass
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, module_id='detalles'):
+        super().__init__(module_id=module_id)
         self.commands = []
         self._ready = True
         self._runtime['chromiumReady'] = True
@@ -50,7 +50,8 @@ class RecordingBridge(DetailsBridge):
 class ConfigurationEventsTest(unittest.TestCase):
     def test_save_acknowledgement_and_start_after_save(self):
         bridge = RecordingBridge()
-        backend = DemoBackend(HERE / 'modules.json', bridge)
+        transit = RecordingBridge('duas_transito')
+        backend = DemoBackend(HERE / 'modules.json', bridge, transit)
         backend.navigate('detalles')
         prefs = Preferences(HERE / 'unused-test-preferences.json', persist=False)
         engine = QQmlApplicationEngine()
@@ -59,6 +60,7 @@ class ConfigurationEventsTest(unittest.TestCase):
         context = engine.rootContext()
         context.setContextProperty('demo', backend)
         context.setContextProperty('details', bridge)
+        context.setContextProperty('transit', transit)
         context.setContextProperty('preferences', prefs)
         engine.load(QUrl.fromLocalFile(str(HERE / 'qml' / 'Main.qml')))
         self.assertTrue(engine.rootObjects(), warnings)
@@ -98,6 +100,15 @@ class ConfigurationEventsTest(unittest.TestCase):
         self.assertEqual(page.findChild(QObject, 'detailsDailyEnd').property('text'), '2026-10-02')
         self.assertTrue(page.property('configDirty'))
         self.assertTrue(page.property('dailyMode'))
+        previous = list(bridge.commands)
+        backend.navigate('duas_transito')
+        APP.processEvents()
+        transit_page = window.findChild(QObject, 'transitRealPage')
+        self.assertIsNotNone(transit_page)
+        self.assertEqual(transit_page.property('worker'), transit)
+        QMetaObject.invokeMethod(transit_page, 'startQueries', Qt.DirectConnection)
+        self.assertEqual(transit.commands[-1], 'run')
+        self.assertEqual(bridge.commands, previous, 'Tránsito no envía órdenes a Detalles.')
         self.assertEqual(warnings, [])
         window.setVisible(False)
 

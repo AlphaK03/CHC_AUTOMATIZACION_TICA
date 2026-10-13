@@ -60,12 +60,16 @@ DUAS_SCRAPPING instalado ni su ejecutable, base, configuración o controlador.
 | --- | --- |
 | `integrations/duas_source/` | 21 archivos en la línea base SHA256; adaptación de consultas vacías documentada abajo |
 | `integrations/duas_source/worker.py` | Descarga en proceso aislado con Selenium original |
-| `bots/detalles/daily.py` | Calendario persistente, horario, recuperación cronológica y append mensual |
-| `bots/detalles/workbench_worker.py` | Comandos daily_run/daily_calendar, extracción y cancelación |
+| `chc_runtime/daily.py` | Calendario persistente, horario, recuperación cronológica y append mensual |
+| `chc_runtime/worker.py` | Comandos daily_run/daily_calendar, extracción y cancelación compartidos |
+| `bots/detalles/workbench_worker.py` | Entrada aislada que selecciona el perfil Detalles |
 | `workbench/details_bridge.py` | Estados de descarga, extracción, espera y cierre para Qt |
 | `workbench/qml/DailyCalendar.qml` | Calendario mensual navegable |
 
 El proveedor es un proceso separado; sus imports no se mezclan con los motores.
+La integración posterior de Tránsito comparte esta infraestructura en `chc_runtime/`.
+Detalles conserva la selección Total (nueve regímenes); Tránsito usa solo TRANSITO.
+El perfil, los procesos y los datos de cada uno permanecen independientes.
 Los repositorios originales del generador y de Detalles permanecen intactos.
 En esta copia se adaptó `src/tica_dua_bot.py` y se agregó `src/query_confirmation.py`.
 El manifiesto del proveedor conserva los hashes de la copia inicial; la diferencia

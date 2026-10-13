@@ -87,7 +87,9 @@ resultados. Estas son bases útiles, pero no constituyen el ciclo automático.
 
 El piloto de Detalles integra el proveedor, las entradas al catálogo, el
 coordinador persistente, el calendario y la acumulación mensual. Falta llevar los
-otros tres consumidores DUA a recuperación transaccional e integrar sus selecciones.
+otros consumidores DUA a recuperación transaccional e integrar sus selecciones.
+Tránsito ya comparte el soporte `chc_runtime/` con Detalles y usa solo TRANSITO;
+Talón y XMovimientos siguen pendientes. Ver `INTEGRACION_TRANSITO.md`.
 La publicación actual de los tres Excel no acumula por sí sola entregas diarias:
 genera el contenido de la entrega indicada y reemplaza los nombres compatibles.
 

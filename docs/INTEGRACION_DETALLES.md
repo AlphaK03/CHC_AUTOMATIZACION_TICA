@@ -8,7 +8,10 @@ por cambios visuales: una comprobación breve basta; ampliar solo ante cambios
 sensibles de motor, datos o recuperación.
 
 Fecha: 12 de octubre de 2026. Esta es la primera integración operativa del
-Workbench. Los otros cuatro módulos permanecen en demostración.
+Workbench. Posteriormente se integró DUAs Tránsito con soporte común en
+`chc_runtime/`; BLs, Talón y XMovimientos siguen en demostración. El motor
+Workbench de Detalles usa ahora esa infraestructura, conservando sus tablas,
+38 campos y la compatibilidad de los resultados. Ver `INTEGRACION_TRANSITO.md`.
 
 El [piloto diario](PILOTO_DETALLES_DIARIO.md) añade base propia sin Excel,
 calendario y acumulación mensual en una rama de prueba. Manual sigue disponible.
