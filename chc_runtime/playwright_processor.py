@@ -22,6 +22,14 @@ class ExtraStepRequired(RuntimeError):
     """Caso reservado para diagnóstico posterior; no se hace el clic adicional."""
 
 
+async def close_browser_resource(close, timeout=5):
+    """Un navegador sin respuesta tampoco puede bloquear la cancelación del lote."""
+    try:
+        await asyncio.wait_for(close(), timeout=timeout)
+    except Exception:
+        logging.debug('No respondió el cierre del recurso del navegador.', exc_info=True)
+
+
 class PlaywrightDUAProcessor:
     def __init__(self, machine_config, output_paths, flow, captcha_lookup, stop_event: Event):
         self.machine = dict(machine_config)
@@ -57,8 +65,12 @@ class PlaywrightDUAProcessor:
         if getattr(sys, 'frozen', False):
             os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH',
                                   os.path.join(os.environ.get('LOCALAPPDATA', ''), 'ms-playwright'))
-        async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch(headless=self.machine.get('headless', True))
+        manager = async_playwright()
+        playwright = browser = None
+        timeout = int(self.machine.get('timeout', 30))
+        try:
+            playwright = await asyncio.wait_for(manager.start(), timeout=timeout)
+            browser = await asyncio.wait_for(playwright.chromium.launch(headless=self.machine.get('headless', True)), timeout=timeout)
             try:
                 for round_number in range(1, int(self.machine.get('max_retries', 3)) + 1):
                     if self.stop_event.is_set():
@@ -72,7 +84,12 @@ class PlaywrightDUAProcessor:
                     if round_number < int(self.machine.get('max_retries', 3)):
                         await self._cooldown(min(2 ** round_number, 30))
             finally:
-                await browser.close()
+                await close_browser_resource(browser.close)
+        finally:
+            if playwright is not None:
+                await close_browser_resource(playwright.stop)
+            else:
+                await close_browser_resource(lambda: manager.__aexit__(None, None, None))
 
     async def _run_round(self, store, browser, round_number, callback):
         concurrency = int(self.machine.get('cant_hilos', 1))
@@ -115,16 +132,20 @@ class PlaywrightDUAProcessor:
                 resolved, discard = False, False
                 try:
                     try:
-                        if context is None:
-                            context = await browser.new_context()
-                            page = await context.new_page()
-                            page.set_default_timeout(int(self.machine.get('timeout', 30)) * 1000)
-                            await self._block_static(page)
-                            created, uses = time.monotonic(), 0
-                        # Cada DUA vuelve al formulario y recibe un CAPTCHA nuevo.
-                        # La sesión nunca se comparte con otro trabajador.
-                        uses += 1
-                        record = await self._extract_record(page, dua_fields(job['dua']))
+                        # El límite cubre TODO el intento, no solo cada acción.
+                        # Una espera interna no puede retener la reserva indefinidamente.
+                        async with asyncio.timeout(4 * int(self.machine.get('timeout', 30))) as deadline:
+                            if context is None:
+                                context = await browser.new_context()
+                                page = await context.new_page()
+                                page.set_default_timeout(int(self.machine.get('timeout', 30)) * 1000)
+                                await self._block_static(page)
+                                created, uses = time.monotonic(), 0
+                            # Cada DUA vuelve al formulario y recibe un CAPTCHA nuevo.
+                            # La sesión nunca se comparte con otro trabajador.
+                            uses += 1
+                            page._dua_attempt_deadline = deadline
+                            record = await self._extract_record(page, dua_fields(job['dua']))
                     except Exception as exc:
                         discard = True
                         evidence = await self._save_evidence(page, job['dua'])
@@ -151,17 +172,12 @@ class PlaywrightDUAProcessor:
                                     'interrupted', cancelled=True)
                     if context is not None and (discard or not reuse or uses >= 100 or time.monotonic() - created >= 600):
                         try:
-                            await context.close()
-                        except Exception:
-                            logging.debug('Contexto ya cerrado.', exc_info=True)
+                            await close_browser_resource(context.close)
                         finally:
                             context = page = None
         finally:
             if context is not None:
-                try:
-                    await context.close()
-                except Exception:
-                    logging.debug('Contexto ya cerrado.', exc_info=True)
+                await close_browser_resource(context.close)
 
     def _notify(self, store, callback, force=False):
         now = time.monotonic()
@@ -188,7 +204,7 @@ class PlaywrightDUAProcessor:
             return await self._fetch_page_result(page, row)
         finally:
             if hook:
-                await page.unroute(*hook)
+                await asyncio.wait_for(page.unroute(*hook), timeout=5)
 
     async def _fetch_page_result(self, page: Page, row) -> str:
         # Tránsito también entra directamente aquí, sin el wrapper de Detalles.

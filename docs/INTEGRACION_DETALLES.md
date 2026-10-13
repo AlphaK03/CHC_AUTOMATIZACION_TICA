@@ -16,6 +16,55 @@ Workbench de Detalles usa ahora esa infraestructura, conservando sus tablas,
 El [piloto diario](PILOTO_DETALLES_DIARIO.md) añade base propia sin Excel,
 calendario y acumulación mensual en una rama de prueba. Manual sigue disponible.
 
+## Recuperación del bloqueo del 13 de octubre de 2026
+
+La instancia visible mostraba 17.627 guardados, 126 pendientes y 1 en curso,
+con seis hilos configurados, y rechazaba iniciar porque otra instancia retenía
+el lote. La reserva `005-2026-685571` llevaba activa desde las 02:19 de Costa Rica.
+El worker de una GUI ya cerrada seguía vivo: su hilo principal esperaba
+`operation.join()` y la operación seguía dentro del bucle asíncrono. Los otros
+trabajadores habían terminado sus reservas, pero ese intento impedía terminar
+la ronda y pasar a los reintentos. La captura y el estado de SQLite confirmaron
+el bloqueo; la inspección de pila confirmó la espera durante el cierre.
+
+Se respaldaron la cola mensual y el calendario antes de detener exclusivamente
+ese proceso huérfano y sus descendientes. Bajo los bloqueos del calendario y la
+cola se recuperó la reserva como pendiente y el día 5 como reanudable. Estado
+inicial recuperado: 127 pendientes, ninguno en curso y los 17.627 éxitos intactos.
+Esos números son evidencia de ese momento, no contadores actuales: las posteriores
+ejecuciones del usuario continuaron guardando resultados.
+
+Protecciones implementadas en el soporte común de Detalles y Tránsito:
+
+- Límite del intento completo de Detalles: cuatro veces el timeout configurado
+  (120 segundos con timeout de 30). Incluye crear el contexto y extraer; una
+  espera interna deja el DUA pendiente para reintentar y libera el trabajador.
+- Limpieza de interceptores, contextos, navegador y driver con límite de cinco
+  segundos por operación, incluso durante cancelación. El inicio de Playwright
+  y Chromium también está limitado por el timeout configurado.
+- Tránsito renueva el límite después de cada página validada para permitir DUAs
+  extensos que siguen avanzando, sin confirmar líneas parciales.
+- En Windows cada puente Qt asigna su familia de procesos a un Job Object con
+  KILL_ON_JOB_CLOSE. Al terminar la GUI o cerrar el guardián se eliminan los
+  procesos asociados, incluidos los hijos del worker. Cada módulo tiene su guardián.
+- La GUI permite 30 segundos para el cierre ordenado antes de terminar esa familia.
+  El worker limita también el join de sus hilos a 30 segundos cuando se cierra
+  stdin; si siguen bloqueados termina conservando los éxitos confirmados en SQLite.
+  Las reservas sin resultado se recuperan al siguiente inicio del lote.
+
+Verificación offline: tres pruebas de intento bloqueado, cancelación y cierre
+sin respuesta; prueba nativa de eliminación de worker y descendiente; cinco
+pruebas existentes de integración de Detalles y la integración de varias páginas
+de Tránsito. Captura del panel: módulo listo y cero advertencias QML. Evidencia
+local en `runtime/panel/detalles-incidente.png`, `detalles-recuperado.png` y
+`runtime/diagnostico-detalles/`; respaldos en `data/queues/backups/recuperacion-*`.
+Las pruebas no ejecutaron consultas reales nuevas de TICA.
+
+Durante la corrección se reinició la app más de una vez y se interrumpieron
+ejecuciones que el usuario acababa de iniciar. Preferencia reforzada: mantener
+su instancia abierta durante verificaciones, usar procesos aislados y no avisar
+que puede reanudar hasta terminar todos los cambios que requieran carga nueva.
+
 ## Uso
 
 1. Abrir `Abrir_Workbench.bat`; inicia directamente en **Detalles**.

@@ -3,6 +3,7 @@ import argparse
 from contextlib import contextmanager
 import json
 import logging
+import os
 from pathlib import Path
 import re
 import sqlite3
@@ -11,6 +12,7 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1] / 'bots' / 'detalles'
+SHUTDOWN_GRACE_SECONDS = 30
 
 from .catalog import TableCatalog, table_name
 from .captcha import load_captcha_lookup
@@ -425,10 +427,16 @@ def main(module_id="detalles"):
         except Exception as error:
             protocol.emit('error', message=str(error))
     service.stop_event.set()
+    shutdown_deadline = time.monotonic() + SHUTDOWN_GRACE_SECONDS
     if operation:
-        operation.join()  # Espera cancelación, exportación y cierre ordenado.
+        operation.join(timeout=max(0, shutdown_deadline - time.monotonic()))
     for reader in readers:
-        reader.join()
+        reader.join(timeout=max(0, shutdown_deadline - time.monotonic()))
+    if (operation and operation.is_alive()) or any(reader.is_alive() for reader in readers):
+        # También protege el caso de GUI desaparecida: no queda un worker
+        # esperando join() durante horas y reteniendo los bloqueos del lote.
+        logging.error('Cierre sin respuesta; se conservan los resultados confirmados en SQLite.')
+        os._exit(2)
     protocol.emit('closed')
     return 0
 

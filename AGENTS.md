@@ -57,6 +57,11 @@
   Reservar pruebas amplias para cambios sensibles de motor, datos o recuperación.
 - Al terminar cambios de código, abrir la app antes de documentar, por petición
   explícita del usuario. Mantener este orden en futuras sesiones.
+- Si el usuario está ejecutando consultas, conservar su instancia abierta.
+  Verificar en procesos y almacenamiento aislados; no reiniciar repetidamente
+  para cada ajuste ni anunciar que puede reanudar mientras faltan cambios.
+  Una app ya abierta satisface la preferencia anterior: no interrumpir el trabajo
+  activo para abrir otra. El usuario reportó dos interrupciones por esos reinicios.
 - Actualizar README, contexto y manual del panel distinguiendo objetivo final,
   funcionalidad implementada y pendientes. La documentación debe servir de
   contexto autosuficiente a una nueva sesión.

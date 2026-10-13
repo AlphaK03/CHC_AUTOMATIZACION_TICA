@@ -1,5 +1,6 @@
 """Extracción de líneas de Tránsito v2 sobre la cola y navegación comunes."""
 from html import escape
+import asyncio
 import json
 import logging
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -147,6 +148,10 @@ class TransitProcessor(PlaywrightDUAProcessor):
                 raise ValueError('Hay líneas incompletas; no se guardó un resultado parcial.')
             rows.extend(part)
             validate_rows(rows, row['NroDUA'])
+            deadline = getattr(page, '_dua_attempt_deadline', None)
+            if deadline is not None:
+                # Un DUA con muchas páginas puede tardar más mientras avance.
+                deadline.reschedule(asyncio.get_running_loop().time() + 4 * int(self.machine.get('timeout', 30)))
             following = page.locator('[name="SIGUIENTE"]')
             if count < 50 or not await following.count() or not await following.is_visible() or not await following.is_enabled():
                 break

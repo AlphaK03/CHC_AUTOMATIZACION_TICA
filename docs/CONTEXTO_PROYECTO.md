@@ -8,6 +8,12 @@ por cambios visuales: una comprobación breve basta; ampliar solo ante cambios
 sensibles de motor, datos o recuperación.
 
 Objetivo del usuario, decisiones aceptadas y estado efectivo del repositorio.
+Incidente del 13/10: Detalles quedó con una reserva `005-2026-685571` activa por
+horas y un worker huérfano bloqueando otra ventana. Se respaldó y recuperó el lote;
+se añadieron límites del intento y limpieza, cierre de hilos acotado y protección
+Windows de procesos hijos. Ver `INTEGRACION_DETALLES.md` para evidencia y límites.
+Conservar la instancia del usuario mientras procesa: no repetir reinicios durante
+verificaciones ni anunciar que puede reanudar antes de terminar los cambios.
 Corrección posterior de Tránsito: la base real del 1 de octubre tiene 583 DUAs
 TRANSITO verificados y formato equivalente al Excel original. Se corrigieron la
 inicialización de atributos al entrar en la navegación común y la espera de LINEAS.

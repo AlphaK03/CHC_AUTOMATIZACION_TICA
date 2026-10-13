@@ -1,5 +1,6 @@
 """Llenado por ID y comprobación del formulario antes de enviar la consulta."""
 from urllib.parse import parse_qs, urlsplit
+import asyncio
 import re
 
 
@@ -125,4 +126,4 @@ async def fill_and_submit(page, row, captcha, timeout_ms, captcha_source=None):
         if await page.locator('#vVCODI_ADUA').count() and not await page.locator('#span_NUME_CORRE').count():
             raise PortalResponseError('El portal devolvió el formulario sin completar la consulta.')
     finally:
-        await page.unroute(pattern, guard)
+        await asyncio.wait_for(page.unroute(pattern, guard), timeout=5)

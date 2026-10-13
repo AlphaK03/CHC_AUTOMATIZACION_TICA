@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Property, QProcess, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 from remaining_time import RemainingTime
+from process_guard import ProcessTreeGuard
 
 ROOT = Path(__file__).resolve().parents[1]
 BOT = ROOT / 'bots' / 'detalles'
@@ -60,10 +61,15 @@ class DetailsBridge(QObject):
         self._buffer = b''
         self._stderr = ''
         self._process = QProcess(self)
+        self._process_guard = ProcessTreeGuard()
+        self._shutdown_timer = QTimer(self)
+        self._shutdown_timer.setSingleShot(True)
+        self._shutdown_timer.setInterval(30000)
+        self._shutdown_timer.timeout.connect(self._force_shutdown)
         self._process.setProcessChannelMode(QProcess.SeparateChannels)
         self._process.readyReadStandardOutput.connect(self._read_output)
         self._process.readyReadStandardError.connect(self._read_error)
-        self._process.started.connect(lambda: self._send('initialize'))
+        self._process.started.connect(self._started)
         self._process.finished.connect(self._finished)
         self._process.errorOccurred.connect(self._process_error)
         self._refresh_timer = QTimer(self)
@@ -298,6 +304,8 @@ class DetailsBridge(QObject):
             self.remainingTimeChanged.emit()
 
     def _finished(self, exit_code, exit_status):
+        self._shutdown_timer.stop()
+        self._process_guard.close()
         self._busy = self._running = self._ready = self._daily_active = False
         self._clear_remaining()
         self._refresh_timer.stop()
@@ -425,5 +433,23 @@ class DetailsBridge(QObject):
             self._process.started.connect(lambda: self._send('shutdown'))
         else:
             self._send('shutdown')
+        self._shutdown_timer.start()
         self._status = 'Cerrando y guardando pendientes…'
         self.changed.emit()
+
+    def _started(self):
+        try:
+            self._process_guard.attach(self._process.processId())
+        except OSError as error:
+            self._error = f'No se pudo proteger el cierre del módulo: {error}'
+            self.toast.emit(self._error)
+            self._process.kill()
+            return
+        self._send('initialize')
+
+    def _force_shutdown(self):
+        # Último recurso: SQLite conserva cada éxito ya confirmado. Las reservas
+        # incompletas se recuperan al iniciar el siguiente lote.
+        self._process_guard.close()
+        if self._process.state() != QProcess.NotRunning:
+            self._process.kill()
