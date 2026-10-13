@@ -155,3 +155,27 @@ operativa. La prueba offline de múltiples páginas, rechazo del resultado parci
 y calendario pasó tras el ajuste. Se abrió la app antes de documentar.
 Los 583 DUAs operativos y la base confirmada se conservaron para reanudar con
 Iniciar consulta. Esta muestra no acredita haber procesado el lote completo.
+
+### DUA 001-2026-078194: última página con exactamente 50 líneas
+
+El usuario reportó un timeout de 30 segundos. Se reprodujo con una única consulta
+real aislada: SIGUIENTE respondió HTTP 200, sin mensajes de error, y devolvió las
+mismas 50 líneas. `gxHiddens.SERIES_nEOF=1` confirmaba el final. El botón seguía
+habilitado y la tabla no cambiaba, por lo que esperar otro contenido producía el
+timeout. En esta reproducción no fue un fallo temporal de TICA.
+
+La paginación admite esa respuesta como final únicamente cuando coinciden el DUA,
+los contadores del servidor y de su grid Series, las 50 filas y sus siete campos
+extraídos, además del EOF confirmado y los mensajes vacíos. No basta repetir una
+tabla ni recibir HTTP 200. La respuesta se espera en el mismo endpoint de líneas.
+Cuando no se cumplen esas condiciones se conserva la espera de una página nueva;
+no se confirma un resultado parcial ni se agregan dos veces las últimas líneas.
+
+Se validó sin otra consulta real, reproduciendo el HTML y la respuesta capturados
+en un navegador con la red externa bloqueada: 50 líneas, estado succeeded y CSV
+idéntico a SQLite. Evidencia y salida independientes en
+`runtime/pruebas/transito-078194/`; la cola operativa no recibió éxitos de prueba.
+La prueba de regresión `chc_runtime/tests/test_transit_pagination.py` rechaza EOF
+ausente/falso, otro DUA, contadores incorrectos, líneas diferentes y errores del
+portal. También pasó la integración existente de varias páginas y fallo parcial.
+Se reabrió la app antes de documentar; el usuario puede retomar los pendientes.

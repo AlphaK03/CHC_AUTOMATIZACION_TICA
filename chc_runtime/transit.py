@@ -1,5 +1,6 @@
 """Extracción de líneas de Tránsito v2 sobre la cola y navegación comunes."""
 from html import escape
+import json
 import logging
 from urllib.parse import parse_qs, urlencode, urlsplit
 
@@ -29,6 +30,38 @@ def validate_rows(rows, expected):
     return rows
 
 
+def confirmed_last_page(payload, rows, clean):
+    """TICA puede repetir la última página llena; exigir su EOF y todas sus líneas."""
+    try:
+        hidden = payload['gxHiddens']
+        messages = payload['gxMessages']
+        if not rows or not isinstance(messages, dict) or messages.get('MAIN') != []:
+            return False
+        if any(value != [] for value in messages.values()):
+            return False
+        identity = normalize_dua('-'.join(hidden[key] for key in ('CODI_ADUAN', 'ANO_PRESE', 'NUME_CORRE')))
+        if identity != rows[0]['numero_del_dua'] or str(hidden['SERIES_nEOF']) != '1':
+            return False
+        grids = [grid for grid in payload['gxGrids'] if grid.get('GridName') == 'Series']
+        if len(grids) != 1 or int(grids[0]['Count']) != len(rows) or int(hidden['nRC_Series']) != len(rows):
+            return False
+        values = hidden['SeriesContainerDataV']
+        values = json.loads(values) if isinstance(values, str) else values
+        if not isinstance(values, list) or len(values) != len(rows):
+            return False
+        indices = (0, 1, 3, 4, 5, 6, 12)
+        for values_row, row in zip(values, rows):
+            if not isinstance(values_row, list) or len(values_row) < 13:
+                return False
+            record = {field: clean(values_row[index]) for field, index in zip(FIELDS[:-1], indices)}
+            record['numero_del_dua'] = identity
+            if record != row:
+                return False
+        return True
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return False
+
+
 class TransitJobStore(JobStore):
     def complete(self, job, result):
         rows = validate_rows(result.get('rows', []), job['dua'])
@@ -53,7 +86,7 @@ class TransitJobStore(JobStore):
 
 
 class TransitProcessor(PlaywrightDUAProcessor):
-    async def _click_result(self, page, selector, timeout_ms):
+    async def _click_result(self, page, selector, timeout_ms, current_rows=None):
         if selector == '[name="LINEAS"]':
             # Igual que v2: el POST puede preceder a otra navegación. Su respuesta
             # no acredita que la página de líneas ya haya cargado.
@@ -66,10 +99,10 @@ class TransitProcessor(PlaywrightDUAProcessor):
             await self._check_line_errors(page)
             return
         before = await page.locator('#SeriesContainerTbl').inner_html()
-        origin = urlsplit(page.url).netloc
+        target = urlsplit(page.url)
         def is_response(response):
-            return (urlsplit(response.url).netloc == origin and
-                    '.aspx' in urlsplit(response.url).path.lower() and
+            address = urlsplit(response.url)
+            return (address.netloc == target.netloc and address.path.lower() == target.path.lower() and
                     (response.request.is_navigation_request() or response.request.method == 'POST'))
         async with page.expect_response(is_response, timeout=timeout_ms) as response_info:
             await page.locator(selector).click(timeout=timeout_ms)
@@ -77,6 +110,12 @@ class TransitProcessor(PlaywrightDUAProcessor):
         await response.finished()
         if response.status >= 400:
             raise RuntimeError(f'Portal respondió HTTP {response.status} al consultar líneas.')
+        try:
+            payload = await response.json()
+        except ValueError:
+            payload = None
+        if current_rows and confirmed_last_page(payload, current_rows, self._flow._clean):
+            return True
         await page.wait_for_function('before => !!document.getElementById("SeriesContainerTbl") && '
                                      'document.getElementById("SeriesContainerTbl").innerHTML !== before',
                                      arg=before, timeout=timeout_ms)
@@ -113,9 +152,8 @@ class TransitProcessor(PlaywrightDUAProcessor):
                 break
             if self.stop_event.is_set():
                 raise RuntimeError('Extracción detenida antes de completar las páginas.')
-            await self._click_result(page, '[name="SIGUIENTE"]', timeout_ms)
-            await page.wait_for_function('before => document.getElementById("SeriesContainerTbl")?.innerHTML !== before',
-                                         arg=signature, timeout=timeout_ms)
+            if await self._click_result(page, '[name="SIGUIENTE"]', timeout_ms, current_rows=part):
+                break
         return {**rows[0], 'rows': rows}
 
 

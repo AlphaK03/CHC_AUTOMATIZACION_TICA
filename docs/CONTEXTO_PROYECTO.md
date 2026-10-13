@@ -14,6 +14,10 @@ inicialización de atributos al entrar en la navegación común y la espera de L
 Un DUA real antes fallido guardó 3 líneas / 8 columnas en una salida de prueba
 independiente; los 583 DUAs operativos se conservaron pendientes para el usuario.
 Ver el incidente y su evidencia en `INTEGRACION_TRANSITO.md`.
+Caso adicional confirmado: `001-2026-078194` termina en exactamente 50 líneas.
+TICA repite esa última página con EOF confirmado; se corrigió la paginación para
+aceptarla solo con identidad, contadores, filas y mensajes del servidor coherentes.
+Reproducción real aislada y validación offline de su respuesta documentadas allí.
 Contrato de salida vigente: Resultados contiene únicamente el CSV, dentro de una
 carpeta con el nombre actual de la tabla. Sin UUID ni subcarpetas técnicas visibles.
 Los TXT/JSON y diagnósticos se conservan internamente en `bots/detalles/data/exports/`.
