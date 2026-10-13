@@ -181,8 +181,6 @@ class PlaywrightDUAProcessor:
 
     async def _fetch_result(self, page: Page, row) -> str:
         hook = None
-        page._dua_raw_detail = None
-        page._dua_form_snapshot = None
         if self.machine.get('lightweight_details', True):
             hook = await install_lightweight_detail(page, self._flow, row['NroDUA'],
                                                     int(self.machine.get('timeout', 30)) * 1000)
@@ -193,6 +191,10 @@ class PlaywrightDUAProcessor:
                 await page.unroute(*hook)
 
     async def _fetch_page_result(self, page: Page, row) -> str:
+        # Tránsito también entra directamente aquí, sin el wrapper de Detalles.
+        # Reiniciar por consulta evita atributos ausentes y HTML de un DUA anterior.
+        page._dua_raw_detail = None
+        page._dua_form_snapshot = None
         timeout_ms = int(self.machine.get('timeout', 30)) * 1000
         page.set_default_timeout(timeout_ms)
         response = await page.goto(self._flow.start_url, timeout=timeout_ms, wait_until='domcontentloaded')

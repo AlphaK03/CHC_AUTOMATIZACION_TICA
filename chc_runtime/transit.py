@@ -54,6 +54,18 @@ class TransitJobStore(JobStore):
 
 class TransitProcessor(PlaywrightDUAProcessor):
     async def _click_result(self, page, selector, timeout_ms):
+        if selector == '[name="LINEAS"]':
+            # Igual que v2: el POST puede preceder a otra navegación. Su respuesta
+            # no acredita que la página de líneas ya haya cargado.
+            async with page.expect_navigation(wait_until='domcontentloaded', timeout=timeout_ms) as navigation:
+                await page.locator(selector).click(timeout=timeout_ms)
+            response = await navigation.value
+            if response and response.status >= 400:
+                raise RuntimeError(f'Portal respondió HTTP {response.status} al consultar líneas.')
+            await page.wait_for_selector('#SeriesContainerTbl', state='attached', timeout=timeout_ms)
+            await self._check_line_errors(page)
+            return
+        before = await page.locator('#SeriesContainerTbl').inner_html()
         origin = urlsplit(page.url).netloc
         def is_response(response):
             return (urlsplit(response.url).netloc == origin and
@@ -65,7 +77,12 @@ class TransitProcessor(PlaywrightDUAProcessor):
         await response.finished()
         if response.status >= 400:
             raise RuntimeError(f'Portal respondió HTTP {response.status} al consultar líneas.')
-        await page.wait_for_load_state('domcontentloaded', timeout=timeout_ms)
+        await page.wait_for_function('before => !!document.getElementById("SeriesContainerTbl") && '
+                                     'document.getElementById("SeriesContainerTbl").innerHTML !== before',
+                                     arg=before, timeout=timeout_ms)
+        await self._check_line_errors(page)
+
+    async def _check_line_errors(self, page):
         errors = page.locator('#ERROR, [id$="gxErrorViewer"]')
         for message in await errors.all_text_contents():
             if message.strip():

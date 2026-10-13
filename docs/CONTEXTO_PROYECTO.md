@@ -8,6 +8,12 @@ por cambios visuales: una comprobación breve basta; ampliar solo ante cambios
 sensibles de motor, datos o recuperación.
 
 Objetivo del usuario, decisiones aceptadas y estado efectivo del repositorio.
+Corrección posterior de Tránsito: la base real del 1 de octubre tiene 583 DUAs
+TRANSITO verificados y formato equivalente al Excel original. Se corrigieron la
+inicialización de atributos al entrar en la navegación común y la espera de LINEAS.
+Un DUA real antes fallido guardó 3 líneas / 8 columnas en una salida de prueba
+independiente; los 583 DUAs operativos se conservaron pendientes para el usuario.
+Ver el incidente y su evidencia en `INTEGRACION_TRANSITO.md`.
 Contrato de salida vigente: Resultados contiene únicamente el CSV, dentro de una
 carpeta con el nombre actual de la tabla. Sin UUID ni subcarpetas técnicas visibles.
 Los TXT/JSON y diagnósticos se conservan internamente en `bots/detalles/data/exports/`.

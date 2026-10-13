@@ -126,7 +126,32 @@ no se ofrece como un acceso que comparta las tablas SQLite nuevas.
 - Captura operativa `preview/transito-integrado.png`: módulo listo, cero advertencias.
 - Verificación SHA256: los 138 archivos de la línea base inicial siguen intactos.
 
-Estas comprobaciones no consultaron TICA ni importaron bases de producción como
-pruebas. La navegación real de Tránsito todavía requiere una ejecución del usuario;
-no se presenta la fixture como extracción real. Cerrar la app detiene ambos
+Las comprobaciones iniciales anteriores fueron offline. Cerrar la app detiene ambos
 coordinadores: no hay un servicio de Windows que siga ejecutándose sin la ventana.
+
+### Corrección de la primera ejecución real: 1 de octubre de 2026
+
+La ejecución del usuario descargó y confirmó 583 DUAs de TRANSITO para ese día,
+pero no guardó resultados. La base estaba bien: selección equivalente a
+`Total_DUAS - Transito.xlsx`, columna `NroDUA`, identificadores de texto
+`NNN-YYYY-NNNNNN`. Los 583 DUAs de la base coinciden exactamente con la cola y
+todos aparecen en el Excel original previamente generado para el 1 al 11.
+Se revisaron `collect()` y `publish()` del DUAS_SCRAPPING original para comprobar
+la selección y el formato; no se modificó ese proyecto.
+
+Los intentos registrados fallaron con `AttributeError: 'Page' object has no
+attribute '_dua_raw_detail'`: Tránsito entraba directamente a la navegación común
+sin inicializar un atributo del wrapper de Detalles. Su inicialización y la del
+diagnóstico ahora ocurren en `_fetch_page_result()`, por consulta, para evitar
+también HTML residual cuando se reutiliza una página. La comprobación real reveló
+además una lectura prematura tras el POST de LINEAS: ahora se espera la navegación
+completa como en v2. SIGUIENTE espera el cambio efectivo de tabla antes de leer
+mensajes y extraer la siguiente página.
+
+Validación acotada: el DUA real `001-2026-078170`, que había fallado, se extrajo
+con 3 líneas y las 8 columnas; SQLite y CSV coinciden. Salida independiente en
+`runtime/pruebas/transito-correccion-2026-10-12/`, sin marcar éxitos en la cola
+operativa. La prueba offline de múltiples páginas, rechazo del resultado parcial
+y calendario pasó tras el ajuste. Se abrió la app antes de documentar.
+Los 583 DUAs operativos y la base confirmada se conservaron para reanudar con
+Iniciar consulta. Esta muestra no acredita haber procesado el lote completo.
