@@ -22,12 +22,47 @@ class ExtraStepRequired(RuntimeError):
     """Caso reservado para diagnóstico posterior; no se hace el clic adicional."""
 
 
+class AttemptDeadline:
+    def __init__(self, seconds):
+        self.value = asyncio.get_running_loop().time() + seconds
+
+    def reschedule(self, value):
+        self.value = value
+
+
+def _consume_result(task):
+    if not task.cancelled():
+        task.exception()
+
+
+async def bounded_result(operation, timeout=5, deadline=None):
+    """El supervisor no espera que Playwright acepte cancelar una operación."""
+    task = asyncio.ensure_future(operation)
+    task.add_done_callback(_consume_result)
+    deadline = deadline or AttemptDeadline(timeout)
+    try:
+        while True:
+            remaining = max(0, deadline.value - asyncio.get_running_loop().time())
+            done, _ = await asyncio.wait({task}, timeout=remaining)
+            if task in done:
+                return task.result()
+            # Tránsito puede renovar el plazo al confirmar otra página.
+            if deadline.value <= asyncio.get_running_loop().time():
+                raise TimeoutError('El intento excedió su plazo; se libera para reintentar.')
+    except BaseException:
+        if not task.done():
+            task.cancel()
+        raise
+
+
 async def close_browser_resource(close, timeout=5):
     """Un navegador sin respuesta tampoco puede bloquear la cancelación del lote."""
     try:
-        await asyncio.wait_for(close(), timeout=timeout)
+        await bounded_result(close(), timeout=timeout)
+        return True
     except Exception:
         logging.debug('No respondió el cierre del recurso del navegador.', exc_info=True)
+        return False
 
 
 class PlaywrightDUAProcessor:
@@ -48,7 +83,25 @@ class PlaywrightDUAProcessor:
         store.begin_run()
         self._notify(store, progress_callback, force=True)
         try:
-            asyncio.run(self._run_async(store, progress_callback))
+            # asyncio.run() espera sin límite a tareas que ignoran cancelación.
+            # El supervisor limita también esa limpieza del bucle.
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(self._run_async(store, progress_callback))
+            finally:
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    _, unfinished = loop.run_until_complete(asyncio.wait(pending, timeout=5))
+                    if unfinished:
+                        logging.warning('Se descartaron tareas del navegador sin respuesta; los DUAs permanecen pendientes.',
+                                        extra={'technical_only': True})
+                        for task in unfinished:
+                            task._log_destroy_pending = False
+                loop.close()
+                asyncio.set_event_loop(None)
             summary = store.summary()
             logging.info('%s %d DUAs guardados; %d pendientes.',
                          'Proceso detenido.' if self.stop_event.is_set() else 'Consultas terminadas.',
@@ -69,8 +122,8 @@ class PlaywrightDUAProcessor:
         playwright = browser = None
         timeout = int(self.machine.get('timeout', 30))
         try:
-            playwright = await asyncio.wait_for(manager.start(), timeout=timeout)
-            browser = await asyncio.wait_for(playwright.chromium.launch(headless=self.machine.get('headless', True)), timeout=timeout)
+            playwright = await bounded_result(manager.start(), timeout=timeout)
+            browser = await bounded_result(playwright.chromium.launch(headless=self.machine.get('headless', True)), timeout=timeout)
             try:
                 for round_number in range(1, int(self.machine.get('max_retries', 3)) + 1):
                     if self.stop_event.is_set():
@@ -87,14 +140,20 @@ class PlaywrightDUAProcessor:
                 await close_browser_resource(browser.close)
         finally:
             if playwright is not None:
-                await close_browser_resource(playwright.stop)
+                stopped = await close_browser_resource(playwright.stop)
             else:
-                await close_browser_resource(lambda: manager.__aexit__(None, None, None))
+                stopped = await close_browser_resource(lambda: manager.__aexit__(None, None, None))
+            if not stopped:
+                # Último recurso del driver de ESTE motor, sin tocar otros bots.
+                connection = getattr(manager, '_connection', None)
+                transport = getattr(connection, '_transport', None)
+                process = getattr(transport, '_proc', None)
+                if process is not None and process.returncode is None:
+                    process.kill()
+                    await close_browser_resource(process.wait)
 
     async def _run_round(self, store, browser, round_number, callback):
         concurrency = int(self.machine.get('cant_hilos', 1))
-        if round_number > 1:
-            concurrency = min(concurrency, 2)
         workers = [asyncio.create_task(self._worker(store, browser, round_number, callback))
                    for _ in range(concurrency)]
         group = asyncio.gather(*workers)
@@ -134,18 +193,18 @@ class PlaywrightDUAProcessor:
                     try:
                         # El límite cubre TODO el intento, no solo cada acción.
                         # Una espera interna no puede retener la reserva indefinidamente.
-                        async with asyncio.timeout(4 * int(self.machine.get('timeout', 30))) as deadline:
-                            if context is None:
-                                context = await browser.new_context()
-                                page = await context.new_page()
-                                page.set_default_timeout(int(self.machine.get('timeout', 30)) * 1000)
-                                await self._block_static(page)
-                                created, uses = time.monotonic(), 0
-                            # Cada DUA vuelve al formulario y recibe un CAPTCHA nuevo.
-                            # La sesión nunca se comparte con otro trabajador.
-                            uses += 1
-                            page._dua_attempt_deadline = deadline
-                            record = await self._extract_record(page, dua_fields(job['dua']))
+                        deadline = AttemptDeadline(4 * int(self.machine.get('timeout', 30)))
+                        if context is None:
+                            context = await bounded_result(browser.new_context(), deadline=deadline)
+                            page = await bounded_result(context.new_page(), deadline=deadline)
+                            page.set_default_timeout(int(self.machine.get('timeout', 30)) * 1000)
+                            await bounded_result(self._block_static(page), deadline=deadline)
+                            created, uses = time.monotonic(), 0
+                        # El resultado solo lo confirma el supervisor; una tarea
+                        # abandonada no puede guardar tarde ni tomar otro DUA.
+                        uses += 1
+                        page._dua_attempt_deadline = deadline
+                        record = await bounded_result(self._extract_record(page, dua_fields(job['dua'])), deadline=deadline)
                     except Exception as exc:
                         discard = True
                         evidence = await self._save_evidence(page, job['dua'])
@@ -257,7 +316,7 @@ class PlaywrightDUAProcessor:
         folder = Path(self.output_paths['diagnostics'])
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            html = await asyncio.wait_for(page.content(), timeout=3)
+            html = await bounded_result(page.content(), timeout=3)
             (folder / f'{dua}.html').write_text(html, encoding='utf-8')
             snapshot = getattr(page, '_dua_form_snapshot', None)
             if snapshot:

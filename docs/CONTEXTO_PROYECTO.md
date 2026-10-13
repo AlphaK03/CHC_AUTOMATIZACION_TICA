@@ -12,6 +12,12 @@ Incidente del 13/10: Detalles quedó con una reserva `005-2026-685571` activa po
 horas y un worker huérfano bloqueando otra ventana. Se respaldó y recuperó el lote;
 se añadieron límites del intento y limpieza, cierre de hilos acotado y protección
 Windows de procesos hijos. Ver `INTEGRACION_DETALLES.md` para evidencia y límites.
+Refuerzo posterior: otra reserva `001-2026-079444` impedía pasar a la segunda
+ronda; la cancelación cooperativa anterior no liberó el intento. El supervisor
+ahora usa esperas independientes (`bounded_result`) y solo él confirma SQLite;
+acota también tareas residuales y cierre del driver. Todas las rondas usan los
+hilos configurados. Se mantuvo la GUI y se reconectó solo Detalles: el DUA se guardó
+y se observaron seis consultas simultáneas al retomar la ejecución del usuario.
 Conservar la instancia del usuario mientras procesa: no repetir reinicios durante
 verificaciones ni anunciar que puede reanudar antes de terminar los cambios.
 Corrección posterior de Tránsito: la base real del 1 de octubre tiene 583 DUAs

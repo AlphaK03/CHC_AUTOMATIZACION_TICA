@@ -62,6 +62,12 @@
   para cada ajuste ni anunciar que puede reanudar mientras faltan cambios.
   Una app ya abierta satisface la preferencia anterior: no interrumpir el trabajo
   activo para abrir otra. El usuario reportó dos interrupciones por esos reinicios.
+- Los plazos del motor deben supervisar tareas independientemente de su
+  cancelación: `asyncio.timeout`/`wait_for` no bastan si la operación la ignora.
+  Mantener `bounded_result`, la limpieza acotada del bucle y la confirmación de
+  SQLite solo en el supervisor. Una extracción abandonada no puede guardar tarde.
+  Las rondas de reintento usan todos los hilos configurados; probar también
+  cancelación ignorada y paso a la siguiente ronda, con almacenamiento aislado.
 - Actualizar README, contexto y manual del panel distinguiendo objetivo final,
   funcionalidad implementada y pendientes. La documentación debe servir de
   contexto autosuficiente a una nueva sesión.

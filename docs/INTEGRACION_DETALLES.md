@@ -65,6 +65,49 @@ ejecuciones que el usuario acababa de iniciar. Preferencia reforzada: mantener
 su instancia abierta durante verificaciones, usar procesos aislados y no avisar
 que puede reanudar hasta terminar todos los cambios que requieran carga nueva.
 
+### Refuerzo del supervisor y de las rondas de reintento
+
+El mismo 13/10 se observó otra reserva bloqueada, `001-2026-079444`, desde las
+08:26 de Costa Rica. La ventana y su motor seguían vivos, con 23.051 éxitos,
+92 pendientes y un DUA en curso. Los 93 DUAs sin confirmar tenían
+`run_attempts=1`: la segunda ronda todavía no había empezado; la primera esperaba
+terminar el último intento activo. El límite cooperativo anterior no lo liberó.
+
+`asyncio.timeout()` cancela la tarea, y `asyncio.wait_for()` puede seguir esperando
+que esa cancelación termine. Por tanto, no garantizan un plazo cuando una operación
+interna no termina al cancelarla. Se sustituyó la supervisión del intento por
+`bounded_result()`: usa una espera independiente, cancela la extracción vencida
+y devuelve el control al trabajador para dejar el DUA pendiente y continuar.
+Las tareas de extracción no escriben resultados en SQLite; solo su supervisor
+puede confirmar una extracción que terminó dentro del plazo. Una respuesta tardía
+de una tarea abandonada no convierte el DUA en éxito ni duplica su resultado.
+
+La limpieza de recursos y evidencia usa también esa supervisión. El bucle ya no
+finaliza mediante `asyncio.run()`, que espera las tareas canceladas sin un plazo:
+se cancela y espera como máximo cinco segundos a las tareas residuales. Si el
+driver de Playwright no responde al cierre se termina exclusivamente su proceso
+de transporte; ese último recurso usa la estructura de la versión instalada de
+Playwright y debe revisarse al actualizar esa dependencia. La protección de
+procesos Windows y el cierre de hilos de 30 segundos siguen vigentes.
+
+Los reintentos conservan ahora `cant_hilos` en todas las rondas: se eliminó la
+reducción interna a dos trabajadores. Tránsito mantiene la renovación del plazo
+al validar una página adicional, con sus validaciones y guardado completo intactos.
+
+Comprobaciones proporcionales: siete pruebas del supervisor cubren un intento
+bloqueado, cancelación, cierre bloqueado, cancelación ignorada, respuesta tardía,
+seis trabajadores simultáneos en la segunda ronda y una tarea que nunca acepta
+cancelarse al cerrar el bucle. Pasaron dos pruebas existentes de extracción y
+cancelación de Detalles y la integración de Tránsito. Se usaron fixtures sin red.
+
+La aplicación del cambio mantuvo la GUI del usuario, PID 31392: respaldo de cola
+y calendario en `data/queues/backups/reintentos-20261013-115541/`, reconexión solo
+del motor de Detalles y recuperación de la reserva y el día 6. Se reanudó la
+ejecución que el usuario ya tenía activa, con el mismo rango y configuración.
+Una lectura posterior confirmó seis DUAs activos, 23.084 guardados y el DUA
+`001-2026-079444` completado. Son contadores de esa comprobación, no una afirmación
+de que el rango completo hubiera terminado. La ventana permaneció abierta.
+
 ## Uso
 
 1. Abrir `Abrir_Workbench.bat`; inicia directamente en **Detalles**.
