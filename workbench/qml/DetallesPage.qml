@@ -12,11 +12,13 @@ ScrollView {
     property string activeId: details.activeTable.id || ""
     property bool configDirty: false
     property bool startAfterSave: false
+    property bool dailyMode: details.config.daily_mode === true
     property string confirmAction: ""
     property string confirmTable: ""
     property var confirmIds: []
     property string confirmText: ""
     property string importName: ""
+    function selectDailyMode() { page.dailyMode = true }
     contentWidth: availableWidth
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
@@ -24,8 +26,13 @@ ScrollView {
     function filterName() { return ["all", "pending", "succeeded", "retry"][filterBox.currentIndex] || "all" }
     function refreshRows(offset) { details.searchRows(filterName(), rowSearch.text.trim(), offset); page.selectedIds = [] }
     function toggleRow(key, checked) { let values = page.selectedIds.slice(); if(checked && values.indexOf(key)<0) values.push(key); if(!checked) values = values.filter(x => x !== key); page.selectedIds = values }
-    function currentConfig() { return {cant_hilos:workerSpin.value, timeout:timeoutSpin.value, max_retries:retrySpin.value, headless:headlessToggle.checked, reuse_context:reuseToggle.checked, lightweight_details:lightToggle.checked, dark_mode:Theme.dark} }
-    function startQueries() { if(page.configDirty) { page.startAfterSave = true; details.saveConfig(page.currentConfig()) } else details.startQueries() }
+    function currentConfig() {
+        let values = {cant_hilos:workerSpin.value, timeout:timeoutSpin.value, max_retries:retrySpin.value, headless:headlessToggle.checked, reuse_context:reuseToggle.checked, lightweight_details:lightToggle.checked, dark_mode:Theme.dark, daily_mode:page.dailyMode}
+        if(dailyStart.text.trim()) values.daily_start_date = dailyStart.text.trim()
+        return values
+    }
+    function beginRun() { if(page.dailyMode) details.startDaily(); else details.startQueries() }
+    function startQueries() { if(page.configDirty) { page.startAfterSave = true; details.saveConfig(page.currentConfig()) } else page.beginRun() }
     function requestDelete(action) {
         page.confirmAction = action; page.confirmTable = page.activeId; page.confirmIds = page.selectedIds.slice()
         if(action === "rows") page.confirmText = "¿Eliminar " + page.confirmIds.length + " filas de «" + details.activeTable.name + "»?\n\nLos pendientes elegidos dejarán de consultarse. Los resultados obtenidos se conservarán para exportar."
@@ -43,7 +50,7 @@ ScrollView {
         function onEventReceived(event) {
             if(event.command === "configure" && event.event === "error") page.startAfterSave = false
             if(event.command === "configure" && event.event === "result") page.configDirty = false
-            if(event.event === "idle" && page.startAfterSave && !event.readonly) { page.startAfterSave = false; Qt.callLater(function() { details.startQueries() }) }
+            if(event.event === "idle" && page.startAfterSave && !event.readonly) { page.startAfterSave = false; Qt.callLater(function() { page.beginRun() }) }
         }
     }
 
@@ -67,24 +74,39 @@ ScrollView {
                 ColumnLayout {
                     id: sourceColumn
                     anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 16; spacing: 10
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: 12
+                        Text { text: "Modo:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; Layout.preferredWidth: 61 }
+                        Select { objectName: "detailsModeSelector"; Layout.preferredWidth: 235; model: ["Manual", "Diario automático"]; currentIndex: page.dailyMode ? 1 : 0; enabled: details.ready && !details.busy; onActivated: { page.dailyMode = currentIndex === 1; page.configDirty = true } }
+                        Item { Layout.fillWidth: true }
+                    }
+                    RowLayout {
+                        visible: page.dailyMode; Layout.fillWidth: true; spacing: 12
+                        Text { text: "Desde:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; Layout.preferredWidth: 61 }
+                        Field { id: dailyStart; objectName: "detailsDailyStart"; Layout.preferredWidth: 170; text: details.config.daily_start_date || details.daily.startDate || ""; placeholderText: "AAAA-MM-DD"; enabled: details.ready && !details.busy; onTextEdited: page.configDirty = true }
+                        Item { Layout.fillWidth: true }
+                        ActionButton { objectName: "detailsCalendarButton"; text: "Calendario"; enabled: details.ready; onClicked: { details.loadCalendar(details.daily.month); calendarDialog.open() } }
+                    }
                     GridLayout {
                         Layout.fillWidth: true; columns: 3; columnSpacing: 12; rowSpacing: 10
-                        Text { text: "Tabla:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
+                        Text { visible: !page.dailyMode; text: "Tabla:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
                         Select {
                             id: tableSelector; objectName: "detailsTableSelector"; Layout.fillWidth: true
+                            visible: !page.dailyMode
                             model: details.tables; textRole: "name"; valueRole: "id"; placeholder: "Selecciona una tabla guardada"
                             currentIndex: page.selectedIndex(); enabled: details.ready && !details.busy
                             onActivated: { details.selectTable(currentValue); page.selectedIds = [] }
                         }
-                        ActionButton { objectName: "detailsImportButton"; text: "Elegir Excel…"; iconName: "folder"; enabled: details.ready && !details.busy; onClicked: excelDialog.open() }
+                        ActionButton { visible: !page.dailyMode; objectName: "detailsImportButton"; text: "Elegir Excel…"; iconName: "folder"; enabled: details.ready && !details.busy; onClicked: excelDialog.open() }
                         Text { text: "Guardar en:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
                         Text { text: details.config.output_base_path || "Selecciona una carpeta"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
                         ActionButton { text: "Elegir carpeta…"; iconName: "folder"; enabled: details.ready && !details.busy; onClicked: outputDialog.open() }
                     }
-                    Text { text: page.activeId ? "Tabla guardada" : "Elige un Excel o abre una tabla guardada."; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
+                    Text { text: page.dailyMode ? "Descarga su base diaria y acumula los resultados por mes." : page.activeId ? "Tabla guardada" : "Elige un Excel o abre una tabla guardada."; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
                 }
             }
             Panel {
+                visible: !page.dailyMode || (!!details.daily.tableId && details.daily.tableId === page.activeId) || String(details.activeTable.source_path || "").startsWith("daily://")
                 Layout.fillWidth: true; implicitHeight: progressColumn.implicitHeight + 32
                 ColumnLayout {
                     id: progressColumn
@@ -134,19 +156,19 @@ ScrollView {
                     }
                 }
             }
-            Text { text: !page.activeId ? "Elige un Excel o una tabla para empezar." : !details.config.output_base_path ? "Elige dónde guardar los resultados." : details.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: details.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
+            Text { text: !details.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? details.dailyActive ? details.status : "Al terminar espera hasta las 00:01. Detener conserva el progreso." : !page.activeId ? "Elige un Excel o una tabla para empezar." : details.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: details.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 ActionButton { text: "Resultados"; iconName: "folder"; enabled: details.outputFolder !== ""; onClicked: details.openOutput() }
                 ActionButton { objectName: "detailsDatabaseButton"; text: "Base de datos"; iconName: "database"; enabled: details.ready; onClicked: databaseDialog.open() }
                 ActionButton { text: "Más…"; onClicked: moreMenu.popup() }
                 Item { Layout.fillWidth: true }
-                ActionButton { objectName: "detailsStopButton"; text: "Detener"; iconName: "pause"; enabled: details.running && details.status !== "Deteniendo y guardando…"; onClicked: details.stopQueries() }
+                ActionButton { objectName: "detailsStopButton"; text: "Detener"; iconName: "pause"; enabled: (details.running || details.dailyActive) && details.status !== "Deteniendo y guardando…"; onClicked: details.stopQueries() }
                 ActionButton {
                     objectName: "detailsStartButton"
-                    text: details.busy ? "Procesando…" : details.summary.total && details.summary.total === details.summary.succeeded ? "Actualizar resultados" : details.summary.attempts ? "Retomar pendientes" : "Iniciar consultas"
+                    text: details.dailyActive ? "Automático activo" : details.busy ? "Procesando…" : page.dailyMode ? "Iniciar automático" : details.summary.total && details.summary.total === details.summary.succeeded ? "Actualizar resultados" : details.summary.attempts ? "Retomar pendientes" : "Iniciar consultas"
                     iconName: "play"; primary: true
-                    enabled: details.ready && !details.busy && page.activeId !== "" && !!details.config.output_base_path && (details.runtime.chromiumReady || details.summary.total === details.summary.succeeded)
+                    enabled: details.ready && !details.busy && !!details.config.output_base_path && (page.dailyMode ? details.runtime.chromiumReady && dailyStart.text.trim() !== "" : page.activeId !== "" && (details.runtime.chromiumReady || details.summary.total === details.summary.succeeded))
                     onClicked: page.startQueries()
                 }
             }
@@ -191,6 +213,7 @@ ScrollView {
     Menu {
         id: moreMenu
         palette.window: Theme.surface; palette.windowText: Theme.text; palette.text: Theme.text; palette.base: Theme.surface; palette.highlight: Theme.hover
+        MenuItem { text: "Calendario diario"; enabled: details.ready; onTriggered: { details.loadCalendar(details.daily.month); calendarDialog.open() } }
         MenuItem { text: "Actualizar"; enabled: details.ready && !details.busy; onTriggered: details.refresh() }
         MenuItem { text: "Exportar resultados"; enabled: details.ready && !details.busy && page.activeId !== "" && !!details.config.output_base_path; onTriggered: details.exportResults() }
         MenuSeparator {}
@@ -287,6 +310,7 @@ ScrollView {
 
     Native.FileDialog { id: excelDialog; title: "Seleccionar Excel de DUAs"; nameFilters: ["Excel (*.xlsx)"]; onAccepted: details.inspectExcel(String(selectedFile)) }
     Native.FolderDialog { id: outputDialog; title: "Seleccionar carpeta de resultados"; onAccepted: details.setOutput(String(selectedFolder)) }
+    DailyCalendar { id: calendarDialog; anchors.centerIn: parent; width: Math.min(530,page.width - 20) }
 
     Dialog {
         id: importDialog

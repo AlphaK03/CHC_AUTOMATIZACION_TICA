@@ -1,7 +1,9 @@
 # Proveedores de bases — fase posterior
 
 Primer candidato: `D:/PortafolioDesarrollador/DUAS_SCRAPPING`.
-Se revisó para documentar sus entradas y salidas; todavía no se copia ni integra.
+Se copió a `duas_source/` y se integra en un proceso separado para el piloto diario
+de Detalles. Las fuentes originales conservan sus bytes.
+Leer el [piloto implementado](../docs/PILOTO_DETALLES_DIARIO.md).
 
 Su adaptación deberá proporcionar datasets DUA con período, régimen, selección,
 procedencia y cobertura verificada. Se preservan las tres clasificaciones Total,

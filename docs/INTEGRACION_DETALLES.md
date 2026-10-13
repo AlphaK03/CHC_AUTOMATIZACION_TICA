@@ -10,6 +10,9 @@ sensibles de motor, datos o recuperación.
 Fecha: 12 de octubre de 2026. Esta es la primera integración operativa del
 Workbench. Los otros cuatro módulos permanecen en demostración.
 
+El [piloto diario](PILOTO_DETALLES_DIARIO.md) añade base propia sin Excel,
+calendario y acumulación mensual en una rama de prueba. Manual sigue disponible.
+
 ## Uso
 
 1. Abrir `Abrir_Workbench.bat`; inicia directamente en **Detalles**.

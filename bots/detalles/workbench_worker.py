@@ -19,6 +19,7 @@ from core.job_store import JobStore, RunLock, active_revisions
 from core.messages import pending_reason
 from core.playwright_processor import PlaywrightDUAProcessor
 from flows.detalles_flow import DetallesFlow
+from daily import DailyCoordinator, local_now
 import utils
 
 
@@ -44,7 +45,7 @@ class EventLog(logging.Handler):
 
 
 class DetailsService:
-    def __init__(self, storage_root, protocol):
+    def __init__(self, storage_root, protocol, offline=False):
         self.root = Path(storage_root).resolve()
         self.protocol = protocol
         # Conserva estructura y formatos del bot; --storage-root aísla pruebas.
@@ -60,6 +61,7 @@ class DetailsService:
         self.captcha = load_captcha_lookup()
         self.stop_event = threading.Event()
         self.active_id = self.session.get('active_table_id', '')
+        self.daily = DailyCoordinator(self, offline=offline)
         if not self.active_id and self.session.get('input_file_path') and self.session.get('sheet_name'):
             self.active_id = utils.dataset_key(self.session['input_file_path'], self.session['sheet_name'])
         try:
@@ -152,7 +154,7 @@ class DetailsService:
                 item['summary'] = self.summary(None)
                 item['unavailable'] = True
         return {'tables': tables, 'activeTable': record or {}, 'summary': self.summary(record),
-                'config': self.machine, 'session': self.session, 'fields': self.fields,
+                'config': self.machine, 'session': self.session, 'fields': self.fields, 'daily': self.daily.snapshot(),
                 'storageRoot': str(self.root),
                 'outputFolder': str(Path(self.paths(record)['output_csv']).parent) if record and self.machine.get('output_base_path') else ''}
 
@@ -169,13 +171,19 @@ class DetailsService:
             if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
                 raise ValueError(f'Valor inválido para {key}: debe estar entre {low} y {high}.')
             updated[key] = value
-        for key in ('headless', 'dark_mode', 'reuse_context', 'lightweight_details'):
+        for key in ('headless', 'dark_mode', 'reuse_context', 'lightweight_details', 'daily_mode'):
             if key in values:
                 if not isinstance(values[key], bool):
                     raise ValueError(f'Valor inválido para {key}.')
                 updated[key] = values[key]
         if 'output_base_path' in values:
             updated['output_base_path'] = str(values['output_base_path']).strip()
+        if 'daily_start_date' in values:
+            from datetime import date
+            start = date.fromisoformat(str(values['daily_start_date']))
+            if start >= local_now().date():
+                raise ValueError('La fecha inicial debe ser anterior a hoy.')
+            updated['daily_start_date'] = start.isoformat()
         utils.save_machine_config(updated)
         self.machine = updated
 
@@ -216,6 +224,14 @@ class DetailsService:
                           pending_reason(row['error_kind'], row['last_error']) if row['last_error'] else 'Listo para consultar.'}
 
     def execute(self, command, request):
+        if command == 'daily_calendar':
+            month = str(request.get('month') or self.daily.month)
+            if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month) or not 1 <= int(month[:4]) <= 9999:
+                raise ValueError('Mes inválido.')
+            self.daily.month = month
+            return {'daily': self.daily.snapshot()}
+        if command == 'daily_run':
+            return self.daily.run()
         if command == 'initialize':
             return {'snapshot': self.snapshot(), 'runtime': self.runtime(), 'view': self.view({})}
         if command == 'inspect_excel':
@@ -333,7 +349,7 @@ def main():
     sys.stdin.reconfigure(encoding='utf-8')
     protocol = Protocol()
     try:
-        service = DetailsService(args.storage_root, protocol)
+        service = DetailsService(args.storage_root, protocol, offline=args.offline_fixture)
     except Exception as error:
         protocol.emit('fatal', message=str(error))
         return 1
@@ -369,7 +385,7 @@ def main():
                 continue
             if command == 'shutdown':
                 break
-            if busy.is_set() and command in {'view', 'detail'}:
+            if busy.is_set() and command in {'view', 'detail', 'daily_calendar'}:
                 readers = [thread for thread in readers if thread.is_alive()]
                 if len(readers) >= 2:
                     protocol.emit('error', requestId=request.get('requestId'), command=command, message='Espera a que termine la lectura actual.')

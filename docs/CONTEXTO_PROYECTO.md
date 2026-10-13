@@ -63,7 +63,7 @@ intactos como referencia y operación existente.
 
 Origen indicado: **`D:/PortafolioDesarrollador/DUAS_SCRAPPING`**.
 
-Se revisó y documentó, pero no se copió ni conectó. Guarda consultas verificadas
+Se revisó y después se copió/conectó para el piloto diario de Detalles. Guarda consultas verificadas
 en SQLite y produce las listas Total, Tránsito e Importación con `NroDUA`. Debe
 integrarse como proveedor de datasets con período, régimen, procedencia y cobertura.
 
@@ -80,7 +80,10 @@ Recuperar días atrasados sin omitirlos, guardar progreso persistente y acumular
 resultados en la tabla/CSV del mes consultado, sin duplicar ni sobrescribir éxitos.
 El cambio de mes se determina por la fecha de los datos, no por cuándo acaba el bot.
 Requisito completo, ejemplos y límites: [AUTOMATIZACION_DIARIA.md](AUTOMATIZACION_DIARIA.md).
-Este ciclo es un objetivo confirmado, aún no implementado ni activado.
+Detalles tiene un piloto en `feature/detalles-base-diaria-calendario`: base propia
+diaria, calendario, espera de 00:01 y acumulación mensual. No inicia al abrir;
+requiere Iniciar automático. Leer `PILOTO_DETALLES_DIARIO.md`. Los otros tres
+consumidores DUA siguen pendientes.
 
 BLs necesita la base BLS de Conocimientos/Manifiestos. Es distinta de las listas
 DUA: cinco columnas de texto descritas en `docs/INVENTARIO.md`. La ruta de ese
@@ -136,12 +139,11 @@ Detalles de funciones, límites y evidencia: `docs/INTEGRACION_DETALLES.md`.
 **Todavía pendiente:**
 
 - Integrar los otros cuatro motores; sus pantallas siguen siendo demos.
-- Generar bases dentro del Workbench: hoy Detalles importa Excel y persiste en SQLite.
-- Implementar la autonomía mensual/diaria y su coordinador persistente de 00:01,
-  conforme a `docs/AUTOMATIZACION_DIARIA.md`.
+- Extender a los otros tres consumidores la autonomía diaria ya implementada en
+  Detalles y ampliar generación mensual desde el Workbench.
 - Coordinar procesos, eventos, lotes, errores y concurrencia global.
 - Desacoplar GUI antiguas y convertir imports a namespaces propios.
-- Integrar DUAS_SCRAPPING y otros generadores/separadores.
+- Completar las otras selecciones de DUAS_SCRAPPING y otros generadores/separadores.
 - Validar instalaciones de los otros cuatro motores en su nueva ubicación.
 - Empaquetar la plataforma y comprobarla en un equipo limpio.
 
@@ -157,6 +159,9 @@ incluso mediante compatibilidad temporal. También autorizó usar sus bases orig
 como prueba. Estas instrucciones posteriores prevalecen sobre la etapa de demo.
 
 - La integración autorizada se limita a Detalles. Los otros bots no se modifican.
+- El usuario autorizó subir el estado actual a Git y crear la rama del piloto diario
+  con proveedor propio y calendario. Datos, ajustes personales, entornos virtuales
+  y binarios permanecen fuera de Git; las comprobaciones nuevas fueron offline.
 - Los originales se leen como referencia, sin modificar fuentes, datos o entornos.
 - La prueba real de esta entrega se limitó a dos DUAs, una ronda y un trabajador,
   en almacenamiento propio. Ambos resultados coinciden con el original.

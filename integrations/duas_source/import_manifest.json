@@ -1,0 +1,89 @@
+{
+  "source": "D:\\PortafolioDesarrollador\\DUAS_SCRAPPING",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "26ada86d6cac8f6408bc6789577f7d80a03b8419ce372fc963ba2334c161f60e"
+    },
+    {
+      "path": "CLAUDE.md",
+      "sha256": "12f6557c50c9bf75d9980fafc5c4ea5f9a2b328b11469b6c77c9f245688bfd32"
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "88416ecb35df0715d83178bd186dc1174109ad45d5016dbd851cec51d7d9f504"
+    },
+    {
+      "path": "config/captcha_lookup.json",
+      "sha256": "8aaff42bae22ae1a08583e9ff6ad01ffb329802f9c4931665b92521ecb5f6c92"
+    },
+    {
+      "path": "src/captcha.py",
+      "sha256": "69403cfb74f2f2c67c98ae8c38fa0753cb88b1ee0f17820d84f9c393c1a182e1"
+    },
+    {
+      "path": "src/data_store.py",
+      "sha256": "95557e88b9837de97c2bdbcf86f1b0c905fc4a1f387cb2aa6dfdf79b7abb592c"
+    },
+    {
+      "path": "src/driver_updater.py",
+      "sha256": "881fc8c15daeef0c5c1c2e1926ce905f5ad88af87680c76adf678e37a9bd9b72"
+    },
+    {
+      "path": "src/excel_format.py",
+      "sha256": "95797f08df71b2bece6c404e3005c4ee86669966414b014363c0f74772bd18c5"
+    },
+    {
+      "path": "src/exports.py",
+      "sha256": "f37385f6e2a9a4d4def6235e527976180f13dc43724f968e98cc5cf1b3e38651"
+    },
+    {
+      "path": "src/main.py",
+      "sha256": "9df58873504ac5e8768118ba3c01e35732b3631babaffa94edb46eecafc44a65"
+    },
+    {
+      "path": "src/original_exports.py",
+      "sha256": "552927b76943f7ed37c8336a5a2d9895770f46ef6f855a76d5d6f83ae6f420ff"
+    },
+    {
+      "path": "src/output_paths.py",
+      "sha256": "30c6c13724638084b56ed897dfba0344e5cb4c6c00e95e82ec0c090d8ea43fa7"
+    },
+    {
+      "path": "src/runner.py",
+      "sha256": "282f1c0724254bcc3e541df6384bf9392be0180a4739fcc727338e1a1173aaf6"
+    },
+    {
+      "path": "src/tica_dua_bot.py",
+      "sha256": "c491ffc63a8a66de11696888e5cc65a41bac17e01d68aa55acabaf3d0fb169a9"
+    },
+    {
+      "path": "tests/test_browser.py",
+      "sha256": "588b5d9027c8d586f3c69b9cd921c7f6395c21c3c81a859d0d1c34558e9ee2c0"
+    },
+    {
+      "path": "tests/test_excel_compatibility.py",
+      "sha256": "c3a9d6a9b4018db4c34392a2340a963cc3a82f835f4d269e1d19d1eed7fd9233"
+    },
+    {
+      "path": "tests/test_original_exports.py",
+      "sha256": "164e00feb23649357f45eec99564155216d51a185ea370d17b599f806cafa763"
+    },
+    {
+      "path": "tests/test_output_paths.py",
+      "sha256": "fbaeab9d1a1639464cf01a3d1dd5d1a4e4102d60f7b2453161f31426002df064"
+    },
+    {
+      "path": "tests/test_pipeline.py",
+      "sha256": "5c5a504fe5e58e2cf431610f26477f017ba6acf46b91e0f2c792fbb341b057d5"
+    },
+    {
+      "path": "tests/test_subdivision.py",
+      "sha256": "6496437e74fbb53301eb260462abedc0b09f37fc7243a39133239c893d86bdaa"
+    },
+    {
+      "path": "tests/test_ui.py",
+      "sha256": "d7c53aeece833855c4231992d3b688db96186ce47c64741b3877b63bfd3d5831"
+    }
+  ]
+}

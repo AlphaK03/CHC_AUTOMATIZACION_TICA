@@ -86,6 +86,10 @@ y cancelación comprobada. Recién entonces integrar sus controles en el Workben
 
 ## Fase 3 — Bases propias e integración de generadores
 
+Piloto diario de Detalles implementado en la rama `feature/detalles-base-diaria-calendario`.
+Incluye proveedor aislado, calendario, append mensual y coordinador de 00:01;
+verificado offline. Los otros consumidores siguen pendientes. Ver `PILOTO_DETALLES_DIARIO.md`.
+
 - Integrar `D:/PortafolioDesarrollador/DUAS_SCRAPPING` como proveedor de bases DUA.
   Conservar clasificación, cobertura de períodos y entregas verificadas actuales.
 - Aplicar el contrato confirmado en `AUTOMATIZACION_DIARIA.md`: Total para

@@ -1,7 +1,8 @@
 # Bases propias y ejecución diaria de los bots
 
-Requisito del usuario registrado el 12 de octubre de 2026. Es el objetivo de la
-próxima integración; este documento no indica que el ciclo esté implementado.
+Requisito registrado el 12 de octubre de 2026. Detalles tiene el primer piloto en
+`feature/detalles-base-diaria-calendario`; leer [PILOTO_DETALLES_DIARIO.md](PILOTO_DETALLES_DIARIO.md).
+Este contrato también describe el objetivo de los otros consumidores, aún pendientes.
 
 ## Relación confirmada entre bases y consumidores
 
@@ -84,10 +85,9 @@ El generador actual acepta rangos personalizados de un solo día y guarda fechas
 regímenes y cobertura en SQLite. Detalles ya permite agregar DUAs sin perder
 resultados. Estas son bases útiles, pero no constituyen el ciclo automático.
 
-Falta integrar el proveedor en este repositorio, desacoplarlo de su GUI, adaptar
-la selección/cobertura por consumidor, incorporar entradas internas al catálogo,
-implementar el coordinador persistente y la acumulación mensual, y llevar los
-otros tres consumidores DUA a recuperación transaccional antes de automatizarlos.
+El piloto de Detalles integra el proveedor, las entradas al catálogo, el
+coordinador persistente, el calendario y la acumulación mensual. Falta llevar los
+otros tres consumidores DUA a recuperación transaccional e integrar sus selecciones.
 La publicación actual de los tres Excel no acumula por sí sola entregas diarias:
 genera el contenido de la entrega indicada y reemplaza los nombres compatibles.
 
@@ -96,5 +96,6 @@ Si debe continuar con la ventana cerrada, integrar ejecución en segundo plano y
 arranque automático; ese comportamiento aún no está implementado. Al arrancar
 después de un apagado, el coordinador debe recuperar las fechas pendientes.
 
-Esta sesión registra el requisito y la viabilidad. No activa tareas programadas,
-no descarga datos adicionales ni modifica DUAS_SCRAPPING o los otros motores.
+La rama del piloto conserva este requisito y añade su primera implementación
+para Detalles. No inicia descargas al abrir ni modifica DUAS_SCRAPPING original
+o los otros motores. La comprobación de esta entrega usa fixtures offline.

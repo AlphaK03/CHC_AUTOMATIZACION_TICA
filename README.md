@@ -5,7 +5,8 @@ XMovimientos en un solo lugar y, posteriormente, integrar los generadores de bas
 
 **Estado actual: Detalles operativo en QML y cuatro módulos en demostración.**
 Detalles importa bases a SQLite, consulta TICA, retoma pendientes, administra tablas
-y exporta con el motor actual. Los demás bots conservan sus fuentes y vistas de demo.
+y exporta con el motor actual. Esta rama añade **Diario automático**: base propia
+sin Excel, calendario y acumulación mensual. Los demás bots siguen en demo.
 
 Para abrir: doble clic en **`Abrir_Workbench.bat`**. En un equipo nuevo ejecutar
 primero `Instalar_Workbench.bat` y `Instalar_Detalles.bat`. Consultar el
@@ -38,8 +39,9 @@ resultados en el mismo entorno. TICA y el navegador siguen siendo requisitos ext
 y Talón/XMovimientos usan Importación. Cada bot deberá generar su base sin elegir
 Excel, para meses terminados o en un ciclo diario: descargar ayer, procesarlo,
 esperar hasta las 00:01 y continuar, recuperando días atrasados y acumulando el CSV
-del mes correspondiente. Este ciclo todavía no está implementado. El contrato
-queda registrado en [Automatización diaria](docs/AUTOMATIZACION_DIARIA.md).
+del mes correspondiente. Detalles tiene el primer piloto; los otros consumidores
+siguen pendientes. Consultar [uso y límites del piloto](docs/PILOTO_DETALLES_DIARIO.md)
+y el [contrato completo](docs/AUTOMATIZACION_DIARIA.md).
 
 El destino va más allá de un menú de ejecutables: motores con contratos comunes
 de entrada, ejecución, detención, eventos y exportación, preservando validaciones,
@@ -96,6 +98,7 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 - [Estado de esta entrega](docs/ESTADO_INICIAL.md).
 - [Integración futura de bases](integrations/README.md).
 - [Bases por bot y autonomía mensual/diaria](docs/AUTOMATIZACION_DIARIA.md).
+- [Piloto diario de Detalles: uso y calendario](docs/PILOTO_DETALLES_DIARIO.md).
 
 ## Comprobar esta entrega
 

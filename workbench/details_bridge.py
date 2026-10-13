@@ -41,6 +41,8 @@ class DetailsBridge(QObject):
         self._ready = False
         self._busy = False
         self._running = False
+        self._daily_active = False
+        self._daily = {'active': False, 'phase': 'stopped', 'startDate': '', 'month': '', 'monthLabel': '', 'days': [], 'driverReady': False}
         self._remaining = RemainingTime()
         self._remaining_text = ''
         self._eta_timer = QTimer(self)
@@ -72,6 +74,10 @@ class DetailsBridge(QObject):
     def busy(self): return self._busy
     @Property(bool, notify=changed)
     def running(self): return self._running
+    @Property(bool, notify=changed)
+    def dailyActive(self): return self._daily_active
+    @Property('QVariantMap', notify=changed)
+    def daily(self): return self._daily
     @Property(str, notify=remainingTimeChanged)
     def remainingTime(self): return self._remaining_text
     @Property(bool, notify=changed)
@@ -132,12 +138,12 @@ class DetailsBridge(QObject):
         self._process.start(str(python), arguments)
 
     def _send(self, command, data=None):
-        readonly = command in {'view', 'detail'} and self._busy
+        readonly = command in {'view', 'detail', 'daily_calendar'} and self._busy
         if self._process.state() != QProcess.Running:
             self._error = 'El módulo no está conectado. Pulsa Reconectar o revisa la instalación.'
             self.changed.emit()
             return False
-        if self._busy and command not in {'stop', 'shutdown', 'view', 'detail'}:
+        if self._busy and command not in {'stop', 'shutdown', 'view', 'detail', 'daily_calendar'}:
             self.toast.emit('Espera a que termine la operación o detén las consultas.')
             return False
         self._sequence += 1
@@ -154,6 +160,9 @@ class DetailsBridge(QObject):
             self._eta_timer.start()
             self._update_remaining()
             self._refresh_timer.start()
+        elif command == 'daily_run':
+            self._daily_active = True
+            self._status = 'Preparando ejecución diaria…'
         self._process.write((json.dumps(request, ensure_ascii=False) + '\n').encode('utf-8'))
         self.changed.emit()
         return True
@@ -174,13 +183,31 @@ class DetailsBridge(QObject):
         kind = event['event']
         if 'snapshot' in event:
             self._snapshot = event['snapshot']
+            if 'daily' in self._snapshot:
+                self._daily = self._snapshot['daily']
+        if 'daily' in event:
+            self._daily = event['daily']
         if 'view' in event:
             request_id = event.get('requestId', 0)
             request = self._requests.get(request_id, {})
             if event.get('command') != 'view' or (request.get('tableId') == self.activeTable.get('id') and request_id >= self._last_view_sequence):
                 self._view = event['view']
                 self._last_view_sequence = request_id
-        if kind == 'progress':
+        if kind == 'daily':
+            self._daily_active = self._daily['active']
+            processing = self._daily['phase'] == 'processing'
+            if processing and not self._running:
+                self._remaining.reset(self.summary)
+                self._eta_timer.start()
+                self._refresh_timer.start()
+            elif not processing:
+                self._clear_remaining()
+                self._refresh_timer.stop()
+            self._running = processing
+            self._update_remaining()
+            if event.get('message'):
+                self._status = event['message']
+        elif kind == 'progress':
             self._snapshot['summary'] = {**EMPTY, **event['summary']}
             if self._running:
                 self._remaining.observe(self.summary)
@@ -210,6 +237,11 @@ class DetailsBridge(QObject):
                 self._clear_remaining()
                 self._refresh_timer.stop()
                 self._status = {'completed': 'Completado', 'pending': 'Finalizado con pendientes', 'stopped': 'Detenido; pendientes guardados'}[event['runStatus']]
+            elif event.get('command') == 'daily_run':
+                self._daily_active = self._running = False
+                self._clear_remaining()
+                self._refresh_timer.stop()
+                self._status = 'Automático detenido; progreso guardado.'
             elif event.get('command') in {'import', 'select', 'refresh'}:
                 self._status = 'Todo guardado' if self.summary['total'] and self.summary['total'] == self.summary['succeeded'] else 'Pendientes listos para retomar'
             elif event.get('command') == 'configure':
@@ -220,8 +252,9 @@ class DetailsBridge(QObject):
         elif kind in {'error', 'fatal'}:
             self._error = event['message']
             self._status = 'No se pudo completar la operación'
-            if event.get('command') == 'run':
+            if event.get('command') in {'run', 'daily_run'}:
                 self._running = False
+                self._daily_active = False
                 self._clear_remaining()
                 self._refresh_timer.stop()
             self.toast.emit(self._error)
@@ -252,7 +285,7 @@ class DetailsBridge(QObject):
             self.remainingTimeChanged.emit()
 
     def _finished(self, exit_code, exit_status):
-        self._busy = self._running = self._ready = False
+        self._busy = self._running = self._ready = self._daily_active = False
         self._clear_remaining()
         self._refresh_timer.stop()
         self._requests.clear()
@@ -306,6 +339,10 @@ class DetailsBridge(QObject):
 
     @Slot()
     def startQueries(self): self._send('run')
+    @Slot()
+    def startDaily(self): self._send('daily_run')
+    @Slot(str)
+    def loadCalendar(self, month): self._send('daily_calendar', {'month': month})
     @Slot()
     def stopQueries(self): self._send('stop')
     @Slot()

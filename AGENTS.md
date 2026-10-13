@@ -10,12 +10,17 @@
   alimenta Talón y XMovimientos. Cada bot deberá obtener su base sin elegir Excel,
   con modos mensual y diario: día anterior, espera hasta 00:01 Costa Rica,
   recuperación de días atrasados y resultados acumulados en su mes correspondiente.
-  Este ciclo está documentado como objetivo, todavía no implementado.
+  Piloto diario de Detalles implementado en `feature/detalles-base-diaria-calendario`;
+  leer `docs/PILOTO_DETALLES_DIARIO.md`. Los otros consumidores siguen pendientes.
 - Alcance vigente ampliado: integrar y hacer funcionar Detalles, preservando
   todas sus funciones, SQLite, pendientes, validaciones, configuración y respaldos.
   El usuario autorizó usar datos base originales como prueba. Leerlos sin modificar
   los originales, probar una muestra acotada y usar almacenamiento/salida propios.
 - Los otros cuatro módulos siguen en demostración y no se refactorizan en esta fase.
+- El usuario autorizó subir a Git y crear el piloto diario de Detalles con proveedor
+  copiado desde DUAS_SCRAPPING y calendario persistente. Los orígenes quedan intactos.
+  El modo automático se inicia por acción del usuario; verificar offline, sin
+  descargas reales como pruebas rutinarias.
 - Aislar el motor de Detalles en un proceso: la GUI Qt no importa paquetes de bots.
   El backend de demo nunca realiza consultas reales. No anunciar demos como éxitos.
 - Las pruebas reales de esta integración están limitadas a dos DUAs de la base

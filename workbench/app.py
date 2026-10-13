@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--light', action='store_true', help='Iniciar en tema claro.')
     parser.add_argument('--sample', action='store_true', help='Preparar una simulación pausada en la vista de un módulo.')
     parser.add_argument('--demo', action='store_true', help='Desactivar motores reales y mostrar solo simulaciones.')
+    parser.add_argument('--daily', action='store_true', help='Mostrar el modo diario de Detalles; no iniciar descargas automáticamente.')
     parser.add_argument('--details-storage', type=Path, help='Almacenamiento aislado para comprobaciones de Detalles.')
     args = parser.parse_args()
     if args.smoke_test or args.capture:
@@ -67,6 +68,18 @@ def main():
         return 1
     window = engine.rootObjects()[0]
     window.setProperty('demoBackend', backend)
+    if args.daily and details.enabled and args.page == 'detalles':
+        daily_selected = False
+        def select_daily():
+            nonlocal daily_selected
+            if not daily_selected and details.ready:
+                page = window.findChild(QObject, 'detailsRealPage')
+                if page:
+                    from PySide6.QtCore import QMetaObject, Qt
+                    QMetaObject.invokeMethod(page, 'selectDailyMode', Qt.DirectConnection)
+                    daily_selected = True
+        details.changed.connect(select_daily)
+        QTimer.singleShot(0, select_daily)
     if details.enabled:
         details.connectModule()
     if not args.smoke_test and not args.capture:
