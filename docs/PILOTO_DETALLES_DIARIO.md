@@ -32,6 +32,10 @@ DUAS_SCRAPPING instalado ni su ejecutable, base, configuración o controlador.
 - Fechas todavía no disponibles y anteriores a Desde aparecen atenuadas.
 - Una base incompleta o DUAs sin terminar quedan pendientes. El ciclo retoma
   automáticamente en cinco minutos, conservando regímenes y resultados guardados.
+- Un régimen sin registros cuenta como consulta completa solo con respuesta
+  confirmada de TICA. Los DUAs de los otros regímenes forman la base igualmente.
+  Si los nueve están vacíos y confirmados, el día se registra como completo sin
+  consultas de Detalles; se conserva la tabla/CSV mensual, incluso si está vacío.
 - No se saltan días pendientes. Un fallo persistente puede mantener el ciclo
   en ese día y queda visible en el calendario.
 - Una tabla por mes, como `octubre26`. Si ya existe, se agrega sin borrar datos.
@@ -46,7 +50,7 @@ DUAS_SCRAPPING instalado ni su ejecutable, base, configuración o controlador.
 
 | Pieza | Responsabilidad |
 | --- | --- |
-| `integrations/duas_source/` | 21 archivos originales copiados con manifiesto SHA256 |
+| `integrations/duas_source/` | 21 archivos en la línea base SHA256; adaptación de consultas vacías documentada abajo |
 | `integrations/duas_source/worker.py` | Descarga en proceso aislado con Selenium original |
 | `bots/detalles/daily.py` | Calendario persistente, horario, recuperación cronológica y append mensual |
 | `bots/detalles/workbench_worker.py` | Comandos daily_run/daily_calendar, extracción y cancelación |
@@ -54,7 +58,10 @@ DUAS_SCRAPPING instalado ni su ejecutable, base, configuración o controlador.
 | `workbench/qml/DailyCalendar.qml` | Calendario mensual navegable |
 
 El proveedor es un proceso separado; sus imports no se mezclan con los motores.
-Las fuentes originales del generador y de Detalles mantienen sus bytes.
+Los repositorios originales del generador y de Detalles permanecen intactos.
+En esta copia se adaptó `src/tica_dua_bot.py` y se agregó `src/query_confirmation.py`.
+El manifiesto del proveedor conserva los hashes de la copia inicial; la diferencia
+del extractor es intencional y no se oculta actualizando su hash histórico.
 `bots/detalles/data/daily/bases.sqlite3` contiene las descargas verificadas por
 régimen y fecha. `calendar.sqlite3` registra días, DUAs y tablas mensuales.
 Los resultados siguen en `data/queues/`. Los bloqueos impiden dos coordinadores
@@ -68,6 +75,28 @@ La cancelación conserva los límites del generador: una navegación de Edge act
 puede tardar hasta su límite de tres minutos en devolver el control. No se mata
 el navegador a la fuerza. Las esperas entre ciclos se cancelan al instante.
 
+## Consultas sin registros y errores
+
+El contador del formulario empieza en cero y no acredita una consulta. Un botón
+Datos XML oculto tampoco basta. La adaptación observa la respuesta del POST de
+**Confirmar** (`EENTER.`), vinculada al envío exacto de fechas, régimen y CAPTCHA.
+No realiza otra consulta para decidir si la primera estaba vacía.
+
+Solo acepta cero con HTTP 200, respuesta JSON completa, CAPTCHA aceptado por el
+servidor, fechas/régimen coincidentes, filtros generales, mensajes vacíos, contadores
+coherentes y grilla vacía confirmada. Comprueba también que el servidor mantiene
+ocultos Datos XML y el mensaje del formulario. Con datos se conserva la descarga
+XML y su validación original. La confirmación vacía se registra en los mensajes.
+
+Error HTTP, redirección, CAPTCHA rechazado, mensajes del portal, otra fecha/régimen,
+respuesta incompleta, falta de respuesta o cantidades inconsistentes mantienen el
+rango pendiente. Ninguno de esos casos completa un régimen ni un día. Si TICA
+cambia el formato, la respuesta desconocida queda pendiente para revisión.
+
+Esto acredita lo que TICA respondió; no puede garantizar que los datos internos
+del portal estén completos si el propio servidor devuelve una respuesta válida
+pero incorrecta.
+
 ## Verificación acotada
 
 - Ciclo local de dos días con nueve regímenes: 18 DUAs confirmados, calendario,
@@ -75,5 +104,13 @@ el navegador a la fuerza. Las esperas entre ciclos se cancelan al instante.
 - Dos comprobaciones rápidas de calendario/SQLite: límite de 00:01, primer día
   pendiente, cambio de mes, días vacíos y append idempotente.
 - Comprobación QML de guardar/iniciar; captura sin advertencias.
-- Ninguna consulta nueva a TICA para validar estos cambios. Las fixtures del
-  proveedor y de Detalles exigen almacenamiento fuera de la instalación normal.
+- Las fixtures del proveedor y de Detalles exigen almacenamiento fuera de la
+  instalación normal; la comprobación inicial del ciclo fue offline.
+- Diagnóstico real autorizado: solo EXPORTACION TEMPORAL del 11/10/2026, en
+  `runtime/pruebas/`. El portal confirmó cero; el extractor inicial agotaba la
+  espera de Datos XML y dejaba el rango pendiente. Se capturó la respuesta de
+  Confirmar y el nuevo validador acreditó su vacío sin otra descarga posterior.
+- Cuatro pruebas enfocadas de `tests/test_query_confirmation.py`: servidor HTTP
+  local con Edge (vacío, datos, fallo HTTP y CAPTCHA rechazado), respuestas
+  incompletas/inconsistentes y cobertura diaria con algunos/todos los regímenes
+  vacíos. Sin consultar otros días ni regímenes reales.

@@ -21,6 +21,11 @@
   copiado desde DUAS_SCRAPPING y calendario persistente. Los orígenes quedan intactos.
   El modo automático se inicia por acción del usuario; verificar offline, sin
   descargas reales como pruebas rutinarias.
+- En los nueve regímenes, cero registros solo acredita cobertura con respuesta
+  confirmada de TICA para el envío exacto; no usar el cero inicial ni un botón XML
+  oculto como prueba. Fallos de red, CAPTCHA, mensajes o respuestas incompletas
+  quedan pendientes. Regímenes vacíos confirmados no impiden formar la base;
+  si todos están vacíos y confirmados, registrar el día igualmente.
 - Aislar el motor de Detalles en un proceso: la GUI Qt no importa paquetes de bots.
   El backend de demo nunca realiza consultas reales. No anunciar demos como éxitos.
 - Las pruebas reales de esta integración están limitadas a dos DUAs de la base

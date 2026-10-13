@@ -14,6 +14,7 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 
 from captcha import word_for
 from data_store import MONTHS, normalize_record
+from query_confirmation import INSTALL_OBSERVER, confirmed_count
 
 URL = 'https://ticaconsultas.hacienda.go.cr/Tica/hciduare.aspx'
 
@@ -153,6 +154,7 @@ class TICADUAExtractor:
             start: document.getElementById('vVFCHINI').value,
             end: document.getElementById('vVFCHFIN').value,
             regimen: document.getElementById('vCODI_REGI').selectedOptions[0].text.trim(),
+            regimenCode: document.getElementById('vCODI_REGI').value,
             captcha: document.getElementById('_cfield').value
         };''')
         if (parse_date(values['start']) != initial or parse_date(values['end']) != final
@@ -160,6 +162,7 @@ class TICADUAExtractor:
                 or values['captcha'] != word):
             raise ValueError('El formulario cambió. No se envió la consulta.')
         self.check_cancelled()
+        self.driver.execute_script(INSTALL_OBSERVER, values)
         submitted = self.driver.execute_script('''
             const before=arguments[0], select=document.getElementById('vCODI_REGI');
             if (document.getElementById('vVFCHINI').value !== before.start ||
@@ -170,6 +173,23 @@ class TICADUAExtractor:
         ''', values)
         if not submitted:
             raise ValueError('El formulario cambió antes del envío; la consulta queda pendiente.')
+        def query_result(driver):
+            state = driver.execute_script('return window.chcQueryConfirmation') or {}
+            replies = state.get('requests', [])
+            if len(replies) > 1:
+                raise ValueError('Hubo varios envíos; no se puede confirmar un resultado único.')
+            if replies and replies[0].get('done'):
+                count = confirmed_count(replies[0], values)
+                return 'empty' if count == 0 else 'xml'
+            # Compatibilidad con respuestas XML directas y fixtures locales.
+            # Esta vía nunca acredita un vacío por el contador del formulario.
+            if EC.element_to_be_clickable((By.NAME, 'BUTTON6'))(driver):
+                return 'xml'
+            return False
+        if self.wait(query_result, 300) == 'empty':
+            self.log(f'{regimen}: TICA confirmó 0 DUAs para {initial}–{final}; '
+                     'CAPTCHA aceptado, fechas y régimen verificados, sin mensajes de error.')
+            return []
         self.wait(EC.element_to_be_clickable((By.NAME, 'BUTTON6')), 300).click()
         def complete_xml(driver):
             raw = driver.find_element(By.TAG_NAME, 'body').get_attribute('innerHTML')

@@ -7,6 +7,8 @@ XMovimientos en un solo lugar y, posteriormente, integrar los generadores de bas
 Detalles importa bases a SQLite, consulta TICA, retoma pendientes, administra tablas
 y exporta con el motor actual. Esta rama añade **Diario automático**: base propia
 sin Excel, calendario y acumulación mensual. Los demás bots siguen en demo.
+Los regímenes sin movimientos no bloquean la base diaria: se aceptan como vacíos
+solo con respuesta confirmada de TICA; los errores conservan el estado pendiente.
 
 Para abrir: doble clic en **`Abrir_Workbench.bat`**. En un equipo nuevo ejecutar
 primero `Instalar_Workbench.bat` y `Instalar_Detalles.bat`. Consultar el

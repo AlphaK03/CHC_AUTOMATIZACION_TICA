@@ -85,6 +85,15 @@ diaria, calendario, espera de 00:01 y acumulación mensual. No inicia al abrir;
 requiere Iniciar automático. Leer `PILOTO_DETALLES_DIARIO.md`. Los otros tres
 consumidores DUA siguen pendientes.
 
+El usuario autorizó revisar EXPORTACION TEMPORAL únicamente del 11/10/2026.
+TICA confirmó cero registros. Se corrigió la copia del proveedor para acreditar
+vacíos mediante la respuesta de Confirmar, con CAPTCHA aceptado, fechas/régimen,
+contadores y ausencia de errores verificados. Aplica a los nueve regímenes:
+uno vacío no impide crear la base con los demás; todos vacíos confirmados también
+acreditan el día. Un error nunca cuenta como vacío. Ver los criterios y pruebas
+en `PILOTO_DETALLES_DIARIO.md`; la diferencia en el extractor respecto de su
+manifiesto inicial es intencional. El generador original no se modificó.
+
 BLs necesita la base BLS de Conocimientos/Manifiestos. Es distinta de las listas
 DUA: cinco columnas de texto descritas en `docs/INVENTARIO.md`. La ruta de ese
 proveedor y los demás scripts aún deben inventariarse; DUAS_SCRAPPING no resuelve

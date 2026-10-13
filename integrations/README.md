@@ -2,7 +2,9 @@
 
 Primer candidato: `D:/PortafolioDesarrollador/DUAS_SCRAPPING`.
 Se copió a `duas_source/` y se integra en un proceso separado para el piloto diario
-de Detalles. Las fuentes originales conservan sus bytes.
+de Detalles. El repositorio original permanece intacto. La copia del extractor
+tiene una adaptación documentada para confirmar consultas sin registros, mediante
+`src/query_confirmation.py`; el manifiesto conserva la línea base inicial.
 Leer el [piloto implementado](../docs/PILOTO_DETALLES_DIARIO.md).
 
 Su adaptación deberá proporcionar datasets DUA con período, régimen, selección,
