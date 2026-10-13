@@ -23,6 +23,10 @@ QQuickStyle.setStyle('Basic')
 
 
 class RecordingBridge(DetailsBridge):
+    def connectModule(self):
+        # DemoBackend.navigate calls this; this unit check must stay in-memory.
+        pass
+
     def __init__(self):
         super().__init__()
         self.commands = []

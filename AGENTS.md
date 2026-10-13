@@ -38,6 +38,8 @@
 - Ajustar la verificación al riesgo. En cambios visuales hacer una comprobación
   breve de carga/captura; no repetir suites completas ni consultas reales.
   Reservar pruebas amplias para cambios sensibles de motor, datos o recuperación.
+- Al terminar cambios de código, abrir la app antes de documentar, por petición
+  explícita del usuario. Mantener este orden en futuras sesiones.
 - Actualizar README, contexto y manual del panel distinguiendo objetivo final,
   funcionalidad implementada y pendientes. La documentación debe servir de
   contexto autosuficiente a una nueva sesión.
