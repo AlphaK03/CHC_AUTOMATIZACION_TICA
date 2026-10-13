@@ -29,6 +29,7 @@ ScrollView {
     function currentConfig() {
         let values = {cant_hilos:workerSpin.value, timeout:timeoutSpin.value, max_retries:retrySpin.value, headless:headlessToggle.checked, reuse_context:reuseToggle.checked, lightweight_details:lightToggle.checked, dark_mode:Theme.dark, daily_mode:page.dailyMode}
         if(dailyStart.text.trim()) values.daily_start_date = dailyStart.text.trim()
+        values.daily_end_date = dailyEnd.text.trim()
         return values
     }
     function beginRun() { if(page.dailyMode) details.startDaily(); else details.startQueries() }
@@ -84,8 +85,10 @@ ScrollView {
                         visible: page.dailyMode; Layout.fillWidth: true; spacing: 12
                         Text { text: "Desde:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; Layout.preferredWidth: 61 }
                         Field { id: dailyStart; objectName: "detailsDailyStart"; Layout.preferredWidth: 170; text: details.config.daily_start_date || details.daily.startDate || ""; placeholderText: "AAAA-MM-DD"; enabled: details.ready && !details.busy; onTextEdited: page.configDirty = true }
+                        Text { text: "Hasta:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
+                        Field { id: dailyEnd; objectName: "detailsDailyEnd"; Layout.preferredWidth: 140; text: details.config.daily_end_date || ""; placeholderText: "Continuo"; enabled: details.ready && !details.busy; onTextEdited: page.configDirty = true }
                         Item { Layout.fillWidth: true }
-                        ActionButton { objectName: "detailsCalendarButton"; text: "Calendario"; enabled: details.ready; onClicked: { details.loadCalendar(details.daily.month); calendarDialog.open() } }
+                        ActionButton { objectName: "detailsCalendarButton"; text: "Calendario"; enabled: details.ready; onClicked: { details.loadCalendar(dailyStart.text.trim().slice(0,7) || details.daily.month); calendarDialog.open() } }
                     }
                     GridLayout {
                         Layout.fillWidth: true; columns: 3; columnSpacing: 12; rowSpacing: 10
@@ -156,7 +159,7 @@ ScrollView {
                     }
                 }
             }
-            Text { text: !details.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? details.dailyActive ? details.status : "Al terminar espera hasta las 00:01. Detener conserva el progreso." : !page.activeId ? "Elige un Excel o una tabla para empezar." : details.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: details.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
+            Text { text: !details.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? details.dailyActive ? details.status : dailyEnd.text.trim() ? "Se detiene al completar el rango elegido." : "Al terminar espera hasta las 00:01. Detener conserva el progreso." : !page.activeId ? "Elige un Excel o una tabla para empezar." : details.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: details.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 ActionButton { text: "Resultados"; iconName: "folder"; enabled: details.outputFolder !== ""; onClicked: details.openOutput() }
@@ -310,7 +313,11 @@ ScrollView {
 
     Native.FileDialog { id: excelDialog; title: "Seleccionar Excel de DUAs"; nameFilters: ["Excel (*.xlsx)"]; onAccepted: details.inspectExcel(String(selectedFile)) }
     Native.FolderDialog { id: outputDialog; title: "Seleccionar carpeta de resultados"; onAccepted: details.setOutput(String(selectedFolder)) }
-    DailyCalendar { id: calendarDialog; anchors.centerIn: parent; width: Math.min(530,page.width - 20) }
+    DailyCalendar {
+        id: calendarDialog; anchors.centerIn: parent; width: Math.min(530,page.width - 20)
+        initialStart: dailyStart.text.trim(); initialEnd: dailyEnd.text.trim()
+        onRangeSelected: function(start, end) { dailyStart.text = start; dailyEnd.text = end; page.dailyMode = true; page.configDirty = true }
+    }
 
     Dialog {
         id: importDialog

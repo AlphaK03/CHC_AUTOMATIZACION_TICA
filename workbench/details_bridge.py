@@ -241,7 +241,7 @@ class DetailsBridge(QObject):
                 self._daily_active = self._running = False
                 self._clear_remaining()
                 self._refresh_timer.stop()
-                self._status = 'Automático detenido; progreso guardado.'
+                self._status = 'Rango completado; resultados guardados.' if event.get('runStatus') == 'completed' else 'Automático detenido; progreso guardado.'
             elif event.get('command') in {'import', 'select', 'refresh'}:
                 self._status = 'Todo guardado' if self.summary['total'] and self.summary['total'] == self.summary['succeeded'] else 'Pendientes listos para retomar'
             elif event.get('command') == 'configure':

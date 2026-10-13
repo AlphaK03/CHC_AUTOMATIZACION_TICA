@@ -11,13 +11,38 @@ Dialog {
     palette.windowText: Theme.text; palette.buttonText: Theme.text; palette.button: Theme.raised
     background: Panel {}
     property var selectedDay: ({})
+    property string initialStart: ""
+    property string initialEnd: ""
+    property string rangeStart: ""
+    property string rangeEnd: ""
+    property bool choosingEnd: false
+    signal rangeSelected(string start, string end)
+    onOpened: { rangeStart = initialStart; rangeEnd = initialEnd; choosingEnd = false }
+    function chooseDay(item) {
+        selectedDay = item
+        if(details.busy || !item.available) return
+        if(!choosingEnd) { rangeStart = item.date; rangeEnd = ""; choosingEnd = true }
+        else {
+            const first = rangeStart
+            rangeStart = item.date < first ? item.date : first
+            rangeEnd = item.date < first ? first : item.date
+            choosingEnd = false
+        }
+    }
+    function inRange(day) { return !!day && !!rangeStart && day >= rangeStart && day <= (rangeEnd || rangeStart) }
+    function applyRange() {
+        if(details.busy || !rangeStart || !rangeEnd) return
+        rangeSelected(rangeStart, rangeEnd)
+        close()
+    }
     header: Rectangle {
         implicitHeight: 44; color: Theme.surface
         Text { anchors.left: parent.left; anchors.leftMargin: 20; anchors.verticalCenter: parent.verticalCenter; text: calendarDialog.title; color: Theme.text; font.family: Theme.family; font.pixelSize: 13; font.weight: Font.DemiBold }
     }
     footer: RowLayout {
         implicitHeight: 56
-        Item { Layout.fillWidth: true }
+        Text { Layout.leftMargin: 20; Layout.fillWidth: true; text: calendarDialog.rangeStart ? calendarDialog.rangeStart + " → " + (calendarDialog.rangeEnd || "…") : ""; color: Theme.text; font.family: Theme.family; font.pixelSize: 11 }
+        ActionButton { objectName: "detailsApplyCalendarRange"; text: "Usar rango"; primary: true; enabled: !details.busy && !!calendarDialog.rangeStart && !!calendarDialog.rangeEnd; onClicked: calendarDialog.applyRange() }
         ActionButton { text: "Cerrar"; Layout.rightMargin: 20; onClicked: calendarDialog.close() }
     }
     Connections {
@@ -54,16 +79,16 @@ Dialog {
                     id: dayButton
                     required property var modelData
                     Layout.fillWidth: true; Layout.preferredHeight: 43
-                    enabled: !!modelData.day
-                    opacity: ["future", "outside"].indexOf(modelData.state) >= 0 ? .35 : 1
+                    enabled: !!modelData.day && modelData.available === true
+                    opacity: !modelData.day || modelData.available === true ? 1 : .35
                     text: modelData.day ? String(modelData.day) : ""
                     background: Rectangle {
                         radius: 7
-                        color: !dayButton.modelData.day ? "transparent" : dayButton.modelData.state === "completed" ? Qt.alpha(Theme.success,.18) : ["downloading", "processing"].indexOf(dayButton.modelData.state) >= 0 ? Theme.accentTint : Theme.raised
-                        border.color: dayButton.modelData.state === "completed" ? Theme.success : calendarDialog.selectedDay.date === dayButton.modelData.date ? Theme.accent : "transparent"
+                        color: !dayButton.modelData.day ? "transparent" : calendarDialog.inRange(dayButton.modelData.date) ? Theme.accentTint : dayButton.modelData.state === "completed" ? Qt.alpha(Theme.success,.18) : ["downloading", "processing"].indexOf(dayButton.modelData.state) >= 0 ? Theme.accentTint : Theme.raised
+                        border.color: calendarDialog.inRange(dayButton.modelData.date) ? Theme.accent : dayButton.modelData.state === "completed" ? Theme.success : calendarDialog.selectedDay.date === dayButton.modelData.date ? Theme.accent : "transparent"
                     }
                     contentItem: Text { text: dayButton.text; color: dayButton.modelData.state === "completed" ? Theme.success : Theme.text; font.family: Theme.family; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                    onClicked: calendarDialog.selectedDay = modelData
+                    onClicked: calendarDialog.chooseDay(modelData)
                 }
             }
         }
@@ -75,7 +100,7 @@ Dialog {
         }
         Text {
             Layout.fillWidth: true; wrapMode: Text.WordWrap
-            text: calendarDialog.selectedDay.date ? calendarDialog.selectedDay.date + " · " + ({completed:"Completado",downloading:"Descargando base",processing:"Procesando",pending:"Pendiente",future:"Todavía no disponible",outside:"Fuera del período elegido"})[calendarDialog.selectedDay.state] + (calendarDialog.selectedDay.total ? " · " + calendarDialog.selectedDay.succeeded + " / " + calendarDialog.selectedDay.total + " guardados" : "") + (calendarDialog.selectedDay.error ? "\n" + calendarDialog.selectedDay.error : "") : "Selecciona un día para ver su estado."
+            text: calendarDialog.selectedDay.date ? calendarDialog.selectedDay.date + " · " + ({completed:"Completado",downloading:"Descargando base",processing:"Procesando",pending:"Pendiente",future:"Todavía no disponible",outside:"Sin ejecutar"})[calendarDialog.selectedDay.state] + (calendarDialog.selectedDay.total ? " · " + calendarDialog.selectedDay.succeeded + " / " + calendarDialog.selectedDay.total + " guardados" : "") + (calendarDialog.selectedDay.error ? "\n" + calendarDialog.selectedDay.error : "") : "Elige el primer y último día del rango."
             color: Theme.muted; font.family: Theme.family; font.pixelSize: 11
         }
     }

@@ -11,7 +11,7 @@ sys.path.insert(0, str(HERE))
 
 from PySide6.QtCore import QMetaObject, QObject, Qt, QUrl
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from details_bridge import DetailsBridge
 from demo import DemoBackend
@@ -82,6 +82,22 @@ class ConfigurationEventsTest(unittest.TestCase):
         self.assertFalse(page.property('startAfterSave'))
         self.assertEqual(bridge.commands[-1], 'run')
         self.assertEqual(bridge.commands.count('run'), 1)
+        bridge._busy = False
+        bridge.changed.emit()
+        calendar = window.findChild(QObject, 'detailsDailyCalendar')
+        self.assertIsNotNone(calendar)
+        context.setContextProperty('testCalendar', calendar)
+        expression = QQmlExpression(context, page, '''
+            testCalendar.chooseDay({date:"2026-10-02",available:true,state:"outside"});
+            testCalendar.chooseDay({date:"2026-09-29",available:true,state:"outside"});
+            testCalendar.applyRange();
+        ''')
+        expression.evaluate()
+        self.assertFalse(expression.hasError(), expression.error().toString())
+        self.assertEqual(page.findChild(QObject, 'detailsDailyStart').property('text'), '2026-09-29')
+        self.assertEqual(page.findChild(QObject, 'detailsDailyEnd').property('text'), '2026-10-02')
+        self.assertTrue(page.property('configDirty'))
+        self.assertTrue(page.property('dailyMode'))
         self.assertEqual(warnings, [])
         window.setVisible(False)
 

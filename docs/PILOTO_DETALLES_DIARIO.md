@@ -9,6 +9,11 @@ diaria real como prueba automática de esta entrega.
 1. Abrir el Workbench y elegir **Diario automático** en Modo.
 2. Indicar **Desde**, con formato `AAAA-MM-DD`. Por defecto propone ayer;
    una fecha anterior recupera los días pendientes desde esa fecha.
+   También puede elegirse desde **Calendario**: pulsar el primer y último día
+   (en cualquier orden) y **Usar rango**. Se permiten días anteriores a Desde
+   y rangos entre meses usando las flechas. No se permiten fechas futuras.
+   **Hasta** limita la ejecución: se detiene al completar ese día. Dejar Hasta
+   vacío mantiene el ciclo continuo de las 00:01. Elegir un rango no inicia consultas.
 3. Revisar Guardar en y Configuración. Pulsar **Iniciar automático**.
 4. Consultar **Calendario** y seleccionar un día para ver cantidades y errores.
 5. **Detener** o cerrar la app conserva bases, resultados y calendario.
@@ -29,7 +34,10 @@ DUAS_SCRAPPING instalado ni su ejecutable, base, configuración o controlador.
 - Verde: todos los DUAs de ese día tienen resultados guardados, o la base está
   vacía y validada. Descargar la lista no basta para marcar completo el día.
 - En curso: descargando o procesando. Pendiente: aún no se ha completado.
-- Fechas todavía no disponibles y anteriores a Desde aparecen atenuadas.
+- Fechas todavía no disponibles aparecen atenuadas. Los días anteriores a Desde
+  siguen disponibles para elegir un nuevo rango; figuran Sin ejecutar si no tienen registro.
+- Mientras corre el bot, el calendario permite consultar estados. Detener antes
+  de cambiar el rango. Los días ya completos se reutilizan sin volver a descargarlos.
 - Una base incompleta o DUAs sin terminar quedan pendientes. El ciclo retoma
   automáticamente en cinco minutos, conservando regímenes y resultados guardados.
 - Un régimen sin registros cuenta como consulta completa solo con respuesta
@@ -66,6 +74,9 @@ del extractor es intencional y no se oculta actualizando su hash histórico.
 régimen y fecha. `calendar.sqlite3` registra días, DUAs y tablas mensuales.
 Los resultados siguen en `data/queues/`. Los bloqueos impiden dos coordinadores
 sobre los mismos datos y protegen las tablas al agregar y consultar.
+`DailyJobStore` reserva solo los DUAs del día en curso mediante una selección
+temporal en SQLite. No procesa otros pendientes de la tabla mensual. La exportación
+conserva todos los resultados del mes; el motor original de Detalles sigue intacto.
 
 Cada día tiene una revisión estable para reimportar sin duplicar entradas ni
 historia de origen tras un cierre. Los días vacíos válidos también se registran.
@@ -114,3 +125,5 @@ pero incorrecta.
   local con Edge (vacío, datos, fallo HTTP y CAPTCHA rechazado), respuestas
   incompletas/inconsistentes y cobertura diaria con algunos/todos los regímenes
   vacíos. Sin consultar otros días ni regímenes reales.
+- Selección QML de un rango anterior entre meses y comprobaciones rápidas de
+  límite final, reanudación y reservas restringidas a los DUAs del día, sin red.

@@ -26,6 +26,10 @@
   oculto como prueba. Fallos de red, CAPTCHA, mensajes o respuestas incompletas
   quedan pendientes. Regímenes vacíos confirmados no impiden formar la base;
   si todos están vacíos y confirmados, registrar el día igualmente.
+- El calendario permite elegir rangos pasados, incluso antes de Desde y entre
+  meses. Hasta vacío mantiene el ciclo continuo; un rango con Hasta se detiene
+  al completarse. No consultar pendientes de otros días de la tabla mensual:
+  conservar la selección diaria de DailyJobStore y el CSV mensual acumulado.
 - Aislar el motor de Detalles en un proceso: la GUI Qt no importa paquetes de bots.
   El backend de demo nunca realiza consultas reales. No anunciar demos como éxitos.
 - Las pruebas reales de esta integración están limitadas a dos DUAs de la base

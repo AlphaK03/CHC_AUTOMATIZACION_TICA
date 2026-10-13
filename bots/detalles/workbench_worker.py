@@ -19,7 +19,7 @@ from core.job_store import JobStore, RunLock, active_revisions
 from core.messages import pending_reason
 from core.playwright_processor import PlaywrightDUAProcessor
 from flows.detalles_flow import DetallesFlow
-from daily import DailyCoordinator, local_now
+from daily import DailyCoordinator, DailyJobStore, local_now
 import utils
 
 
@@ -184,6 +184,14 @@ class DetailsService:
             if start >= local_now().date():
                 raise ValueError('La fecha inicial debe ser anterior a hoy.')
             updated['daily_start_date'] = start.isoformat()
+        if 'daily_end_date' in values:
+            updated['daily_end_date'] = str(values['daily_end_date']).strip()
+        if updated.get('daily_end_date'):
+            from datetime import date, timedelta
+            end = date.fromisoformat(updated['daily_end_date'])
+            start = date.fromisoformat(updated.get('daily_start_date') or (local_now().date() - timedelta(days=1)).isoformat())
+            if end < start or end >= local_now().date():
+                raise ValueError('Hasta debe ser igual o posterior a Desde y anterior a hoy.')
         utils.save_machine_config(updated)
         self.machine = updated
 
@@ -299,7 +307,7 @@ class DetailsService:
             paths = self.paths(record)
             with RunLock(self.catalog.database(record)):
                 self.catalog.get(record['id'])
-                store = JobStore(self.catalog.database(record))
+                store = DailyJobStore(self.catalog.database(record), request['daily_duas']) if 'daily_duas' in request else JobStore(self.catalog.database(record))
                 monitor_stop = threading.Event()
                 def monitor():
                     last = None

@@ -35,6 +35,37 @@ def next_midnight(now):
     return wake if now < wake else wake + timedelta(days=1)
 
 
+class DailyJobStore(JobStore):
+    """Reserva solo los DUAs del día; el CSV mantiene todo el acumulado mensual."""
+    def __init__(self, path, duas):
+        super().__init__(path)
+        with self.transaction() as db:
+            db.execute('CREATE TEMP TABLE daily_scope (dua TEXT PRIMARY KEY)')
+            db.executemany('INSERT OR IGNORE INTO daily_scope VALUES (?)', ((dua,) for dua in duas))
+
+    def claim(self, round_number):
+        with self.transaction() as db:
+            row = db.execute('''SELECT id,dua FROM jobs INDEXED BY jobs_ready
+                WHERE status IN ('pending','retry') AND run_attempts < ?
+                AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)
+                ORDER BY run_attempts, rowid LIMIT 1''', (round_number,)).fetchone()
+            if row is None:
+                return None
+            db.execute("UPDATE jobs SET status='running', attempts=attempts+1, run_attempts=run_attempts+1 WHERE id=?", (row['id'],))
+            attempt = db.execute('INSERT INTO attempts(job_id) VALUES (?)', (row['id'],)).lastrowid
+            return {'id': row['id'], 'dua': row['dua'], 'attempt_id': attempt}
+
+    def summary(self):
+        with self.lock:
+            counts = dict(self.db.execute('''SELECT status,COUNT(*) FROM jobs
+                WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua) GROUP BY status''').fetchall())
+            attempts = self.db.execute('''SELECT COALESCE(SUM(attempts),0) FROM jobs
+                WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)''').fetchone()[0]
+            total = self.db.execute('SELECT COUNT(*) FROM daily_scope').fetchone()[0]
+        return {**{state: counts.get(state, 0) for state in ('pending', 'running', 'retry', 'succeeded', 'invalid')},
+                'total': sum(counts.values()), 'attempts': attempts, 'source_rows': total}
+
+
 class DailyLedger:
     def __init__(self, root):
         self.path = Path(root) / 'data' / 'daily' / 'calendar.sqlite3'
@@ -115,7 +146,7 @@ class DailyLedger:
         for number in range(1, count + 1):
             target = date(year, month, number)
             state = 'future' if target > eligible_day(now) else 'outside' if target < start else 'pending'
-            result.append({'day': number, 'date': target.isoformat(), 'state': state, 'total': 0, 'succeeded': 0, 'error': '', **saved.get(target.isoformat(), {})})
+            result.append({'day': number, 'date': target.isoformat(), 'state': state, 'available': target <= eligible_day(now), 'total': 0, 'succeeded': 0, 'error': '', **saved.get(target.isoformat(), {})})
             result[-1]['day'] = number
         return result
 
@@ -139,10 +170,14 @@ class DailyCoordinator:
     def start_date(self):
         return date.fromisoformat(self.service.machine.get('daily_start_date') or (self.now().date() - timedelta(days=1)).isoformat())
 
+    def end_date(self):
+        value = self.service.machine.get('daily_end_date')
+        return date.fromisoformat(value) if value else None
+
     def snapshot(self):
         return {'active': self.active, 'phase': self.phase, 'day': self.day, 'wakeAt': self.wake,
                 'tableId': self.ledger.get(date.fromisoformat(self.day)).get('table_id', '') if self.day else '',
-                'startDate': self.start_date().isoformat(), 'month': self.month,
+                'startDate': self.start_date().isoformat(), 'endDate': self.service.machine.get('daily_end_date', ''), 'month': self.month,
                 'monthLabel': f'{MONTHS[int(self.month[5:]) - 1].capitalize()} {self.month[:4]}',
                 'days': self.ledger.month(self.month, self.start_date(), self.now()),
                 'driverReady': (SOURCE / 'drivers' / 'msedgedriver.exe').is_file()}
@@ -270,7 +305,7 @@ class DailyCoordinator:
             return False
         self.ledger.update(day, state='processing', error='')
         self.emit('processing', 'Procesando el ' + day.strftime('%d/%m/%Y'))
-        self.service.execute('run', {})
+        self.service.execute('run', {'daily_duas': duas})
         confirmed = self.confirmed(record, duas)
         complete = confirmed == len(duas)
         self.ledger.update(day, state='completed' if complete else 'pending', succeeded=confirmed,
@@ -281,8 +316,11 @@ class DailyCoordinator:
 
     def run(self):
         start = self.start_date()
+        end = self.end_date()
         if start >= self.now().date():
             raise ValueError('La fecha inicial debe ser anterior a hoy.')
+        if end and (end < start or end >= self.now().date()):
+            raise ValueError('El rango debe terminar entre Desde y ayer.')
         if not self.service.machine.get('output_base_path'):
             raise ValueError('Elige la carpeta de resultados antes de iniciar.')
         if not self.offline and not (SOURCE / 'drivers' / 'msedgedriver.exe').is_file():
@@ -293,11 +331,16 @@ class DailyCoordinator:
             if not self.service.machine.get('daily_start_date') or not self.service.machine.get('daily_mode'):
                 self.service.configure({'daily_start_date': start.isoformat(), 'daily_mode': True})
             self.active = True
+            finished = False
             try:
                 while not self.service.stop_event.is_set():
                     now = self.now()
-                    day = self.ledger.next_day(start, eligible_day(now))
+                    last = min(end, eligible_day(now)) if end else eligible_day(now)
+                    day = self.ledger.next_day(start, last)
                     if day is None:
+                        if end and end <= eligible_day(now):
+                            finished = True
+                            break
                         wake = next_midnight(now)
                         self.emit('waiting', f'Esperando al {wake:%d/%m} a las 00:01', wake.isoformat())
                         # Re-evaluate the wall clock so clock changes do not skip days.
@@ -318,5 +361,5 @@ class DailyCoordinator:
                 raise
             finally:
                 self.active = False
-                self.emit('stopped', 'Automático detenido; progreso guardado.')
-        return {'snapshot': self.service.snapshot(), 'daily': self.snapshot(), 'runStatus': 'stopped'}
+                self.emit('completed' if finished else 'stopped', 'Rango completado; resultados guardados.' if finished else 'Automático detenido; progreso guardado.')
+        return {'snapshot': self.service.snapshot(), 'daily': self.snapshot(), 'runStatus': 'completed' if finished else 'stopped'}
