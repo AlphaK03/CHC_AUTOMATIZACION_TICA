@@ -54,10 +54,20 @@ Dialog {
                 ComboBox { id:targetBox; objectName:"sharePointTarget"; Layout.fillWidth:true; model:service ? service.destinations : []; textRole:"label" }
                 RowLayout {
                     Layout.fillWidth:true
-                    TextField { id:siteUrl; objectName:"sharePointSiteUrl"; Layout.fillWidth:true; placeholderText:"URL del sitio SharePoint de CHC"; selectByMouse:true; color:Theme.text; background:Rectangle { color:Theme.surface; radius:6; border.color:Theme.border } }
+                    TextField { id:siteUrl; objectName:"sharePointSiteUrl"; Layout.fillWidth:true; text:"https://chcconsultorescr.sharepoint.com/_layouts/15/sharepoint.aspx/onedrive/places"; placeholderText:"URL del sitio o de Bibliotecas de SharePoint"; selectByMouse:true; color:Theme.text; background:Rectangle { color:Theme.surface; radius:6; border.color:Theme.border } }
                     ActionButton { text:"Ver bibliotecas"; enabled:!!service && !service.busy && siteUrl.text.length>0; onClicked:{ dialog.driveId=""; dialog.ancestors=[]; service.openSite(siteUrl.text) } }
                 }
-                Text { text:"El sitio debe estar autorizado para esta app y tu cuenta debe tener acceso. Puedes configurar las rutas más adelante."; color:Theme.faint; font.pixelSize:11; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+                Text { text:"Puedes explorar los sitios que permita tu cuenta. Para guardar resultados, el sitio elegido debe autorizar la escritura para esta app."; color:Theme.faint; font.pixelSize:11; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+                RowLayout {
+                    Layout.fillWidth:true
+                    TextField { id:siteSearch; Layout.fillWidth:true; placeholderText:"Buscar sitio por nombre"; selectByMouse:true; color:Theme.text; background:Rectangle { color:Theme.surface; radius:6; border.color:Theme.border } }
+                    ActionButton { objectName:"searchSharePointSites"; text:"Explorar sitios"; enabled:!!service && !service.busy; onClicked:{ dialog.driveId=""; dialog.ancestors=[]; service.searchSites("https://chcconsultorescr.sharepoint.com",siteSearch.text) } }
+                }
+                Text { visible:!!service && !!service.browse.places; text:"Elige un sitio para ver sus bibliotecas."; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true }
+                Repeater {
+                    model:service && service.browse.sites ? service.browse.sites : []
+                    ActionButton { required property var modelData; objectName:"sharePointKnownSite"; text:"Sitio · " + modelData.name; enabled:!!service && !service.busy; onClicked:{ siteUrl.text=modelData.url; dialog.driveId=""; dialog.ancestors=[]; service.openSite(modelData.url) } }
+                }
                 Repeater {
                     model:service && service.browse.drives ? service.browse.drives : []
                     ActionButton { required property var modelData; text:"Biblioteca · " + modelData.name; enabled:!!service && !service.busy; onClicked:{ dialog.driveId=modelData.id; dialog.ancestors=[]; service.openFolder(modelData.id,"root") } }

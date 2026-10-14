@@ -17,7 +17,8 @@ Se creó mediante la sesión autorizada del usuario el 14 de octubre de 2026:
 | Tipo de cuenta | Solo CHC Consultores, un inquilino |
 | Plataforma | Aplicaciones móviles y de escritorio |
 | Retorno | `http://localhost` |
-| Permiso Microsoft Graph | `Sites.Selected`, delegado |
+| Lectura y exploración Microsoft Graph | `Sites.Read.All`, delegado (autorizado por el usuario después del registro inicial) |
+| Escritura Microsoft Graph | `Sites.Selected`, delegado |
 
 El permiso `User.Read` agregado por defecto fue retirado. No se crearon secretos,
 certificados ni permisos de aplicación. Los identificadores públicos se incluyen
@@ -31,7 +32,12 @@ app; no cierra la sesión general de Microsoft del navegador.
 
 ## Autorizar un sitio cuando se elija
 
-`Sites.Selected` permite acceso únicamente a sitios autorizados explícitamente.
+`Sites.Read.All` delegado permite explorar y leer los sitios a los que tenga acceso
+la cuenta conectada. El usuario eligió expresamente esta opción para navegar por
+todas sus bibliotecas. Se usa `/sites?search=...`, con paginación y filtro al host
+SharePoint de CHC. No concede escritura general.
+
+`Sites.Selected` permite escritura únicamente en sitios autorizados explícitamente.
 El consentimiento OAuth y la asignación al sitio son pasos diferentes. Todavía
 no se asignó ningún sitio: el usuario configurará sus rutas más adelante.
 El consentimiento al ámbito debe completarse al conectar, conforme a las
@@ -67,15 +73,19 @@ Content-Type: application/json
 
 Además, cada usuario conectado debe tener permiso para escribir en la carpeta.
 La autorización efectiva es la intersección entre su acceso y el de la app.
-No se busca ni enumera todo SharePoint: se introduce la URL del sitio autorizado.
+El selector permite buscar sitios por nombre o introducir su URL. También acepta
+la página de **Bibliotecas** de CHC y los enlaces `FileBrowser.aspx` que contiene;
+se normalizan al sitio correspondiente antes de consultar Microsoft Graph.
 La asignación está limitada al sitio; las rutas elegidas en la interfaz no son
 una restricción adicional de permisos a nivel de carpeta.
 
 ## Uso
 
 1. Abrir **Cuenta y SharePoint** y pulsar **Conectar cuenta CHC**.
-2. Seleccionar el bot o procedimiento, introducir la URL del sitio y pulsar
-   **Ver bibliotecas**.
+2. Seleccionar el bot o procedimiento y pulsar **Explorar sitios**, o introducir
+   una URL de SharePoint y pulsar **Ver bibliotecas**. La página inicial
+   `https://chcconsultorescr.sharepoint.com/_layouts/15/sharepoint.aspx/onedrive/places`
+   abre el catálogo de sitios; elegir uno para ver sus bibliotecas.
 3. Elegir biblioteca, recorrer carpetas y pulsar **Usar esta carpeta**.
 4. Ejecutar el bot o exportar sus resultados normalmente. Los CSV se envían a
    `carpeta elegida / nombre del lote / nombre original del CSV`.
@@ -111,11 +121,21 @@ Comprobaciones realizadas: 12 pruebas de publicación y transporte con Graph
 simulado, dos pruebas de interfaz/proceso y cifrado real de Windows; integración
 local de Talón/XMovimientos y cinco procedimientos de Manifiestos con entrega a
 BLs; smoke QML. Se comprobaron registro, directorio, retorno y permiso en Entra.
-No se inició sesión OAuth ni se subieron archivos reales: faltan el sitio y la
-carpeta que el usuario elegirá después. Estas pruebas no demuestran una entrega
-real a SharePoint ni que Power BI haya actualizado sus datos.
+Actualización de navegación: se verificó una conexión OAuth real con la cuenta
+CHC del usuario. Con el ámbito inicial `Sites.Selected`, la lectura del sitio raíz
+devolvió 403 por falta de asignación. En Edge se comprobaron seis entradas de
+biblioteca y sus enlaces reales, sin extraer cookies ni tokens del navegador.
+El usuario agregó `Sites.Read.All` delegado al registro; al renovar la sesión,
+Microsoft mostró **Se necesita la aprobación del administrador**. Por tanto, la
+exploración real por Graph con el nuevo ámbito sigue pendiente de aprobación.
+Se añadieron pruebas de enlaces reales, catálogo de sitios y filtro al host CHC:
+15 pruebas cloud y dos de Qt/worker/DPAPI, más smoke QML, satisfactorias.
+No se subieron archivos ni se configuraron destinos reales. Estas pruebas no
+demuestran una entrega real a SharePoint ni una actualización de Power BI.
 
 Referencias oficiales: [permisos seleccionados](https://learn.microsoft.com/en-us/graph/permissions-selected-overview),
 [registro de escritorio](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-desktop-app-configuration),
 [MSAL Python](https://msal-python.readthedocs.io/en/latest/),
 [cargas por sesión](https://learn.microsoft.com/en-us/graph/api/driveitem-createuploadsession?view=graph-rest-1.0).
+La búsqueda delegada de sitios usa el permiso documentado en
+[Search for sites](https://learn.microsoft.com/en-us/graph/api/site-search?view=graph-rest-1.0).

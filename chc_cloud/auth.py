@@ -34,6 +34,8 @@ class CloudAccount:
         account = self.current()
         result = self.client().acquire_token_silent(self.settings['scopes'], account=account) if account else None
         if not result or 'access_token' not in result:
+            if account and 'Sites.Read.All' in self.settings['scopes']:
+                raise AuthenticationRequired('Renueva la conexión con Cambiar cuenta para conceder la lectura de SharePoint. Si Microsoft solicita aprobación, debe concederla un administrador de CHC.')
             raise AuthenticationRequired('Conecta tu cuenta CHC para enviar los pendientes a SharePoint.')
         return result['access_token']
 
@@ -41,7 +43,7 @@ class CloudAccount:
         result = self.client().acquire_token_interactive(self.settings['scopes'],
             prompt='select_account', timeout=180)
         if 'access_token' not in result:
-            raise AuthenticationRequired('No se completó la conexión. Puedes volver a intentarlo.')
+            raise AuthenticationRequired('No se completó la conexión. Si Microsoft solicita aprobación administrativa, un administrador de CHC debe aprobar el permiso antes de volver a conectar.')
         claims = result.get('id_token_claims', {})
         if claims.get('tid', '').lower() != self.settings['tenantId'].lower():
             self.disconnect()

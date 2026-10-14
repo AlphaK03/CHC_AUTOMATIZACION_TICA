@@ -9,7 +9,7 @@ import sqlite3
 import uuid
 
 from .auth import CloudAccount
-from .graph import GraphClient, GraphError
+from .graph import GraphClient, GraphError, places_address, site_address
 
 TARGETS = [('detalles','Detalles'), ('duas_transito','DUAs Tránsito'), ('talon','Talón'),
            ('xmovimientos','XMovimientos'), ('bls','BLs'), ('manifiestos:tabla','Manifiestos'),
@@ -51,6 +51,8 @@ class CloudService:
         ''')
         self.browse_site = None
         self.collection_error = ''
+        self.sites_path = self.folder/'known_sites.json'
+        self.known_sites = json.loads(self.sites_path.read_text(encoding='utf-8')) if self.sites_path.exists() else []
 
     def account_info(self):
         # Una instalación sin cuenta no necesita descubrir autoridades por red.
@@ -179,8 +181,23 @@ class CloudService:
         elif command == 'disconnect':
             self.account.disconnect()
         elif command == 'site':
-            self.browse_site = self.graph.site(request['url'])
-            result['browse'] = self.browse_site
+            host = places_address(request['url'])
+            if host:
+                self.browse_site = None
+                sites = self.graph.sites(host,request.get('search',''))
+                self.known_sites = sites
+                atomic_json(self.sites_path,sites)
+                result['browse'] = {'places':True,'host':host,'sites':sites, 'drives':[]}
+            else:
+                self.browse_site = self.graph.site(request['url'])
+                result['browse'] = self.browse_site
+        elif command == 'sites':
+            host,_=site_address(request['url'])
+            sites=self.graph.sites(host,request.get('search',''))
+            self.known_sites=sites
+            atomic_json(self.sites_path,sites)
+            result['browse']={'places':True,'host':host,'sites':sites,'drives':[]}
+            self.browse_site=None
         elif command == 'folders':
             if not self.browse_site or request['drive'] not in [d['id'] for d in self.browse_site['drives']]:
                 raise ValueError('Selecciona una biblioteca del sitio autorizado.')

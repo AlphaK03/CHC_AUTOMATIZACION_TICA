@@ -179,3 +179,10 @@
 - Por instrucción del usuario, guardar los cambios en Git al cerrar cada entrega.
   Lo anterior a SharePoint quedó en `main` y `origin/main` en `93ceb44`;
   desarrollar SharePoint en `feature/sharepoint-oauth2` hasta indicación de integrar.
+- El usuario autorizó `Sites.Read.All` delegado para explorar todos los sitios que
+  permita su cuenta; conservar `Sites.Selected` para escritura y no ampliar ésta
+  por inferencia. La sesión inicial OAuth funciona. La renovación con lectura
+  amplia mostró aprobación administrativa obligatoria; ver `docs/SHAREPOINT.md`.
+  No anunciar rutas Graph reales disponibles hasta verificar ese consentimiento.
+  Aceptar Bibliotecas/places y FileBrowser/Forms con id/listurl/RootFolder;
+  normalizar sitio y validar host sin reenviar tokens fuera de Microsoft Graph.

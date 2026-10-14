@@ -155,7 +155,9 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 **Cuenta y SharePoint** permite conectar opcionalmente una cuenta CHC y elegir
 carpetas online para copiar los CSV de cada bot. La aplicación conserva su
 funcionamiento y resultados locales sin cuenta. Registro OAuth2 de escritorio
-creado con `Sites.Selected` delegado; los sitios se autorizan cuando se elijan.
+creado con `Sites.Selected` delegado para escritura autorizada y `Sites.Read.All`
+delegado para explorar los sitios de la cuenta; los sitios de escritura se
+autorizan cuando se elijan.
 Véase [configuración y uso](docs/SHAREPOINT.md).
 
 Los casos pendientes y guardados cuentan con **Abrir en TICA**, que abre un navegador visible

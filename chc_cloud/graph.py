@@ -1,7 +1,7 @@
 """Microsoft Graph: sitios autorizados, carpetas y publicación condicionada."""
 from pathlib import Path
 import time
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit, parse_qs
 
 from .auth import AuthenticationRequired
 
@@ -17,12 +17,33 @@ def site_address(value):
     if url.scheme != 'https' or not url.hostname or not url.hostname.endswith('.sharepoint.com') or url.username or url.password or url.port:
         raise ValueError('Escribe una URL https del sitio de SharePoint de CHC.')
     path = unquote(url.path).rstrip('/')
+    query = parse_qs(url.query)
+    # Enlaces reales de Bibliotecas/OneDrive y vistas Forms/AllItems.aspx.
+    for key in ('listurl', 'id', 'RootFolder'):
+        candidate = query.get(key, [''])[0]
+        if candidate:
+            if not candidate.startswith('/') or candidate.startswith('//') or '..' in candidate.split('/'):
+                raise ValueError('El enlace de biblioteca no contiene una ruta válida de SharePoint.')
+            path = candidate.rstrip('/')
+            break
     pieces = path.split('/')
-    if len(pieces) >= 3 and pieces[1] in ('sites', 'teams'):
+    if len(pieces) >= 3 and pieces[1].lower() in ('sites', 'teams') and pieces[2]:
         path = '/'.join(pieces[:3])
+    elif query.get('listurl') or query.get('RootFolder') or query.get('id'):
+        path = ''  # Biblioteca del sitio raíz.
     elif path:
         raise ValueError('Usa la URL del sitio, por ejemplo https://chc.sharepoint.com/sites/Reportes.')
     return url.hostname, path
+
+
+def places_address(value):
+    url = urlsplit(value.strip())
+    if url.path.rstrip('/').lower() != '/_layouts/15/sharepoint.aspx/onedrive/places':
+        return None
+    host, _ = site_address('https://' + (url.netloc or ''))
+    if url.scheme != 'https':
+        raise ValueError('Usa la URL https de Bibliotecas de SharePoint.')
+    return host
 
 
 class GraphError(RuntimeError):
@@ -74,6 +95,17 @@ class GraphClient:
         site = self.request('GET', '/sites/' + host + (':' + quote(path, safe='/') if path else ''))
         drives = self.collection('/sites/' + segment(site['id']) + '/drives')
         return {'site': site, 'drives': drives}
+
+    def sites(self, host, query=''):
+        # Graph limita los resultados del ámbito delegado al acceso del usuario.
+        values = self.collection('/sites?search=' + segment(query.strip() or '*'))
+        result = []
+        for site in values:
+            address = urlsplit(site.get('webUrl',''))
+            if address.scheme=='https' and address.hostname==host:
+                result.append({'id':site['id'],'name':site.get('displayName') or site.get('name') or address.path,
+                               'url':site['webUrl']})
+        return sorted(result,key=lambda v:v['name'].casefold())
 
     def folders(self, drive, item='root'):
         base = '/drives/' + segment(drive) + ('/root' if item == 'root' else '/items/' + segment(item))

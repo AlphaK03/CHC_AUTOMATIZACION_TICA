@@ -562,3 +562,25 @@ tres de Manifiestos (incluye cinco procedimientos y BLs), smoke QML y diff limpi
 La instancia anterior había sido cerrada por el usuario; app nueva abierta en
 Vista general antes de documentar. Dependencias cloud instaladas solo en el
 entorno Workbench; bots originales/copias preservados.
+
+### Exploración de sitios y consentimiento de lectura
+
+El usuario proporcionó la página **Bibliotecas** de CHC y autorizó expresamente
+explorar todos los sitios a los que tenga acceso su cuenta. Se agregó
+`Sites.Read.All` delegado a los ámbitos de la app, conservando `Sites.Selected`
+para escritura. El usuario lo agregó manualmente en Entra; el botón de
+consentimiento administrativo estaba deshabilitado.
+
+Implementados catálogo Graph `/sites?search=...`, paginación, filtro al host CHC,
+búsqueda por nombre y selección de sitio/biblioteca/carpeta. La URL
+`/_layouts/15/sharepoint.aspx/onedrive/places` abre el catálogo; los enlaces
+FileBrowser con id/listurl y Forms con RootFolder se normalizan al sitio real.
+Se comprobaron en Edge seis entradas y sus URL, conservadas solo en runtime.
+
+La sesión OAuth inicial del usuario está conectada; prueba real de lectura raíz
+con `Sites.Selected` devolvió 403. Se renovó la conexión desde la app nueva y
+Microsoft mostró **Se necesita la aprobación del administrador** para el ámbito
+nuevo. Falta esa aprobación para comprobar sitios/bibliotecas/carpetas reales
+por Graph. No subir resultados ni configurar destinos como parte de esta prueba.
+15 pruebas cloud y dos Qt/worker/DPAPI, más smoke QML, pasaron. Se reabrió la app
+una vez tras confirmar que sus procesos no tenían navegadores de bots activos.

@@ -330,7 +330,8 @@ destino por bot o procedimiento. Elegir URL del sitio autorizado, biblioteca y
 carpeta; los CSV se copian dentro de la carpeta del lote al exportarse. Los bots
 y sus archivos locales siguen funcionando sin sesión o red. **Reintentar envíos**
 recupera publicaciones fallidas sin consultar TICA. El registro usa OAuth2/PKCE y
-`Sites.Selected` delegado; no tiene secreto ni acceso general a SharePoint.
+`Sites.Read.All` delegado para explorar los sitios de la cuenta y `Sites.Selected`
+delegado para escribir en sitios autorizados; no tiene secreto ni escritura general.
 [Registro, autorización de sitios, límites y pruebas](../docs/SHAREPOINT.md).
 
 Actualizar el entorno con `Instalar_Workbench.bat`. Pruebas independientes:

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from chc_cloud.service import CloudService
-from chc_cloud.graph import GraphClient, GraphError, site_address
+from chc_cloud.graph import GraphClient, GraphError, site_address, places_address
 
 
 class Account:
@@ -19,6 +19,7 @@ class Account:
 class Graph:
     def __init__(self): self.sent=[];self.fail=False
     def site(self,url): return {'site':{'id':'site'},'drives':[{'id':'drive','name':'Documentos'}]}
+    def sites(self,host,query=''): return [{'id':'site','name':'Reportes','url':'https://'+host+'/sites/Reportes'}]
     def folders(self,drive,item): return {'folder':{'id':item,'name':item,'webUrl':'https://test.sharepoint.com/sites/reportes/'+item},'folders':[]}
     def ensure_folder(self,drive,parent,name): return 'monthly'
     def upload(self,drive,parent,path,previous):
@@ -96,6 +97,15 @@ class ServiceTests(unittest.TestCase):
         state=self.service.execute({'command':'status'})['snapshot']
         self.assertTrue(notice.exists());self.assertTrue(state['queueError']);self.assertEqual(state['pending'],1)
 
+    def test_places_opens_site_catalog_and_library_url_opens_real_site(self):
+        portal='https://test.sharepoint.com/_layouts/15/sharepoint.aspx/onedrive/places'
+        result=self.service.execute({'command':'site','url':portal})
+        self.assertTrue(result['browse']['places']);self.assertEqual(result['browse']['sites'][0]['name'],'Reportes')
+        self.assertIsNone(self.service.browse_site)
+        result=self.service.execute({'command':'site','url':result['browse']['sites'][0]['url']})
+        self.assertEqual(result['browse']['drives'][0]['name'],'Documentos')
+        self.assertEqual(len(json.loads(self.service.sites_path.read_text(encoding='utf-8'))),1)
+
 
 class Response:
     def __init__(self,code,data):self.status_code=code;self.data=data;self.content=b'x';self.headers={}
@@ -130,6 +140,24 @@ class GraphTests(unittest.TestCase):
             transport=Transport();transport.response=Response(200,{'eTag':'changed','name':'datos.csv','parentReference':{'id':'folder'}})
             with self.assertRaises(GraphError):GraphClient(Account(),transport).upload('drive','folder',path,{'itemId':'item','etag':'old'})
             self.assertFalse(transport.puts);self.assertEqual(len(transport.calls),1)
+
+    def test_real_sharepoint_library_links_and_places_are_distinct(self):
+        host='chcconsultorescr.sharepoint.com'
+        value=f'https://{host}/_layouts/15/FileBrowser.aspx?view=0&id=%2Fsites%2FAutomatizacinTIC%2FDocumentos%20compartidos&listurl=%2Fsites%2FAutomatizacinTIC%2FDocumentos%20compartidos'
+        self.assertEqual(site_address(value),(host,'/sites/AutomatizacinTIC'))
+        self.assertEqual(places_address(f'https://{host}/_layouts/15/sharepoint.aspx/onedrive/places'),host)
+        self.assertIsNone(places_address(value))
+        with self.assertRaises(ValueError):site_address(f'https://{host}/_layouts/15/FileBrowser.aspx?id=https://evil.example/steal')
+
+    def test_sites_search_uses_delegation_and_filters_tenant_hostname(self):
+        transport=Transport()
+        transport.response=Response(200,{'value':[
+            {'id':'b','displayName':'TIC','webUrl':'https://test.sharepoint.com/sites/TIC'},
+            {'id':'a','displayName':'Aduanas','webUrl':'https://test.sharepoint.com/sites/Aduanas'},
+            {'id':'c','displayName':'Otro directorio','webUrl':'https://other.sharepoint.com/sites/Otro'}]})
+        values=GraphClient(Account(),transport).sites('test.sharepoint.com','TIC documentos')
+        self.assertEqual([v['name'] for v in values],['Aduanas','TIC'])
+        self.assertTrue(transport.calls[0][1].endswith('/sites?search=TIC%20documentos'))
 
 
 if __name__=='__main__':unittest.main()

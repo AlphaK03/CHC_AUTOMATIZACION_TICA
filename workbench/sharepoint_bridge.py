@@ -149,6 +149,8 @@ class SharePointBridge(QObject):
     @Slot(str)
     def openSite(self, url): self.send('site',{'url':url})
     @Slot(str, str)
+    def searchSites(self, url, query): self.send('sites',{'url':url,'search':query})
+    @Slot(str, str)
     def openFolder(self, drive, item): self.send('folders',{'drive':drive,'item':item})
     @Slot(str, str, str)
     def saveDestination(self, key, drive, item): self.send('save',{'key':key,'drive':drive,'item':item})
