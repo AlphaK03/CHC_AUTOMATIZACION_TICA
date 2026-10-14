@@ -152,6 +152,11 @@ class DetailsService:
             'no_rows_duas': str(internal / 'sin_filas.txt'),
         }
 
+    def published(self, record, paths):
+        path = Path(paths['output_csv'])
+        if path.is_file():
+            self.protocol.emit('published', path=str(path), name=path.parent.name, owner=record['id'])
+
     @staticmethod
     def output_name(name):
         # Preserve the chosen name, including spaces and accents. Replace only
@@ -347,6 +352,7 @@ class DetailsService:
                 store = self.Store(self.catalog.database(record))
                 try:
                     store.export(self.paths(record), self.fields)
+                    self.published(record, self.paths(record))
                 finally:
                     store.close()
             logging.info('Resultados exportados desde SQLite; no se consultó el portal.')
@@ -389,6 +395,7 @@ class DetailsService:
                 monitor_thread = threading.Thread(target=monitor, daemon=False)
                 try:
                     processor = self.Processor({**self.machine,'max_retries':3} if automatic else self.machine, paths, self.flow, self.captcha, self.stop_event)
+                    processor.on_export = lambda: self.published(record, paths)
                     monitor_thread.start()
                     processor.run(store, lambda summary: self.protocol.emit('progress', summary=summary))
                 finally:

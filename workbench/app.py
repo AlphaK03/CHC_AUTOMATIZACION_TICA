@@ -15,6 +15,7 @@ from batch_bridge import BatchBridge
 from preferences import Preferences
 from single_instance import SingleInstance
 from monthly_bridge import MonthlyProgress
+from sharepoint_bridge import SharePointBridge
 
 HERE = Path(__file__).resolve().parent
 
@@ -75,6 +76,13 @@ def main():
     monthly=MonthlyProgress({key:root or HERE.parent/'bots'/key for key,root in storage.items()}
                             if not (args.demo or args.smoke_test) else {})
     backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls, monthly)
+    cloud = SharePointBridge(enabled=not (args.demo or args.smoke_test or args.capture))
+    cloud.toast.connect(backend.toast.emit)
+    for module, bridge in bridges.items():
+        bridge.eventReceived.connect(lambda event, key=module: cloud.publication(key,event))
+    if cloud.storage.joinpath('destinations.json').exists() and cloud.enabled:
+        cloud.refresh()
+    app.aboutToQuit.connect(cloud.shutdown)
     app.aboutToQuit.connect(backend.monthLauncher.cancel)
     for bridge in bridges.values():
         bridge.toast.connect(backend.toast.emit)
@@ -95,6 +103,7 @@ def main():
     engine.rootContext().setContextProperty('manifests', manifests)
     engine.rootContext().setContextProperty('bls', bls)
     engine.rootContext().setContextProperty('preferences', preferences)
+    engine.rootContext().setContextProperty('sharepoint', cloud)
     engine.setInitialProperties({'sidebarExpanded': not args.collapsed, 'initialDark': False if args.light else preferences.dark})
     errors = []
     engine.warnings.connect(lambda warnings: errors.extend(warning.toString() for warning in warnings))

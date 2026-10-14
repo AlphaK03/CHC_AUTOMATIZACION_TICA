@@ -323,7 +323,24 @@ tabla seleccionada; el del calendario usa el mes mostrado. El mes actual llega
 hasta ayer. Esta política aplica al modo diario; la configuración de rondas del
 modo Manual permanece independiente.
 
-## Pendientes de distribución
+## Cuenta y SharePoint
+
+La barra lateral ofrece **Cuenta y SharePoint**: conexión opcional con CHC y un
+destino por bot o procedimiento. Elegir URL del sitio autorizado, biblioteca y
+carpeta; los CSV se copian dentro de la carpeta del lote al exportarse. Los bots
+y sus archivos locales siguen funcionando sin sesión o red. **Reintentar envíos**
+recupera publicaciones fallidas sin consultar TICA. El registro usa OAuth2/PKCE y
+`Sites.Selected` delegado; no tiene secreto ni acceso general a SharePoint.
+[Registro, autorización de sitios, límites y pruebas](../docs/SHAREPOINT.md).
+
+Actualizar el entorno con `Instalar_Workbench.bat`. Pruebas independientes:
+
+```powershell
+.\workbench\.venv\Scripts\python.exe -m unittest discover -s chc_cloud/tests -v
+.\workbench\.venv\Scripts\python.exe -m unittest discover -s workbench/tests -p test_sharepoint.py -v
+```
+
+## Pendientes de empaquetado
 
 Integrar los otros cuatro motores, unificar servicios tras comprobar equivalencia,
 incorporar generadores de bases y preparar distribución ejecutable. El estado y

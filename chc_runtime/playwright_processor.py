@@ -69,6 +69,8 @@ class PlaywrightDUAProcessor:
         finally:
             # Los resultados se confirmaron antes en SQLite; fallar aquí no los pierde.
             store.export(self.output_paths, self.fields)
+            if getattr(self, 'on_export', None):
+                self.on_export()
             self._notify(store, progress_callback, force=True)
 
     async def _run_async(self, store, callback):
@@ -185,6 +187,8 @@ class PlaywrightDUAProcessor:
                     self._notify(store, callback)
                     if time.monotonic() - self._last_export >= self.machine.get('export_interval', 60):
                         store.export(self.output_paths, self.fields)
+                        if getattr(self, 'on_export', None):
+                            self.on_export()
                         self._last_export = time.monotonic()
                 finally:
                     if not resolved:

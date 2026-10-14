@@ -533,3 +533,32 @@ Ampliación de revisión: **TICA / Abrir en TICA** también está disponible en 
 filas guardadas de DUA, BLs y Manifiestos, y en el detalle del DUA. Solo se quitaron
 las restricciones de visibilidad por estado: se conserva el mismo inspector de
 solo lectura, sin extraer resultados a la base/CSV ni cambiar progreso.
+
+### SharePoint opcional y respaldo Git
+
+Por instrucción explícita se consolidó todo el trabajo anterior en `93ceb44`,
+se avanzó `main` mediante fast-forward en su worktree limpio y se subió a
+`origin/main`. Se creó `feature/sharepoint-oauth2` desde esa principal.
+
+Implementado `chc_cloud/`, proceso `sharepoint_bridge.py` y diálogo **Cuenta y
+SharePoint**: OAuth2/PKCE con MSAL, caché DPAPI, selección de sitio/biblioteca/
+carpeta por bot o flujo y copia opcional de CSV. Eventos `published` tras exportar
+localmente; outbox y cola SQLite durables, deduplicación, cuenta/destino capturados,
+conflictos y actualizaciones condicionadas por `eTag`. Fallos cloud no modifican
+descargas, SQLite de bots, calendario ni resultados locales. La app puede operar
+sin cuenta y no inicia sesión automáticamente.
+
+En la pestaña Entra abierta por el usuario se creó **CHC Workbench · Resultados
+SharePoint**: cliente `da7ff4b7-8a2e-4c49-9338-17975a058a99`, directorio CHC
+`f7015bc9-c229-413a-ab08-e1e5a76a09f1`, solo inquilino CHC, escritorio con retorno
+`http://localhost`. Único permiso Graph `Sites.Selected` delegado, User.Read
+predeterminado retirado, ningún secreto ni permiso de aplicación. Ver
+`docs/SHAREPOINT.md` para asignar acceso `write` cuando se elija el sitio.
+
+El usuario indicó que elegirá los destinos después. No se hizo login OAuth ni
+subida real: falta autorización explícita al sitio y selección de carpeta.
+Validación: 12 pruebas cloud, dos Qt/worker/DPAPI, dos integraciones Talón/XMov,
+tres de Manifiestos (incluye cinco procedimientos y BLs), smoke QML y diff limpio.
+La instancia anterior había sido cerrada por el usuario; app nueva abierta en
+Vista general antes de documentar. Dependencias cloud instaladas solo en el
+entorno Workbench; bots originales/copias preservados.

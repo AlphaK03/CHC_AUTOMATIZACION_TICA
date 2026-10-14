@@ -25,8 +25,11 @@ ApplicationWindow {
     property var movementsBridge: typeof movements !== 'undefined' ? movements : null
     property var manifestsBridge: typeof manifests !== 'undefined' ? manifests : null
     property var blsBridge: typeof bls !== 'undefined' ? bls : null
-    function workersClosed() { return [details,transitBridge,talonBridge,movementsBridge,manifestsBridge,blsBridge].every(bridge => !bridge || !bridge.enabled || bridge.isClosed) }
+    property var cloudBridge: typeof sharepoint !== 'undefined' ? sharepoint : null
+    property bool closingRequested: false
+    function workersClosed() { return [details,transitBridge,talonBridge,movementsBridge,manifestsBridge,blsBridge,cloudBridge].every(bridge => !bridge || !bridge.enabled || bridge.isClosed) }
     onClosing: function(close) {
+        window.closingRequested = true
         if (!workersClosed()) {
             close.accepted = false
             window.toastMessage = "Guardando pendientes y cerrando módulos…"
@@ -36,6 +39,7 @@ ApplicationWindow {
             if(movementsBridge && movementsBridge.enabled) movementsBridge.shutdown()
             if(manifestsBridge && manifestsBridge.enabled) manifestsBridge.shutdown()
             if(blsBridge && blsBridge.enabled) blsBridge.shutdown()
+            if(cloudBridge && cloudBridge.enabled) cloudBridge.shutdown()
         }
     }
     Connections { target: details; function onClosed() { if (details.closing && window.workersClosed()) Qt.callLater(window.close) } }
@@ -44,6 +48,7 @@ ApplicationWindow {
     Connections { target: window.movementsBridge; function onClosed() { if(window.movementsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
     Connections { target: window.manifestsBridge; function onClosed() { if(window.manifestsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
     Connections { target: window.blsBridge; function onClosed() { if(window.blsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
+    Connections { target: window.cloudBridge; function onClosed() { if(window.closingRequested && window.workersClosed()) Qt.callLater(window.close) } }
 
     Shortcut { sequence: "Ctrl+K"; onActivated: searchInput.forceActiveFocus() }
     Shortcut { sequence: "Ctrl+B"; onActivated: window.sidebarExpanded = !window.sidebarExpanded }
@@ -101,6 +106,7 @@ ApplicationWindow {
                 Item { Layout.fillHeight: true }
                 Text { visible: window.sidebarExpanded; text: details.enabled ? "Módulos independientes" : "Modo demostración"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.leftMargin: 13; Layout.bottomMargin: 6 }
                 NavItem { Layout.fillWidth: true; label: "Acerca del Workbench"; iconName: "info"; expanded: window.sidebarExpanded; onClicked: aboutDialog.open() }
+                NavItem { objectName:"sharePointNavigation"; Layout.fillWidth:true; label:"Cuenta y SharePoint"; iconName:"folder"; expanded:window.sidebarExpanded; onClicked:sharePointDialog.open() }
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; Layout.topMargin: 7; Layout.bottomMargin: 7 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -197,6 +203,8 @@ ApplicationWindow {
             }
         }
     }
+
+    SharePointDialog { id:sharePointDialog; objectName:"sharePointDialog"; service:window.cloudBridge }
 
     Dialog {
         id: aboutDialog

@@ -168,3 +168,14 @@
   se reabre automáticamente ni cuenta como completado. Solo `retry_month` o
   `retry_day` rearman los pendientes del rango explícito, conservando guardados,
   historial y configuración. El mes actual se limita a días anteriores a hoy.
+- SharePoint es opcional y exclusivo para copias CSV: leer `docs/SHAREPOINT.md`.
+  Cliente público MSAL/PKCE, único directorio CHC y `Sites.Selected` delegado;
+  nunca agregar secretos ni permisos generales para automatizar asignaciones.
+  Caché DPAPI, configuración y cola solo en `runtime/workbench/sharepoint`.
+  Los eventos `published` se emiten después del reemplazo atómico local, sin
+  importar librerías cloud en bots. Preservar worker online aislado, outbox
+  durable, cuenta/destino capturados, conflictos de propietario y `eTag`.
+  Sin sitio elegido no hacer subidas reales; pruebas aisladas con Graph simulado.
+- Por instrucción del usuario, guardar los cambios en Git al cerrar cada entrega.
+  Lo anterior a SharePoint quedó en `main` y `origin/main` en `93ceb44`;
+  desarrollar SharePoint en `feature/sharepoint-oauth2` hasta indicación de integrar.

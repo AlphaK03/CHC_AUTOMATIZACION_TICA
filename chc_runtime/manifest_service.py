@@ -529,6 +529,8 @@ class BatchService:
             write_json(owner_path,{'owner':record['id'],'path':str(destination)})
             shutil.copyfile(source,temporary)
             os.replace(temporary,destination)
+            self.emit('published', path=str(destination), name=Path(record['output']).name,
+                      owner=record['id'], flow=self.flow)
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
