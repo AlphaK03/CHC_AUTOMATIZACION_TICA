@@ -103,9 +103,9 @@ class CloudService:
                 data=MonthlyReader(roots).read()
             self.monthly_cache={}
             for row in data['rows']:
-                targets={c['module'] for c in row['cells'] if c['status']=='completed' and c['module']!='manifiestos'}
+                targets={c['module'] for c in row['cells'] if c['status'] in ('completed','up_to_date') and c['module']!='manifiestos'}
                 for flow,cell in zip(output_layout.FLOWS,row['procedures']):
-                    if cell['status']=='completed':targets.add('manifiestos:'+flow)
+                    if cell['status'] in ('completed','up_to_date'):targets.add('manifiestos:'+flow)
                 self.monthly_cache[row['period']]={'targets':targets,'label':row['label']}
         return self.monthly_cache
 
@@ -130,10 +130,10 @@ class CloudService:
             raise ValueError('Conecta tu cuenta y elige la carpeta común de SharePoint.')
         completed=self.completed_targets(refresh=True)
         eligible=[r for r in self.inventory() if r['period']==key and r['target'] in completed.get(key,{}).get('targets',set())]
-        if not eligible:raise ValueError('El mes no tiene CSV finales de bots con cobertura completa verificada. Exporta sus resultados y vuelve a actualizar.')
+        if not eligible:raise ValueError('El mes no tiene CSV de bots completos, al día o cerrados manualmente. Exporta sus resultados y vuelve a actualizar.')
         for row in eligible:
             self.enqueue({'target':row['target'],'path':row['path'],'name':key,'owner':row['owner'],'spec':json.loads(row['spec'])})
-        self.sync()
+        self.sync(key)
 
     def connect(self):
         self.account.connect()
@@ -199,7 +199,7 @@ class CloudService:
         finally:
             temporary.unlink(missing_ok=True)
 
-    def sync(self):
+    def sync(self,month=None):
         completed=self.completed_targets(refresh=True)
         account = self.account_info()
         if not account:
@@ -207,11 +207,12 @@ class CloudService:
         for row in list(self.db.execute("SELECT * FROM jobs WHERE state='pending' ORDER BY updated")):
             row = dict(row)
             destination = json.loads(row['destination'])
+            if month and destination.get('period')!=month:continue
             current = self.destination
             if destination.get('layoutVersion')!=2 or destination['accountId'] != account['home_account_id'] or not current.get('enabled') or any(destination.get(k)!=current.get(k) for k in ('accountId','driveId','folderId')):
                 continue
             if row['target'] not in completed.get(destination.get('period',''),{}).get('targets',set()):
-                with self.db:self.db.execute("UPDATE jobs SET state='error',error='El mes todavía no está completo; se conservó la copia local.' WHERE id=?",(row['id'],))
+                with self.db:self.db.execute("UPDATE jobs SET state='error',error='El mes ya no está completo, al día ni cerrado manualmente; se conservó la copia local.' WHERE id=?",(row['id'],))
                 continue
             with self.db:
                 self.db.execute("UPDATE jobs SET state='uploading',error='' WHERE id=?",(row['id'],))

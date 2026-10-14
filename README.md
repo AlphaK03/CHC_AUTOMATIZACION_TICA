@@ -155,7 +155,8 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 **Cuenta y SharePoint** permite conectar opcionalmente una cuenta CHC y elegir
 una carpeta madre online para todos los bots. La carpeta madre local es también
 común; los CSV se organizan por bot, mes y modo, con nombres en mayúsculas.
-**Subir a SharePoint** envía únicamente resultados de meses completos verificados,
+**Subir a SharePoint** envía únicamente resultados de bots completos, al día o
+cerrados manualmente en la bitácora,
 cuando el usuario lo solicita. Exportar localmente no inicia subidas.
 La aplicación conserva su
 funcionamiento y resultados locales sin cuenta. Registro OAuth2 de escritorio

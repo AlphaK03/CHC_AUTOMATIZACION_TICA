@@ -113,6 +113,10 @@ class DemoBackend(QObject):
     def refreshMonthly(self):
         if self.monthly:self.monthly.refresh()
 
+    @Slot(str,str,bool)
+    def setMonthComplete(self,key,target,enabled):
+        if self.monthly:self.monthly.setComplete(key,target,enabled)
+
     @Property(int, notify=changed)
     def runningCount(self):
         return sum(item['status'] == 'running' for item in self.modules)

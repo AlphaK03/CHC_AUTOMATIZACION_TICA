@@ -112,13 +112,13 @@ Dialog {
                         Layout.fillWidth:true; implicitHeight:144
                         ColumnLayout {
                             anchors.fill:parent; anchors.margins:18; spacing:10
-                            Text { text:"Subir un mes completo"; color:Theme.text; font.pixelSize:16; font.weight:Font.DemiBold }
+                            Text { text:"Subir un mes completo o al día"; color:Theme.text; font.pixelSize:16; font.weight:Font.DemiBold }
                             RowLayout {
                                 Layout.fillWidth:true
-                                ComboBox { id:monthBox; objectName:"sharePointMonth"; Layout.fillWidth:true; model:service ? service.months : []; textRole:"label"; displayText:count ? currentText : "Sin meses completos exportados"; enabled:!!service && !service.busy && count>0 }
+                                ComboBox { id:monthBox; objectName:"sharePointMonth"; Layout.fillWidth:true; model:service ? service.months : []; textRole:"label"; displayText:count ? currentText : "Sin meses listos para subir"; enabled:!!service && !service.busy && count>0 }
                                 ActionButton { objectName:"uploadSharePointMonth"; text:"Subir a SharePoint"; primary:true; enabled:!!service && service.connected && !!service.destination.folderId && !service.busy && monthBox.currentIndex>=0; onClicked:service.uploadMonth(service.months[monthBox.currentIndex].period) }
                             }
-                            Text { text:service && service.months.length ? "Solo se enviarán CSV de bots con ese mes completo y verificado." : "Los meses aparecerán al completar y exportar sus resultados."; color:Theme.faint; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+                            Text { text:service && service.months.length ? "Solo CSV de bots completos, cerrados manualmente o al día hasta la última fecha disponible." : "Completa o cierra el mes en la bitácora y exporta sus resultados."; color:Theme.faint; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
                         }
                     }
                     RowLayout {

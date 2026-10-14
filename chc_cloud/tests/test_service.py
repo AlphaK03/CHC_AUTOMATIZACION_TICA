@@ -148,6 +148,20 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.service.execute({'command':'upload_month','month':'2026-09'})
         with self.assertRaises(ValueError):self.service.execute({'command':'sync'})
 
+    def test_current_month_up_to_date_is_eligible_and_other_pending_months_are_not_sent(self):
+        self.destination()
+        self.service.execute({'command':'local_root','path':str(self.root/'RESULTADOS')})
+        data=self.monthly()
+        data['rows'].append({'period':'2026-10','label':'Octubre 2026',
+                            'cells':[{'module':'talon','status':'up_to_date'}],'procedures':[]})
+        self.service.monthly_reader=lambda:data
+        self.service.enqueue(self.request)
+        spec=output_layout.specification('talon','2026-10')
+        output_layout.publish(self.source,self.root/'RESULTADOS',spec,'octubre',self.service.exports_registry)
+        self.service.execute({'command':'upload_month','month':'2026-10'})
+        self.assertEqual([item[0] for item in self.graph.sent],['TALON_OCTUBRE_2026.CSV'])
+        self.assertEqual(self.service.snapshot()['pending'],1)
+
 
 class Response:
     def __init__(self,code,data):self.status_code=code;self.data=data;self.content=b'x';self.headers={}

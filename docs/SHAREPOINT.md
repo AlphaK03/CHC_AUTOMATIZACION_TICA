@@ -3,7 +3,7 @@
 La conexión es opcional. **Cuenta y SharePoint**, en la barra lateral, conecta una
 cuenta CHC, explora sitios/bibliotecas/carpetas y elige una sola carpeta madre
 para todos los bots. También permite elegir una carpeta madre local común.
-Solo **Subir a SharePoint**, al seleccionar un mes completo verificado, inicia
+Solo **Subir a SharePoint**, al seleccionar un mes listo en la bitácora, inicia
 un envío de CSV. Guardar, exportar, conectar o abrir la app no inicia subidas.
 SQLite, resultados y recuperación permanecen locales. La app funciona sin cuenta o red.
 
@@ -44,9 +44,23 @@ Microsoft del navegador ni cambia la configuración del registro reutilizado.
 2. Pulsar **Elegir carpeta** en la tarjeta de SharePoint. Buscar un sitio si hace falta.
 3. Elegir sitio, biblioteca y carpeta; pulsar **Usar esta carpeta para todos**.
 4. Ejecutar los bots o exportar sus resultados guardados. Se organizan localmente.
-5. Al finalizar un mes, pulsar **Actualizar**, seleccionar el mes y accionar
-   **Subir a SharePoint**. Solo entran los bots/procedimientos cuya cobertura
-   completa y resultados estén verificados por la bitácora mensual.
+5. Pulsar **Actualizar**, seleccionar el mes y accionar **Subir a SharePoint**.
+   Solo entran bots/procedimientos completos, al día hasta la última fecha
+   consultable, o cerrados manualmente en la bitácora mensual.
+
+**Completo no significa 100 % guardados en todos los bots.** Detalles exige todos
+sus DUAs confirmados, incluso para cierre manual. Tránsito, Talón y XMovimientos
+pueden completar con días omitidos y pendientes excluidos del resultado final.
+Manifiestos admite exclusiones y pendientes con tres intentos agotados al finalizar
+la ejecución; BLs admite intentos agotados en ejecuciones terminadas, nunca una
+interrupción como cierre. Vacíos verificados de XMovimientos cuentan aparte.
+Los pendientes y páginas parciales omitidas se conservan para reintentos.
+
+Para el mes actual, **Al día** exige cobertura hasta el último día consultable,
+respetando las 00:01 de Costa Rica. Al aparecer un nuevo día vuelve a comprobarse.
+En Vista general, **Cierre manual…** permite marcar completo un bot/procedimiento
+o volver a la comprobación automática. Se guarda separado del progreso; no cambia
+estados ni inventa filas. Nuevos datos o intentos invalidan la marca anterior.
 
 La carpeta local predeterminada es `RESULTADOS/`, configurable desde esta pantalla.
 El destino online replica los mismos nombres y subcarpetas, todos en mayúsculas:
@@ -84,7 +98,7 @@ común, sin descargar de nuevo. Cambiar la carpeta madre no mueve archivos exist
 
 La cola online es independiente y persistente. Sin sesión o red conserva copias
 pendientes de envíos pedidos por el usuario; requiere un reintento explícito
-con la cuenta y destino compatibles y el mes todavía completo.
+con la cuenta y destino compatibles y el mes todavía completo, al día o cerrado manualmente.
 Los errores se muestran y se recuperan con **Reintentar envíos**. Retirar o cambiar
 un destino pausa sus copias anteriores y conserva los CSV locales.
 
@@ -106,10 +120,12 @@ con envíos online. Al cerrar se conservan envíos inconclusos para un reintento
 manual. Las rutas por bot y avisos automáticos de la versión inicial se conservan
 como históricos y no se envían automáticamente.
 
-Validación: 18 pruebas cloud con transporte simulado, dos de Qt/worker/cifrado
+Validación: 19 pruebas cloud con transporte simulado, dos de Qt/worker/cifrado
 Windows, cuatro del contrato de salidas y smoke QML. Exportaciones y recuperación
 comprobadas con portales locales de Detalles, Tránsito, Talón/XMovimientos,
 calendario diario y cinco procedimientos de Manifiestos con entrega a BLs.
+17 comprobaciones de bitácora y una de Qt cubren omitidos, Detalles estricto,
+mes actual, cierre manual persistente/reversible y su invalidación al cambiar datos.
 
 Pruebas reales autorizadas del 14 de octubre de 2026:
 

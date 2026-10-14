@@ -178,6 +178,68 @@ class MonthlyTests(unittest.TestCase):
         self.assertEqual([r['period'] for r in result['rows']],['2026-09','2026-08'])
         self.assertEqual(self.cell(result,'bls')['status'],'pending')
         self.assertEqual(next(c for c in result['rows'][1]['cells'] if c['module']=='bls')['status'],'completed')
+        with write(folder/'bls.sqlite3') as db:
+            db.execute('ALTER TABLE jobs ADD COLUMN attempts INTEGER DEFAULT 3')
+            db.execute('CREATE TABLE runs(state,finished)')
+            db.execute("INSERT INTO runs VALUES ('Pendiente','date')")
+        self.assertEqual(self.cell(MonthlyReader({'bls':self.root},self.today).read(),'bls')['status'],'completed')
+        with write(folder/'bls.sqlite3') as db:db.execute("UPDATE runs SET state='Detenido'")
+        self.assertNotEqual(self.cell(MonthlyReader({'bls':self.root},self.today).read(),'bls')['status'],'completed')
+
+    def test_omitted_duas_close_other_bots_without_changing_pending_rows(self):
+        path=self.dua_table(done=False);self.ledger()
+        with write(self.root/'data/daily/calendar.sqlite3') as db:
+            db.execute("UPDATE days SET state='omitted' WHERE day='2026-09-30'")
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+        for module in ('duas_transito','talon','xmovimientos'):
+            cell=self.cell(MonthlyReader({module:self.root},self.today).read(),module)
+            self.assertEqual(cell['status'],'completed')
+            self.assertIn('1 omitidos',cell['detail'])
+        self.assertNotEqual(self.cell(self.reader().read())['status'],'completed')
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),digest)
+
+    def test_current_month_is_up_to_date_only_with_all_available_days(self):
+        self.dua_table(source='daily://2026-10');self.ledger(count=12)
+        with write(self.root/'data/queues/catalog.sqlite3') as db:db.execute("UPDATE saved_tables SET name='octubre26'")
+        with write(self.root/'data/daily/calendar.sqlite3') as db:
+            db.execute("UPDATE days SET day=replace(day,'2026-09','2026-10')")
+            db.execute("UPDATE daily_duas SET day=replace(day,'2026-09','2026-10')")
+        cell=self.cell(self.reader().read())
+        self.assertEqual(cell['status'],'up_to_date')
+        self.assertIn('2026-10-12',cell['detail'])
+        with write(self.root/'data/daily/calendar.sqlite3') as db:db.execute("DELETE FROM days WHERE day='2026-10-12'")
+        self.assertNotEqual(self.cell(self.reader().read())['status'],'up_to_date')
+
+    def test_manual_close_persists_is_reversible_and_expires_when_data_changes(self):
+        path=self.dua_table(done=False);self.ledger()
+        reader=MonthlyReader({'talon':self.root},self.today);reader.read()
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+        reader.mark_complete('2026-09','talon',True)
+        reader=MonthlyReader({'talon':self.root},self.today)
+        cell=self.cell(reader.read(),'talon')
+        self.assertEqual(cell['label'],'Completado manual');self.assertTrue(cell['manual'])
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),digest)
+        reader.mark_complete('2026-09','talon',False)
+        reader=MonthlyReader({'talon':self.root},self.today);reader.read();reader.mark_complete('2026-09','talon',True)
+        with write(path) as db:db.execute("INSERT INTO jobs VALUES ('nuevo','pending',NULL)")
+        self.assertFalse(self.cell(MonthlyReader({'talon':self.root},self.today).read(),'talon')['manual'])
+
+    def test_details_manual_close_cannot_bypass_unsaved_duas(self):
+        self.dua_table(done=False);self.ledger()
+        reader=self.reader();reader.read()
+        with self.assertRaisesRegex(ValueError,'todos los DUAs'):reader.mark_complete('2026-09','detalles',True)
+        self.assertFalse(reader.overrides_file.exists())
+
+    def test_manifest_exclusions_and_exhausted_attempts_close_only_finalized_runs(self):
+        path=self.manifest('full',pending=True)
+        with write(path) as db:
+            db.execute('ALTER TABLE jobs ADD COLUMN attempts INTEGER DEFAULT 3')
+            db.execute("INSERT INTO partial_pages VALUES ('1')")
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'completed')
+        with write(path) as db:db.execute("UPDATE runs SET state='Detenida'")
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertNotEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'completed')
 
 
 if __name__=='__main__':unittest.main()

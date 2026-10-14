@@ -633,3 +633,20 @@ cinco procedimientos de Manifiestos y BLs; smoke QML. La app actualizada quedó
 abierta, con cuenta CHC conectada y destino común pendiente de elegir por el
 usuario. No se subieron CSV de producción. README y `docs/SHAREPOINT.md` describen
 el comportamiento vigente; los apartados anteriores registran su evolución.
+
+Última aclaración del usuario: solo Detalles exige 100 % de DUAs guardados.
+Los demás pueden completar excluyendo omitidos del resultado final, conservando
+pendientes/páginas parciales para reintento. La bitácora incluye días omitidos
+(y bases omitidas) para Tránsito/Talón/XMovimientos; Manifiestos y BLs admiten
+exclusiones/intentos agotados en ejecuciones finalizadas, sin confundir una parada
+con finalización. Mes actual pasa a **Al día** al cubrir hasta la última fecha
+consultable, respetando 00:01 Costa Rica, y vuelve a comprobarse al avanzar fecha.
+
+**Cierre manual…** en cada mes permite elegir bot/procedimiento y marcar completo
+o restablecer comprobación automática. Metadatos separados en
+`runtime/workbench/monthly_overrides.json`; no escribe en SQLite de bots.
+Marca ligada a cobertura, contadores y revisión de intentos, invalidada al cambiar
+datos. Detalles no permite cierre con DUAs sin guardar. SharePoint acepta estados
+completos, al día y cierres manuales vigentes, solo mediante acción del usuario;
+subir un mes no envía pendientes de otro mes. 19 pruebas cloud y 18 de bitácora/Qt
+verifican las reglas vigentes, además de las integraciones de exportación anteriores.

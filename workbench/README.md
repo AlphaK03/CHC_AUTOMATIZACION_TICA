@@ -329,8 +329,11 @@ La barra lateral ofrece **Cuenta y SharePoint**: conexión opcional con CHC,
 una carpeta madre local y una carpeta madre online para todos los bots. El selector
 recorre sitios, bibliotecas y carpetas. Cada bot organiza sus CSV por mes; los
 nombres públicos están en mayúsculas e incluyen modo donde corresponde.
-**Subir a SharePoint** envía solamente CSV de bots con ese mes completo y
-verificado, mediante una acción explícita. Guardar o exportar no inicia subidas. Los bots
+**Subir a SharePoint** envía solamente CSV de bots con ese mes completo, al día
+o cerrado manualmente, mediante una acción explícita. Detalles exige todos sus
+DUAs; los otros bots admiten omitidos fuera del resultado final. **Cierre manual…**
+en la bitácora permite cerrar/reabrir la comprobación, sin alterar progreso ni
+borrar pendientes. Guardar o exportar no inicia subidas. Los bots
 y sus archivos locales siguen funcionando sin sesión o red. **Reintentar envíos**
 recupera publicaciones fallidas sin consultar TICA. El registro usa OAuth2/PKCE y
 el registro existente **OAuth2 par CHC REPORTES**, con `Sites.Read.All` y

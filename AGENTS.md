@@ -101,7 +101,13 @@
 - Bitácora de Vista general: `workbench/monthly_progress.py` lee únicamente
   catálogos, calendarios y lotes existentes; `monthly_bridge.py` lo ejecuta fuera
   de Qt. No importar motores, iniciar descargas ni escribir en el progreso.
-  Mes completo requiere cobertura y resultados verificados, sin pendientes;
+  Detalles requiere todos los DUAs confirmados. Los demás admiten omitidos fuera
+  del resultado final sin borrar sus pendientes; días omitidos/base omitida y
+  excepciones de lotes finalizados cuentan aparte. Mes actual puede estar «Al día»
+  hasta la última fecha consultable (00:01 Costa Rica). Cierre manual por bot/
+  procedimiento en metadatos separados; reversible, invalida al cambiar datos o
+  intentos y nunca permite saltar DUAs pendientes en Detalles. La comprobación
+  automática sigue exigiendo cobertura del período disponible;
   el nombre mensual de un archivo no prueba cobertura. Separar meses de BLs por
   payload y modalidades de Manifiestos; no sumar rangos entre modalidades.
   Pruebas aisladas en `test_monthly_progress.py` y `test_monthly_qml.py`.
@@ -184,7 +190,7 @@
   resultados originales y checkpoints; los auxiliares siguen en almacenamiento interno.
   BLs separa salidas por mes/modo del manifiesto. Nunca iniciar subidas al exportar,
   conectar ni abrir la app: solo `Subir a SharePoint` o reintento explícito, con
-  cobertura de mes cerrado verificada por la bitácora. Avisos antiguos automáticos
+  estado completo, al día o cierre manual vigente en la bitácora. Avisos antiguos automáticos
   se conservan sin enviarlos. Reexportar históricos desde SQLite sin consultar TICA.
 - Por instrucción del usuario, guardar los cambios en Git al cerrar cada entrega.
   Lo anterior a SharePoint quedó en `main` y `origin/main` en `93ceb44`;

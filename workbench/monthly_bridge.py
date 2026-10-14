@@ -48,9 +48,24 @@ class MonthlyProgress(QObject):
     def finish(self,result):
         self.rows=result['rows']
         self.busy=False
-        self.message=(f"{result['errors']} fuente(s) sin verificar; vuelve a actualizar." if result['errors'] else
+        self.message=result.get('message') or (f"{result['errors']} fuente(s) sin verificar; vuelve a actualizar." if result['errors'] else
                       'Pasa sobre un estado para ver el detalle. Pulsa para abrir el bot.' if self.rows else 'Aún no hay descargas con un mes identificado.')
         self.changed.emit()
         if self._again:
             self._again=False
             self.debounce.start()
+
+    @Slot(str,str,bool)
+    def setComplete(self,key,target,enabled):
+        if self.busy or not self.roots:return
+        self.busy=True;self.changed.emit()
+        def run():
+            try:
+                reader=MonthlyReader(self.roots);reader.read()
+                reader.mark_complete(key,target,enabled)
+                result=MonthlyReader(self.roots).read()
+                result['message']='Cierre manual guardado.' if enabled else 'Se restableció la comprobación automática.'
+            except Exception as error:result={'rows':self.rows,'errors':0,'message':str(error)}
+            try:self.received.emit(result)
+            except RuntimeError:pass
+        Thread(target=run,name='monthly-manual-close',daemon=True).start()
