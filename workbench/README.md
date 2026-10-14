@@ -141,7 +141,7 @@ día del mes, descargan sus bases propias y acumulan resultados en su tabla mens
 El rango termina al completarse; no queda esperando el siguiente mes. Se exige
 confirmación de configuración para la petición exacta antes de iniciar, y se
 comprueba que fechas/trabajadores no hayan cambiado. Si no había carpeta elegida,
-se usa `bots/<id>/resultados/` (o el directorio aislado correspondiente).
+se usa la carpeta madre común `RESULTADOS/` (o el directorio aislado correspondiente).
 
 Manifiestos envía el mes completo al worker de cada procedimiento, sin cambiar
 la vista abierta. Limpia únicamente en esa nueva petición los filtros de días,
@@ -325,13 +325,17 @@ modo Manual permanece independiente.
 
 ## Cuenta y SharePoint
 
-La barra lateral ofrece **Cuenta y SharePoint**: conexión opcional con CHC y un
-destino por bot o procedimiento. Elegir URL del sitio autorizado, biblioteca y
-carpeta; los CSV se copian dentro de la carpeta del lote al exportarse. Los bots
+La barra lateral ofrece **Cuenta y SharePoint**: conexión opcional con CHC,
+una carpeta madre local y una carpeta madre online para todos los bots. El selector
+recorre sitios, bibliotecas y carpetas. Cada bot organiza sus CSV por mes; los
+nombres públicos están en mayúsculas e incluyen modo donde corresponde.
+**Subir a SharePoint** envía solamente CSV de bots con ese mes completo y
+verificado, mediante una acción explícita. Guardar o exportar no inicia subidas. Los bots
 y sus archivos locales siguen funcionando sin sesión o red. **Reintentar envíos**
 recupera publicaciones fallidas sin consultar TICA. El registro usa OAuth2/PKCE y
-`Sites.Read.All` delegado para explorar los sitios de la cuenta y `Sites.Selected`
-delegado para escribir en sitios autorizados; no tiene secreto ni escritura general.
+el registro existente **OAuth2 par CHC REPORTES**, con `Sites.Read.All` y
+`Files.ReadWrite.All` delegados para explorar y guardar con los permisos de la
+cuenta; no utiliza secretos ni los otros permisos del registro.
 [Registro, autorización de sitios, límites y pruebas](../docs/SHAREPOINT.md).
 
 Actualizar el entorno con `Instalar_Workbench.bat`. Pruebas independientes:

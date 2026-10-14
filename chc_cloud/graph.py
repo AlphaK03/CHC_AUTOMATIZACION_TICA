@@ -74,7 +74,7 @@ class GraphClient:
                 self.sleep(min(30, max(1, delay)))
                 continue
             if response.status_code == 403:
-                raise GraphError('Sin acceso a este sitio. Un administrador debe autorizarlo para CHC Workbench y tu cuenta debe poder escribir allí.')
+                raise GraphError('Sin acceso a esta ubicación. Comprueba el consentimiento de la app y que tu cuenta tenga los permisos necesarios en el sitio o carpeta.')
             if response.status_code in (409, 412):
                 raise GraphError('El archivo ya existe o cambió en SharePoint. Se conservó la copia online; revisa el destino antes de reintentar.')
             if response.status_code >= 300:

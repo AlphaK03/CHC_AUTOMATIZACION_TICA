@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from . import output_layout
 import re
 import sqlite3
 import sys
@@ -47,6 +48,7 @@ class EventLog(logging.Handler):
 
 class DetailsService:
     def __init__(self, storage_root, protocol, offline=False, module_id="detalles"):
+        self.module_id=module_id
         self.profile = load_profile(module_id)
         self.Store = self.profile["store"]
         self.Processor = self.profile["processor"]
@@ -130,21 +132,20 @@ class DetailsService:
 
     def paths(self, record=None):
         record = record or self.record()
-        base = self.machine.get('output_base_path', '').strip()
-        if not base:
-            raise ValueError('Selecciona una carpeta de resultados antes de iniciar o exportar.')
+        base = self.local_root()
         if not record:
             raise ValueError('Importa o abre una tabla guardada.')
         name = self.output_name(record['name'])
         for other in self.catalog.list_tables():
             if other['id'] != record['id'] and self.output_name(other['name']).casefold() == name.casefold():
                 raise ValueError('Dos tablas producen el mismo nombre de carpeta. Renombra una antes de exportar.')
-        folder = Path(base).resolve() / name
+        spec=output_layout.dua_spec(self.module_id,record)
+        folder=Path(base).joinpath(*spec['relativeFolders'])
         internal = self.root / 'data' / 'exports' / record['id']
         folder.mkdir(parents=True, exist_ok=True)
         internal.mkdir(parents=True, exist_ok=True)
         return {
-            'output_csv': str(folder / f"{self.profile['prefix']}_{name}.csv"),
+            'output_csv': str(internal / 'resultados.csv'),
             'processed_log': str(internal / 'procesados.txt'),
             'failed_duas': str(internal / 'pendientes.txt'),
             'pending_json': str(internal / 'pendientes.json'),
@@ -155,7 +156,13 @@ class DetailsService:
     def published(self, record, paths):
         path = Path(paths['output_csv'])
         if path.is_file():
-            self.protocol.emit('published', path=str(path), name=path.parent.name, owner=record['id'])
+            module=self.module_id
+            spec=output_layout.dua_spec(module,record)
+            result=output_layout.publish(path,self.local_root(),spec,module+':'+record['id'],output_layout.registry_path(self.root))
+            if result:self.protocol.emit('published',**result)
+
+    def local_root(self):
+        return output_layout.local_root(self.root,self.machine.get('output_base_path',''))
 
     @staticmethod
     def output_name(name):
@@ -188,9 +195,9 @@ class DetailsService:
                 item['summary'] = self.summary(None)
                 item['unavailable'] = True
         return {'tables': tables, 'activeTable': record or {}, 'summary': self.summary(record),
-                'config': self.machine, 'session': self.session, 'fields': self.fields, 'daily': self.daily.snapshot(),
+                'config': {**self.machine,'output_base_path':str(self.local_root())}, 'session': self.session, 'fields': self.fields, 'daily': self.daily.snapshot(),
                 'storageRoot': str(self.root),
-                'outputFolder': str(Path(self.paths(record)['output_csv']).parent) if record and self.machine.get('output_base_path') else ''}
+                'outputFolder': str(self.local_root().joinpath(*output_layout.dua_spec(self.module_id,record)['relativeFolders'])) if record else ''}
 
     def runtime(self):
         from playwright.sync_api import sync_playwright
@@ -212,6 +219,7 @@ class DetailsService:
                 updated[key] = values[key]
         if 'output_base_path' in values:
             updated['output_base_path'] = str(values['output_base_path']).strip()
+            if updated['output_base_path']:output_layout.set_local_root(updated['output_base_path'],self.root)
         if 'daily_start_date' in values:
             from datetime import date
             start = date.fromisoformat(str(values['daily_start_date']))

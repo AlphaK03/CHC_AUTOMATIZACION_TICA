@@ -52,7 +52,7 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 self.assertEqual(bridge.summary['succeeded'],2,bridge.error)
                 self.assertEqual(bridge.summary['retry'],2 if module=='talon' else 1)
                 self.assertEqual(bridge.summary.get('empty',0),0 if module=='talon' else 1)
-                csv_path=next(Path(bridge.outputFolder).glob('*.csv'))
+                csv_path=next(Path(bridge.outputFolder).glob('*.CSV'))
                 def read_csv(path):
                     with path.open(encoding='utf-8-sig',newline='') as stream:return list(csv.DictReader(stream))
                 rows=read_csv(csv_path)
@@ -101,7 +101,7 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 call('clean',{'confirmTableId':manual_id})
                 call('export')
                 self.assertEqual(len(read_csv(csv_path)),54)
-                self.assertTrue(all(path.suffix=='.csv' for path in (root/'output').rglob('*') if path.is_file()))
+                self.assertTrue(all(path.suffix=='.CSV' for path in (root/'output').rglob('*') if path.is_file()))
             finally:
                 bridge.shutdown()
                 wait_until(lambda:bridge.isClosed)

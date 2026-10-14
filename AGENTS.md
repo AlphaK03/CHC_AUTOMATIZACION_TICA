@@ -169,20 +169,32 @@
   `retry_day` rearman los pendientes del rango explícito, conservando guardados,
   historial y configuración. El mes actual se limita a días anteriores a hoy.
 - SharePoint es opcional y exclusivo para copias CSV: leer `docs/SHAREPOINT.md`.
-  Cliente público MSAL/PKCE, único directorio CHC y `Sites.Selected` delegado;
-  nunca agregar secretos ni permisos generales para automatizar asignaciones.
+  Cliente público MSAL/PKCE, único directorio CHC y registro reutilizado
+  `077e19a4-ab53-4e55-8286-ec02dc3cf36c`, solicitado por el usuario. Pedir solo
+  `Sites.Read.All` y `Files.ReadWrite.All` delegados; no usar `.default`, secretos
+  ni permisos de correo/Power BI que también existen en ese registro.
   Caché DPAPI, configuración y cola solo en `runtime/workbench/sharepoint`.
   Los eventos `published` se emiten después del reemplazo atómico local, sin
-  importar librerías cloud en bots. Preservar worker online aislado, outbox
+  importar librerías cloud en bots. Preservar worker online aislado, cola
   durable, cuenta/destino capturados, conflictos de propietario y `eTag`.
   Sin sitio elegido no hacer subidas reales; pruebas aisladas con Graph simulado.
+- Todos los CSV públicos comparten carpeta madre local y destino SharePoint único.
+  Contrato en `chc_runtime/output_layout.py`: nombres/carpetas en mayúsculas,
+  bot/procedimiento, mes/año y modo real donde aplica. Preservar columnas, ceros,
+  resultados originales y checkpoints; los auxiliares siguen en almacenamiento interno.
+  BLs separa salidas por mes/modo del manifiesto. Nunca iniciar subidas al exportar,
+  conectar ni abrir la app: solo `Subir a SharePoint` o reintento explícito, con
+  cobertura de mes cerrado verificada por la bitácora. Avisos antiguos automáticos
+  se conservan sin enviarlos. Reexportar históricos desde SQLite sin consultar TICA.
 - Por instrucción del usuario, guardar los cambios en Git al cerrar cada entrega.
   Lo anterior a SharePoint quedó en `main` y `origin/main` en `93ceb44`;
   desarrollar SharePoint en `feature/sharepoint-oauth2` hasta indicación de integrar.
-- El usuario autorizó `Sites.Read.All` delegado para explorar todos los sitios que
-  permita su cuenta; conservar `Sites.Selected` para escritura y no ampliar ésta
-  por inferencia. La sesión inicial OAuth funciona. La renovación con lectura
-  amplia mostró aprobación administrativa obligatoria; ver `docs/SHAREPOINT.md`.
-  No anunciar rutas Graph reales disponibles hasta verificar ese consentimiento.
+- El usuario autorizó explorar todos los sitios de su cuenta y luego reutilizar
+  **OAuth2 par CHC REPORTES**, con lectura y escritura delegadas ya configuradas.
+  OAuth y rutas reales Graph verificadas: 7 sitios; el selector Qt recorre
+  bibliotecas y carpetas. Escritura real autorizada explícitamente por el usuario:
+  archivo de texto en carpeta nueva de pruebas, lectura idéntica y actualización
+  con eTag verificadas. No configurar destinos de bots ni subir sus resultados
+  durante una prueba de conexión; ver `docs/SHAREPOINT.md` para evidencia.
   Aceptar Bibliotecas/places y FileBrowser/Forms con id/listurl/RootFolder;
   normalizar sitio y validar host sin reenviar tokens fuera de Microsoft Graph.

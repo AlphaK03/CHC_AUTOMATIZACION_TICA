@@ -584,3 +584,52 @@ nuevo. Falta esa aprobación para comprobar sitios/bibliotecas/carpetas reales
 por Graph. No subir resultados ni configurar destinos como parte de esta prueba.
 15 pruebas cloud y dos Qt/worker/DPAPI, más smoke QML, pasaron. Se reabrió la app
 una vez tras confirmar que sus procesos no tenían navegadores de bots activos.
+
+### Registro reutilizado y comprobaciones reales satisfactorias
+
+El usuario propuso usar **OAuth2 par CHC REPORTES**, cliente
+`077e19a4-ab53-4e55-8286-ec02dc3cf36c`, y dejó su pestaña de permisos abierta.
+Se comprobaron `Sites.Read.All` y `Files.ReadWrite.All` delegados y retornos de
+escritorio existentes `http://localhost:62190/` y `http://localhost:5000`.
+No se modificó ese registro. Workbench cambió al cliente existente y solicita
+solo los dos ámbitos anteriores; no usa secretos ni permisos de correo/Power BI.
+La conexión OAuth con la cuenta CHC fue satisfactoria. El bloqueo administrativo
+del registro nuevo ya no aplica al cliente usado por la app.
+
+Graph devolvió 7 sitios. Se leyeron bibliotecas y carpetas de Automatización TIC@
+(Documentos, 15 carpetas originales) y TIC@_DUASxREGIMEN (Documents, 8). Se verificó
+también el selector de la app con esos 7 sitios y Automatización TIC@ / Documentos.
+El usuario autorizó expresamente una prueba de escritura con un archivo cualquiera:
+se creó `CHC_Workbench_Prueba_20261014_163132/prueba_conexion.txt` en Automatización
+TIC@ / Documentos, se subió y descargó idéntico; después se actualizó con eTag y se
+comparó otra vez. Se conserva en SharePoint para revisión; informe privado en
+`runtime/sharepoint-write-test/report.json`, enlace en `docs/SHAREPOINT.md`.
+
+No se configuraron rutas de bots ni se enviaron CSV de producción. Se mantiene
+la sesión conectada y la app abierta en el selector de esa biblioteca. 15 pruebas
+cloud, dos Qt/worker/DPAPI y smoke pasaron; el registro nuevo inicial se conserva.
+
+### Carpeta común, nombres estandarizados y subida exclusivamente manual
+
+Alcance final solicitado: una sola carpeta madre local y una sola de SharePoint
+para todos los bots, solo CSV públicos, nombres en mayúsculas con bot, mes/año y
+modo cuando aplica. `chc_runtime/output_layout.py` define el contrato y registro
+local común; `RESULTADOS/` es el valor predeterminado y queda fuera de Git.
+Auxiliares y progreso permanecen internos. BLs separa sus filas por mes/modo real
+del manifiesto. Selecciones parciales y lotes manuales conservan sufijos distintos.
+Los históricos originales se conservan: **Exportar** los regenera desde SQLite
+en la estructura común sin consultar TICA. Cambiar carpeta no mueve archivos.
+
+La pantalla **Cuenta y resultados** reúne cuenta, carpeta local, carpeta online
+y selector de mes. Elegir una carpeta no publica archivos. **Subir a SharePoint**
+solo envía los CSV registrados de bots/procedimientos con ese mes cerrado y
+completo verificado por `MonthlyReader`. No hay temporizador ni conexión de
+eventos de exportación a subidas. Envíos fallidos requieren reintento explícito;
+rutas por bot y avisos automáticos antiguos se conservan sin enviarlos.
+
+Verificado: 18 pruebas cloud, dos Qt/DPAPI, cuatro del contrato de nombres y
+12 integraciones de Detalles, Tránsito, Talón, XMovimientos, calendario diario,
+cinco procedimientos de Manifiestos y BLs; smoke QML. La app actualizada quedó
+abierta, con cuenta CHC conectada y destino común pendiente de elegir por el
+usuario. No se subieron CSV de producción. README y `docs/SHAREPOINT.md` describen
+el comportamiento vigente; los apartados anteriores registran su evolución.

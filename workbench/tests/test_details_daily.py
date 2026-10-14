@@ -36,8 +36,8 @@ class DailyPilotTest(unittest.TestCase):
                 self.assertEqual(days, [(start.isoformat(), 'completed', 9, 9),
                                         ((start + timedelta(days=1)).isoformat(), 'completed', 9, 9)])
                 self.assertEqual(sum(item['summary']['succeeded'] for item in bridge.tables), 18)
-                self.assertTrue(list((root / 'output').rglob('*.csv')))
-                self.assertTrue(all(path.suffix == '.csv' for path in (root / 'output').rglob('*') if path.is_file()))
+                self.assertTrue(list((root / 'output').rglob('*.CSV')))
+                self.assertTrue(all(path.suffix == '.CSV' for path in (root / 'output').rglob('*') if path.is_file()))
                 bridge.loadCalendar(start.strftime('%Y-%m'))
                 wait_until(lambda: not any(item['command'] == 'daily_calendar' for item in bridge._requests.values()))
                 self.assertTrue(any(cell['state'] == 'completed' for cell in bridge.daily['days']))

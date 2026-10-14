@@ -322,7 +322,7 @@ ScrollView {
     }
 
     Native.FileDialog { id: excelDialog; title: "Seleccionar Excel de DUAs"; nameFilters: ["Excel (*.xlsx)"]; onAccepted: worker.inspectExcel(String(selectedFile)) }
-    Native.FolderDialog { id: outputDialog; title: "Seleccionar carpeta de resultados"; onAccepted: worker.setOutput(String(selectedFolder)) }
+    Native.FolderDialog { id: outputDialog; title: "Carpeta madre común a todos los bots"; onAccepted: worker.setOutput(String(selectedFolder)) }
     DailyCalendar {
         id: calendarDialog; moduleBridge: page.worker; anchors.centerIn: parent; width: Math.min(530,page.width - 20)
         initialStart: dailyStart.text.trim(); initialEnd: dailyEnd.text.trim()

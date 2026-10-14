@@ -1,5 +1,5 @@
 {
-  "clientId": "da7ff4b7-8a2e-4c49-9338-17975a058a99",
+  "clientId": "077e19a4-ab53-4e55-8286-ec02dc3cf36c",
   "tenantId": "f7015bc9-c229-413a-ab08-e1e5a76a09f1",
-  "scopes": ["Sites.Selected", "Sites.Read.All"]
+  "scopes": ["Sites.Read.All", "Files.ReadWrite.All"]
 }

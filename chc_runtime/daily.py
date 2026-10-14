@@ -408,7 +408,7 @@ class DailyCoordinator:
             raise ValueError('La fecha inicial debe ser anterior a hoy.')
         if end and (end < start or end >= self.now().date()):
             raise ValueError('El rango debe terminar entre Desde y ayer.')
-        if not self.service.machine.get('output_base_path'):
+        if not self.service.local_root():
             raise ValueError('Elige la carpeta de resultados antes de iniciar.')
         if not self.offline and not (SOURCE / 'drivers' / 'msedgedriver.exe').is_file():
             raise ValueError('Ejecuta Instalar_Base_Diaria.bat antes de iniciar el modo diario.')

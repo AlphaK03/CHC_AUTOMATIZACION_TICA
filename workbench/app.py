@@ -78,8 +78,6 @@ def main():
     backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls, monthly)
     cloud = SharePointBridge(enabled=not (args.demo or args.smoke_test or args.capture))
     cloud.toast.connect(backend.toast.emit)
-    for module, bridge in bridges.items():
-        bridge.eventReceived.connect(lambda event, key=module: cloud.publication(key,event))
     if cloud.storage.joinpath('destinations.json').exists() and cloud.enabled:
         cloud.refresh()
     app.aboutToQuit.connect(cloud.shutdown)

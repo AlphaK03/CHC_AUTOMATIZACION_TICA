@@ -51,10 +51,9 @@ class ManifestIntegration(unittest.TestCase):
                         self.assertEqual(summary['pending'],0 if flow=='duas' else 1)
                     record = bridge.current().snapshot
                     output = Path(record['outputFolder'])
-                    self.assertTrue(list(output.glob('*.csv')))
-                    self.assertTrue(all(p.suffix=='.csv' for p in output.iterdir()))
-                    prefix = 'manifiestos' if flow=='tabla' else flow
-                    with next(output.glob(prefix+'_*.csv')).open(encoding='utf-8-sig',newline='') as stream:
+                    self.assertTrue(list(output.rglob('*.CSV')))
+                    self.assertTrue(all(p.suffix=='.CSV' for p in output.rglob('*') if p.is_file()))
+                    with next(output.rglob('MANIFIESTOS_*.CSV')).open(encoding='utf-8-sig',newline='') as stream:
                         rows = list(csv.reader(stream))
                     if flow=='contenedores':
                         self.assertEqual(len(rows[0]),19)  # índice + los 18 campos, sin ID duplicado.
@@ -84,7 +83,8 @@ class ManifestIntegration(unittest.TestCase):
                 self.assertEqual(bls.summary['rows'],2)
                 call('bls','run',target=bls)
                 self.assertEqual(bls.summary['succeeded'],2)
-                self.assertTrue(all(p.suffix=='.csv' for p in Path(bls.current().snapshot['outputFolder']).iterdir()))
+                self.assertTrue(list(Path(bls.current().snapshot['outputFolder']).rglob('BLS_*.CSV')))
+                self.assertTrue(all(p.suffix=='.CSV' for p in Path(bls.current().snapshot['outputFolder']).rglob('*') if p.is_file()))
                 # La base anterior no se sustituye sin confirmación.
                 channel = bridge.channels['bases']
                 self.assertTrue(channel.send('base_build',{'periods':['2026-10|maritimo'],'destination':str(destination)}))
@@ -136,7 +136,7 @@ class ManifestIntegration(unittest.TestCase):
     def test_existing_external_csv_is_preserved_before_query(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            output=root/'resultados/octubre26/conocimientos_maritimo_octubre26.csv'
+            output=root/'resultados/MANIFIESTOS/CONOCIMIENTOS/OCTUBRE_2026/MANIFIESTOS_CONOCIMIENTOS_MARITIMO_OCTUBRE_2026.CSV'
             output.parent.mkdir(parents=True)
             output.write_text('archivo anterior',encoding='utf-8')
             bridge=BatchBridge(storage_root=root,offline_fixture=True)

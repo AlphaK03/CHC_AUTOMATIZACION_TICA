@@ -31,7 +31,7 @@ class SharePointTests(unittest.TestCase):
                 return window.findChild(QObject,name)
             try:
                 QMetaObject.invokeMethod(find('sharePointNavigation'),'clicked',Qt.DirectConnection)
-                wait_until(lambda: len(cloud.destinations)==10 and not cloud.busy,timeout=8000)
+                wait_until(lambda: cloud._ready and not cloud.busy,timeout=8000)
                 self.assertFalse(cloud.connected);self.assertEqual(cloud.error,'')
                 self.assertTrue(find('connectSharePoint').property('enabled'))
                 # Datos de navegación sintéticos; impedir toda llamada de red.
@@ -40,11 +40,17 @@ class SharePointTests(unittest.TestCase):
                 cloud._browse={'driveId':'drive','drives':[{'id':'drive','name':'Documentos'}],
                               'folder':{'id':'folder','name':'Resultados'},'folders':[]}
                 cloud.changed.emit();APP.processEvents()
-                dialog=find('sharePointDialog');dialog.setProperty('driveId','drive')
+                dialog=find('sharePointDialog');dialog.setProperty('driveId','drive');dialog.setProperty('picking',True)
                 APP.processEvents()
                 button=find('saveSharePointFolder');self.assertTrue(button.property('enabled'))
                 QMetaObject.invokeMethod(button,'clicked',Qt.DirectConnection)
-                self.assertEqual(captured[-1],('save',{'key':'detalles','drive':'drive','item':'folder'}))
+                self.assertEqual(captured[-1],('save',{'drive':'drive','item':'folder'}))
+                self.assertFalse(find('uploadSharePointMonth').property('enabled'))
+                cloud._snapshot.update(destination={'folderId':'folder'},months=[{'period':'2026-09','label':'Septiembre 2026','files':1}])
+                cloud.changed.emit();APP.processEvents();dialog.setProperty('picking',False)
+                button=find('uploadSharePointMonth');self.assertTrue(button.property('enabled'))
+                QMetaObject.invokeMethod(button,'clicked',Qt.DirectConnection)
+                self.assertEqual(captured[-1],('upload_month',{'month':'2026-09'}))
                 self.assertFalse(warnings,warnings)
             finally:
                 cloud.shutdown();wait_until(lambda:cloud.isClosed,timeout=8000)

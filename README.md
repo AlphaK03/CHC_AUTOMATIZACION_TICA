@@ -153,11 +153,14 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 ## Comprobar esta entrega
 
 **Cuenta y SharePoint** permite conectar opcionalmente una cuenta CHC y elegir
-carpetas online para copiar los CSV de cada bot. La aplicación conserva su
+una carpeta madre online para todos los bots. La carpeta madre local es también
+común; los CSV se organizan por bot, mes y modo, con nombres en mayúsculas.
+**Subir a SharePoint** envía únicamente resultados de meses completos verificados,
+cuando el usuario lo solicita. Exportar localmente no inicia subidas.
+La aplicación conserva su
 funcionamiento y resultados locales sin cuenta. Registro OAuth2 de escritorio
-creado con `Sites.Selected` delegado para escritura autorizada y `Sites.Read.All`
-delegado para explorar los sitios de la cuenta; los sitios de escritura se
-autorizan cuando se elijan.
+reutilizado de CHC REPORTES con `Sites.Read.All` y `Files.ReadWrite.All` delegados,
+para explorar sitios y guardar archivos según los permisos de la cuenta.
 Véase [configuración y uso](docs/SHAREPOINT.md).
 
 Los casos pendientes y guardados cuentan con **Abrir en TICA**, que abre un navegador visible

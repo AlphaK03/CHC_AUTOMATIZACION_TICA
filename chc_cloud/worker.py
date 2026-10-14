@@ -16,7 +16,10 @@ def main():
     args = parser.parse_args()
     sys.stdin.reconfigure(encoding='utf-8')
     sys.stdout.reconfigure(encoding='utf-8',line_buffering=True)
-    service = CloudService(args.storage,json.loads(args.app.read_text(encoding='utf-8')))
+    from chc_runtime.output_layout import ROOT
+    isolated=args.storage.resolve()!=ROOT/'runtime/workbench/sharepoint'
+    service = CloudService(args.storage,json.loads(args.app.read_text(encoding='utf-8')),
+                           monthly=(lambda:{'rows':[]}) if isolated else None)
     def emit(value):
         print(json.dumps(value,ensure_ascii=False),flush=True)
     emit({'event':'ready'})

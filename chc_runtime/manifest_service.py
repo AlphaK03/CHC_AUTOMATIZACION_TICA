@@ -13,6 +13,7 @@ import tempfile
 import time
 
 from .manifest_names import manifest_scope, manifest_name, normalized_scope
+from . import output_layout
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
@@ -82,6 +83,9 @@ class BatchService:
     def active(self):
         return next((item for item in self.index['history'] if item['id'] == self.index['active']), None)
 
+    def public_root(self):
+        return output_layout.local_root(self.root,self.index['config'].get('outputRoot',''))
+
     def save(self):
         write_json(self.index_path, self.index)
 
@@ -90,11 +94,11 @@ class BatchService:
         summary = active.get('summary', {})
         jobs = list(self._jobs.values())
         jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,item['ordinal']))
-        return {'config':dict(self.index['config']), 'history':[
+        return {'config':{**self.index['config'],'outputRoot':str(self.public_root())}, 'history':[
             {'id':item['id'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
             'summary':{key:summary.get(key,0) for key in ('total','succeeded','pending','running','excluded','rows','invalid')},
-            'jobs':jobs[:200], 'activeJobs':[j for j in jobs if j['state']=='Descargando'] if self.processing else [], 'outputFolder':active.get('output',''),
+            'jobs':jobs[:200], 'activeJobs':[j for j in jobs if j['state']=='Descargando'] if self.processing else [], 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
             'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info,
             'knowledgeCatalog':self.knowledge_catalog}
 
@@ -158,6 +162,8 @@ class BatchService:
 
     def execute(self, command, request):
         if command == 'configure':
+            if request.get('config',{}).get('outputRoot'):
+                output_layout.set_local_root(request['config']['outputRoot'],self.root)
             self.index['config'].update({k:v for k,v in request.get('config',{}).items() if k in self.index['config']})
             self.save()
         elif command == 'run':
@@ -312,17 +318,31 @@ class BatchService:
         if self.flow!='bls':
             # Recuperar también lotes anteriores con nombre manual, sin mover sus datos.
             candidates = [item for item in self.index['history']
-                          if normalized_scope(item['spec']) == normalized_scope(spec)
-                          and Path(item['output']).parent == output_root]
+                          if normalized_scope(item['spec']) == normalized_scope(spec)]
             record = next((item for item in candidates if item['id']==self.index['active']),
                           candidates[-1] if candidates else None)
             c['name'] = record['name'] if record else name
+        elif record is None:
+            # Cambiar la carpeta pública nunca reinicia un lote BL ya existente.
+            record=next((item for item in reversed(self.index['history'])
+                         if item['name']==name and item['id']==hashlib.sha256((key+'|'+item['name']+'|'+str(Path(item['output']).parent)).encode()).hexdigest()[:24]),None)
         if record is None:
             record = {'id':identity, 'name':name, 'period':f"{c['year']}-{int(c['month']):02d}" if self.flow!='bls' else 'Base BLs',
                 'spec':spec, 'config':dict(c), 'work':str(self.root/'data/jobs'/self.flow/identity),
                 'output':str(Path(c['outputRoot']).resolve()/name), 'databases':[], 'state':'Pendiente', 'summary':{}}
             self.index['history'].append(record)
         record['config'] = dict(c)
+        if self.flow=='bls':
+            public_specs={}
+            from datetime import datetime
+            for value in frame['IDManifiesto']:
+                try:
+                    parts=str(value).split('-');day=datetime.strptime(parts[-1],'%d/%m/%y')
+                    mode={'1':'MARITIMO','4':'AEREO','7':'TERRESTRE'}[parts[0]]
+                    value=output_layout.bls_spec(record,f'{day.year:04d}-{day.month:02d}',mode)
+                    public_specs[value['filename']]=value
+                except (KeyError,ValueError,IndexError):continue
+            record['publicSpecs']=list(public_specs.values())
         self.index['active'] = record['id']
         self._jobs = {}
         self.inspect()
@@ -332,7 +352,7 @@ class BatchService:
     def run(self):
         record = self.prepare()
         if self.flow=='bls':
-            self.publication_target(record,f"Duas_procesados_{record['config']['sheet']}.csv")
+            for spec in record.get('publicSpecs',[]):self.publication_target(record,spec=spec)
         else:
             from resultados import csv_name
             for mode in record['spec']['modes']:
@@ -503,8 +523,13 @@ class BatchService:
                 if job['state']=='Descargando':
                     job['state'] = 'Interrumpido'
 
-    def publication_target(self, record, filename):
-        destination = Path(record['output'])/filename
+    def publication_target(self, record, filename=None, spec=None):
+        if spec is None:
+            from resultados import parse_result_name
+            parsed=parse_result_name(filename)
+            if not parsed:raise ValueError('El archivo no es un CSV de resultados verificable.')
+            spec=output_layout.manifest_spec(self.flow,record,parsed[1])
+        destination=self.public_root().joinpath(*spec['relativeFolders'],spec['filename'])
         # Un destino compartido no puede sobrescribir otro lote con filtros diferentes.
         owner_path = self.root/'data/publications'/(hashlib.sha256(str(destination).casefold().encode()).hexdigest()+'.json')
         if owner_path.exists() and json.loads(owner_path.read_text(encoding='utf-8'))['owner'] != record['id']:
@@ -521,19 +546,23 @@ class BatchService:
         source = Path(source)
         if not source.is_file():
             return
-        destination,owner_path = self.publication_target(record,source.name)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(dir=destination.parent,suffix='.tmp')
-        os.close(fd)
+        if self.flow=='bls':
+            files=output_layout.bls_exports(source,record)
+        else:
+            from resultados import parse_result_name
+            parsed=parse_result_name(source)
+            if not parsed or parsed[4]:raise ValueError('Solo se publican CSV de resultados, sin errores ni auditorías.')
+            files=[(source,output_layout.manifest_spec(self.flow,record,parsed[1]))]
         try:
-            write_json(owner_path,{'owner':record['id'],'path':str(destination)})
-            shutil.copyfile(source,temporary)
-            os.replace(temporary,destination)
-            self.emit('published', path=str(destination), name=Path(record['output']).name,
-                      owner=record['id'], flow=self.flow)
+            for path,spec in files:
+                destination,owner_path=self.publication_target(record,spec=spec)
+                result=output_layout.publish(path,self.public_root(),spec,self.flow+':'+record['id'],output_layout.registry_path(self.root))
+                if result:
+                    write_json(owner_path,{'owner':record['id'],'path':str(destination)})
+                    self.emit('published',flow=self.flow,**result)
         finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+            if self.flow=='bls':
+                for path,_ in files:path.unlink(missing_ok=True)
 
     def export(self):
         record = self.active()

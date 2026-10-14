@@ -1,141 +1,143 @@
-# Cuenta CHC y resultados en SharePoint
+﻿# Cuenta CHC y resultados en SharePoint
 
-La conexión es opcional. **Cuenta y SharePoint**, en la barra lateral, permite
-conectar una cuenta de CHC, elegir sitios, bibliotecas y carpetas, y asignar un
-destino a cada bot o procedimiento de Manifiestos. La aplicación funciona sin
-cuenta y conserva siempre SQLite, CSV locales y recuperación de los bots.
+La conexión es opcional. **Cuenta y SharePoint**, en la barra lateral, conecta una
+cuenta CHC, explora sitios/bibliotecas/carpetas y elige una sola carpeta madre
+para todos los bots. También permite elegir una carpeta madre local común.
+Solo **Subir a SharePoint**, al seleccionar un mes completo verificado, inicia
+un envío de CSV. Guardar, exportar, conectar o abrir la app no inicia subidas.
+SQLite, resultados y recuperación permanecen locales. La app funciona sin cuenta o red.
 
-## Registro creado en Microsoft Entra
+## Registro vigente: OAuth2 par CHC REPORTES
 
-Se creó mediante la sesión autorizada del usuario el 14 de octubre de 2026:
+Por indicación del usuario se reutiliza el registro existente:
 
 | Campo | Valor |
 | --- | --- |
-| Nombre | CHC Workbench · Resultados SharePoint |
-| Id. de aplicación | `da7ff4b7-8a2e-4c49-9338-17975a058a99` |
-| Id. de directorio CHC | `f7015bc9-c229-413a-ab08-e1e5a76a09f1` |
-| Tipo de cuenta | Solo CHC Consultores, un inquilino |
-| Plataforma | Aplicaciones móviles y de escritorio |
-| Retorno | `http://localhost` |
-| Lectura y exploración Microsoft Graph | `Sites.Read.All`, delegado (autorizado por el usuario después del registro inicial) |
-| Escritura Microsoft Graph | `Sites.Selected`, delegado |
+| Id. de aplicación | `077e19a4-ab53-4e55-8286-ec02dc3cf36c` |
+| Directorio CHC | `f7015bc9-c229-413a-ab08-e1e5a76a09f1` |
+| Lectura/exploración | `Sites.Read.All`, delegado |
+| Archivos de resultados | `Files.ReadWrite.All`, delegado |
+| Retornos de escritorio existentes | `http://localhost:62190/` y `http://localhost:5000` |
 
-El permiso `User.Read` agregado por defecto fue retirado. No se crearon secretos,
-certificados ni permisos de aplicación. Los identificadores públicos se incluyen
-en `workbench/sharepoint_app.json`; no son credenciales.
+Estos permisos y retornos ya existían. No se modificó ese registro. Se verificó
+OAuth real desde MSAL y acceso Graph con la cuenta del usuario. Workbench solicita
+solo los dos ámbitos indicados, sin usar `.default`; los otros permisos del
+registro (correo, Power BI y SharePoint) no se solicitan para esta integración.
+No usa secretos, certificados ni credenciales de aplicación.
 
-MSAL usa el navegador del sistema, código de autorización con PKCE y renovación
-silenciosa. Los ámbitos OIDC de sesión son administrados por MSAL. Los tokens se
-guardan con DPAPI, cifrados para el usuario de Windows; nunca se incluyen en Git,
-la salida del worker o los logs. **Desconectar** elimina la sesión local de esta
-app; no cierra la sesión general de Microsoft del navegador.
+La lectura y escritura delegadas están limitadas por los permisos de la cuenta
+conectada. Este registro permite elegir carpetas en sitios donde el usuario pueda
+escribir, sin una asignación `Sites.Selected` adicional. Es un alcance de archivos
+más amplio que el registro nuevo inicial, adoptado al reutilizar la aplicación
+que el usuario propuso para explorar y guardar en sus rutas existentes.
 
-## Autorizar un sitio cuando se elija
+MSAL usa navegador del sistema, código de autorización con PKCE y renovación
+silenciosa. Windows protege los tokens con DPAPI. Identificadores públicos en
+`workbench/sharepoint_app.json`; caché, rutas y cola en runtime, fuera de Git.
+**Desconectar** elimina la sesión local de Workbench; no cierra la sesión general
+Microsoft del navegador ni cambia la configuración del registro reutilizado.
 
-`Sites.Read.All` delegado permite explorar y leer los sitios a los que tenga acceso
-la cuenta conectada. El usuario eligió expresamente esta opción para navegar por
-todas sus bibliotecas. Se usa `/sites?search=...`, con paginación y filtro al host
-SharePoint de CHC. No concede escritura general.
+## Elegir carpetas
 
-`Sites.Selected` permite escritura únicamente en sitios autorizados explícitamente.
-El consentimiento OAuth y la asignación al sitio son pasos diferentes. Todavía
-no se asignó ningún sitio: el usuario configurará sus rutas más adelante.
-El consentimiento al ámbito debe completarse al conectar, conforme a las
-políticas del directorio; un administrador deberá intervenir si esas políticas
-lo requieren.
+1. Abrir **Cuenta y SharePoint** y conectar una cuenta CHC. Si estaba conectada
+   antes de cambiar el registro, renovar la conexión con **Cambiar cuenta**.
+2. Pulsar **Elegir carpeta** en la tarjeta de SharePoint. Buscar un sitio si hace falta.
+3. Elegir sitio, biblioteca y carpeta; pulsar **Usar esta carpeta para todos**.
+4. Ejecutar los bots o exportar sus resultados guardados. Se organizan localmente.
+5. Al finalizar un mes, pulsar **Actualizar**, seleccionar el mes y accionar
+   **Subir a SharePoint**. Solo entran los bots/procedimientos cuya cobertura
+   completa y resultados estén verificados por la bitácora mensual.
 
-Cuando se conozca el sitio, un administrador con las facultades necesarias debe
-asignar el rol `write` a esta aplicación, por ejemplo mediante Microsoft Graph
-Explorer o una herramienta administrativa ya autorizada. Esa herramienta necesita
-los permisos administrativos para gestionar acceso; **no agregarlos a Workbench**.
-Resolver primero su identificador con:
+La carpeta local predeterminada es `RESULTADOS/`, configurable desde esta pantalla.
+El destino online replica los mismos nombres y subcarpetas, todos en mayúsculas:
 
-```http
-GET https://graph.microsoft.com/v1.0/sites/{host-sharepoint}:/sites/{nombre-del-sitio}
+```text
+CARPETA_MADRE/
+  DETALLES/OCTUBRE_2026/DETALLES_OCTUBRE_2026.CSV
+  DUAS_TRANSITO/OCTUBRE_2026/DUAS_TRANSITO_OCTUBRE_2026.CSV
+  TALON/OCTUBRE_2026/TALON_OCTUBRE_2026.CSV
+  XMOVIMIENTOS/OCTUBRE_2026/XMOVIMIENTOS_OCTUBRE_2026.CSV
+  BLS/OCTUBRE_2026/BLS_MARITIMO_OCTUBRE_2026.CSV
+  MANIFIESTOS/CONOCIMIENTOS/OCTUBRE_2026/MANIFIESTOS_CONOCIMIENTOS_AEREO_OCTUBRE_2026.CSV
 ```
 
-Y aplicar la asignación:
+Los cinco procedimientos de Manifiestos tienen carpetas propias. BLs divide por
+el mes y modo reales de cada manifiesto, conservando filas y columnas. Selecciones
+parciales, filtros y lotes manuales agregan un sufijo para evitar sustituir otro
+conjunto de datos. Si no se conoce el mes, se usa `SIN_PERIODO`; no se inventa una fecha.
 
-```http
-POST https://graph.microsoft.com/v1.0/sites/{site-id}/permissions
-Content-Type: application/json
+La URL `https://chcconsultorescr.sharepoint.com/_layouts/15/sharepoint.aspx/onedrive/places`
+abre el catálogo de sitios. Los enlaces `FileBrowser.aspx` con `id`/`listurl` y las
+vistas Forms con `RootFolder` se normalizan al sitio real. Graph devuelve sitios
+según la cuenta, pagina respuestas y filtra al host SharePoint de CHC. La lista
+puede incluir sitios adicionales a los recientes mostrados por Edge.
 
-{
-  "roles": ["write"],
-  "grantedToIdentities": [{
-    "application": {
-      "id": "da7ff4b7-8a2e-4c49-9338-17975a058a99",
-      "displayName": "CHC Workbench · Resultados SharePoint"
-    }
-  }]
-}
-```
+Se copian exclusivamente CSV de resultados, con sus columnas, codificación y
+datos intactos. SQLite, TXT/JSON de pendientes y diagnósticos siguen locales.
+Las exportaciones periódicas/finales de los bots actualizan únicamente sus CSV
+locales y un registro de salidas públicas. Ninguna acción de SharePoint inicia
+consultas TICA. Los archivos históricos se conservan en sus rutas anteriores;
+usar **Exportar** en el lote vuelve a generar sus datos guardados con la estructura
+común, sin descargar de nuevo. Cambiar la carpeta madre no mueve archivos existentes.
 
-Además, cada usuario conectado debe tener permiso para escribir en la carpeta.
-La autorización efectiva es la intersección entre su acceso y el de la app.
-El selector permite buscar sitios por nombre o introducir su URL. También acepta
-la página de **Bibliotecas** de CHC y los enlaces `FileBrowser.aspx` que contiene;
-se normalizan al sitio correspondiente antes de consultar Microsoft Graph.
-La asignación está limitada al sitio; las rutas elegidas en la interfaz no son
-una restricción adicional de permisos a nivel de carpeta.
+## Pendientes y conflictos
 
-## Uso
+La cola online es independiente y persistente. Sin sesión o red conserva copias
+pendientes de envíos pedidos por el usuario; requiere un reintento explícito
+con la cuenta y destino compatibles y el mes todavía completo.
+Los errores se muestran y se recuperan con **Reintentar envíos**. Retirar o cambiar
+un destino pausa sus copias anteriores y conserva los CSV locales.
 
-1. Abrir **Cuenta y SharePoint** y pulsar **Conectar cuenta CHC**.
-2. Seleccionar el bot o procedimiento y pulsar **Explorar sitios**, o introducir
-   una URL de SharePoint y pulsar **Ver bibliotecas**. La página inicial
-   `https://chcconsultorescr.sharepoint.com/_layouts/15/sharepoint.aspx/onedrive/places`
-   abre el catálogo de sitios; elegir uno para ver sus bibliotecas.
-3. Elegir biblioteca, recorrer carpetas y pulsar **Usar esta carpeta**.
-4. Ejecutar el bot o exportar sus resultados normalmente. Los CSV se envían a
-   `carpeta elegida / nombre del lote / nombre original del CSV`.
+Una primera subida no reemplaza archivos preexistentes. Las actualizaciones de
+archivos publicados por Workbench conservan su identificador y `eTag`; se rechazan
+cambios o movimientos externos. Lotes diferentes tampoco pueden compartir el
+mismo nombre y destino. Resolver un conflicto o elegir otra carpeta antes de
+reintentar; el original online y el CSV local se conservan.
 
-Se publican exclusivamente los CSV de resultados, sin transformar columnas,
-codificación ni datos. SQLite, pendientes TXT/JSON y diagnósticos siguen locales.
-Las exportaciones periódicas/finales del motor DUA y las publicaciones de BLs y
-Manifiestos notifican al proceso online. No se inicia ninguna consulta TICA por
-conectar, seleccionar destinos o reintentar una subida. No se envían resultados
-antiguos al agregar una ruta: pulsar **Exportar** en el lote deseado para hacerlo.
+## Implementación y pruebas
 
-La cola online es independiente y persistente. Sin sesión o red, conserva las
-copias pendientes; después de conectar, envía pendientes compatibles con esa
-cuenta y destino. Los errores de publicación quedan visibles y se reintentan
-con **Reintentar envíos**. Retirar o cambiar un destino pausa sus copias pendientes
-anteriores. No redirige automáticamente esos archivos a otra cuenta o carpeta.
+`chc_cloud/` contiene MSAL, Graph y cola SQLite. `sharepoint_bridge.py` inicia un
+proceso propio del entorno Workbench, separado de todos los bots. Configuración,
+cola, caché DPAPI y publicaciones online viven en `runtime/workbench/sharepoint/`.
+El contrato local está en `chc_runtime/output_layout.py`; configuración y registro
+comunes en `runtime/workbench/exports.json` y `publications.sqlite3`.
+Los eventos `published` se emiten tras la exportación local atómica, sin conectar
+con envíos online. Al cerrar se conservan envíos inconclusos para un reintento
+manual. Las rutas por bot y avisos automáticos de la versión inicial se conservan
+como históricos y no se envían automáticamente.
 
-Una primera subida no reemplaza archivos preexistentes. Para futuras versiones
-de un archivo publicado por esta app se conserva el identificador y `eTag`;
-se rechazan modificaciones o movimientos externos. Dos lotes diferentes tampoco
-pueden usar el mismo nombre y destino. Ante un conflicto, se conserva el archivo
-online y el CSV local; elegir otro destino o resolverlo antes de reintentar.
+Validación: 18 pruebas cloud con transporte simulado, dos de Qt/worker/cifrado
+Windows, cuatro del contrato de salidas y smoke QML. Exportaciones y recuperación
+comprobadas con portales locales de Detalles, Tránsito, Talón/XMovimientos,
+calendario diario y cinco procedimientos de Manifiestos con entrega a BLs.
 
-## Implementación y validación
+Pruebas reales autorizadas del 14 de octubre de 2026:
 
-`chc_cloud/` administra MSAL, Graph y la cola; `sharepoint_bridge.py` inicia un
-proceso del entorno Workbench, separado de todos los bots. Configuración local,
-avisos pendientes, caché DPAPI y SQLite están en
-`runtime/workbench/sharepoint/`, excluido de Git. Al cerrar, se termina solo ese
-proceso y se recuperan sus publicaciones inconclusas al siguiente inicio.
+- OAuth con el registro existente y cuenta CHC: satisfactorio.
+- Graph devolvió 7 sitios. En Automatización TIC@ se leyeron Documentos y sus 15
+  carpetas originales; en TIC@_DUASxREGIMEN, Documents y 8 carpetas.
+- El selector Qt mostró esos 7 sitios y recorrió Automatización TIC@ / Documentos.
+- Por petición expresa se creó la carpeta `CHC_Workbench_Prueba_20261014_163132`
+  dentro de Automatización TIC@ / Documentos. `prueba_conexion.txt` se subió,
+  descargó y comparó byte a byte; se actualizó con `eTag` y se verificó otra vez.
+  El archivo de prueba se dejó disponible para revisión. Evidencia local en
+  `runtime/sharepoint-write-test/report.json`.
+- No se asignaron destinos a bots ni se enviaron sus CSV de producción. Estas
+  comprobaciones no prueban que Power BI haya actualizado sus datos.
 
-Comprobaciones realizadas: 12 pruebas de publicación y transporte con Graph
-simulado, dos pruebas de interfaz/proceso y cifrado real de Windows; integración
-local de Talón/XMovimientos y cinco procedimientos de Manifiestos con entrega a
-BLs; smoke QML. Se comprobaron registro, directorio, retorno y permiso en Entra.
-Actualización de navegación: se verificó una conexión OAuth real con la cuenta
-CHC del usuario. Con el ámbito inicial `Sites.Selected`, la lectura del sitio raíz
-devolvió 403 por falta de asignación. En Edge se comprobaron seis entradas de
-biblioteca y sus enlaces reales, sin extraer cookies ni tokens del navegador.
-El usuario agregó `Sites.Read.All` delegado al registro; al renovar la sesión,
-Microsoft mostró **Se necesita la aprobación del administrador**. Por tanto, la
-exploración real por Graph con el nuevo ámbito sigue pendiente de aprobación.
-Se añadieron pruebas de enlaces reales, catálogo de sitios y filtro al host CHC:
-15 pruebas cloud y dos de Qt/worker/DPAPI, más smoke QML, satisfactorias.
-No se subieron archivos ni se configuraron destinos reales. Estas pruebas no
-demuestran una entrega real a SharePoint ni una actualización de Power BI.
+[Archivo de prueba](https://chcconsultorescr.sharepoint.com/sites/AutomatizacinTIC/Documentos%20compartidos/CHC_Workbench_Prueba_20261014_163132/prueba_conexion.txt).
 
-Referencias oficiales: [permisos seleccionados](https://learn.microsoft.com/en-us/graph/permissions-selected-overview),
+## Registro inicial conservado
+
+Inicialmente se creó **CHC Workbench · Resultados SharePoint**, cliente
+`da7ff4b7-8a2e-4c49-9338-17975a058a99`, con `Sites.Selected` delegado y retorno
+`http://localhost`. La conexión funcionó, pero la lectura sin asignación devolvió
+403. El usuario agregó `Sites.Read.All`; Microsoft exigió aprobación administrativa.
+Por ello propuso reutilizar OAuth2 par CHC REPORTES, que sí completó la conexión
+con los ámbitos necesarios. El registro nuevo se conserva y ya no es el usado por
+Workbench; la falta de aprobación de ese registro no bloquea al vigente.
+
+Referencias oficiales: [búsqueda de sitios](https://learn.microsoft.com/en-us/graph/api/site-search?view=graph-rest-1.0),
 [registro de escritorio](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-desktop-app-configuration),
 [MSAL Python](https://msal-python.readthedocs.io/en/latest/),
 [cargas por sesión](https://learn.microsoft.com/en-us/graph/api/driveitem-createuploadsession?view=graph-rest-1.0).
-La búsqueda delegada de sitios usa el permiso documentado en
-[Search for sites](https://learn.microsoft.com/en-us/graph/api/site-search?view=graph-rest-1.0).

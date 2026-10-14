@@ -1,9 +1,7 @@
 """Conexión opcional y cola online; los bots nunca esperan por SharePoint."""
 import json
-import os
 from pathlib import Path
 import sys
-import uuid
 
 from PySide6.QtCore import QObject, Property, QProcess, QTimer, Signal, Slot
 from process_guard import ProcessTreeGuard
@@ -20,7 +18,7 @@ class SharePointBridge(QObject):
         super().__init__(parent)
         self.storage = Path(storage or ROOT/'runtime/workbench/sharepoint')
         self._enabled = enabled
-        self._snapshot = {'connected':False,'account':'','destinations':[],'tasks':[],'pending':0}
+        self._snapshot = {'connected':False,'account':'','destination':{},'tasks':[],'pending':0,'localRoot':'','months':[]}
         self._browse, self._queue, self._buffer = {}, [], b''
         self._busy = self._ready = self._closing = False
         self._error = ''
@@ -35,7 +33,6 @@ class SharePointBridge(QObject):
         self.timer = QTimer(self)
         self.timer.setInterval(30000)
         self.timer.timeout.connect(self._sync_tick)
-        self.timer.start()
         self.close_timer = QTimer(self)
         self.close_timer.setSingleShot(True)
         self.close_timer.setInterval(10000)
@@ -47,8 +44,12 @@ class SharePointBridge(QObject):
     def connected(self): return self._snapshot['connected']
     @Property(str, notify=changed)
     def account(self): return self._snapshot['account']
+    @Property('QVariantMap', notify=changed)
+    def destination(self): return self._snapshot['destination']
+    @Property(str, notify=changed)
+    def localRoot(self): return self._snapshot['localRoot']
     @Property('QVariantList', notify=changed)
-    def destinations(self): return self._snapshot['destinations']
+    def months(self): return self._snapshot['months']
     @Property('QVariantList', notify=changed)
     def tasks(self): return self._snapshot['tasks']
     @Property(int, notify=changed)
@@ -108,8 +109,8 @@ class SharePointBridge(QObject):
                 self._snapshot=event['snapshot']
                 self._error=self._snapshot.get('queueError','')
                 if 'browse' in event:self._browse=event['browse']
-                self._status=f"{self.pending} publicaciones pendientes." if self.pending else 'Resultados online al día.' if self.connected else 'Guardado local; cuenta desconectada.'
-                if event.get('command')=='save':self.toast.emit('Carpeta SharePoint guardada. Se enviarán los próximos CSV exportados.')
+                self._status=f"{self.pending} publicaciones pendientes." if self.pending else 'Sin envíos pendientes.' if self.connected else 'Guardado local; cuenta desconectada.'
+                if event.get('command')=='save':self.toast.emit('Carpeta común guardada para todos los bots.')
             elif kind=='error':
                 self._error=event['message']
                 self._status='El trabajo local continúa.'
@@ -137,8 +138,7 @@ class SharePointBridge(QObject):
         self.changed.emit()
 
     def _sync_tick(self):
-        if not self.busy and self.connected and self.pending:
-            self.send('sync')
+        return
 
     @Slot()
     def refresh(self): self.send('status')
@@ -152,33 +152,19 @@ class SharePointBridge(QObject):
     def searchSites(self, url, query): self.send('sites',{'url':url,'search':query})
     @Slot(str, str)
     def openFolder(self, drive, item): self.send('folders',{'drive':drive,'item':item})
-    @Slot(str, str, str)
-    def saveDestination(self, key, drive, item): self.send('save',{'key':key,'drive':drive,'item':item})
-    @Slot(str)
-    def removeDestination(self, key): self.send('remove',{'key':key})
+    @Slot(str, str)
+    def saveDestination(self, drive, item): self.send('save',{'drive':drive,'item':item})
+    @Slot()
+    def removeDestination(self): self.send('remove')
     @Slot()
     def retry(self): self.send('retry')
+    @Slot(str)
+    def uploadMonth(self, month): self.send('upload_month',{'month':month})
+    @Slot(str)
+    def setLocalRoot(self, path): self.send('local_root',{'path':path})
 
     def publication(self, module, event):
-        if event.get('event')!='published':
-            return
-        target=module+':'+event['flow'] if module=='manifiestos' else module
-        # Sin rutas configuradas ni una sesión previa, no iniciar servicios online.
-        if not self.storage.joinpath('destinations.json').exists():
-            return
-        request={'target':target,'path':event['path'],'name':event['name'],'owner':module+':'+event['owner']}
-        try:
-            outbox=self.storage/'outbox'
-            outbox.mkdir(parents=True,exist_ok=True)
-            key=uuid.uuid4().hex
-            temporary=outbox/(key+'.tmp')
-            temporary.write_text(json.dumps(request,ensure_ascii=False),encoding='utf-8')
-            os.replace(temporary,outbox/(key+'.json'))
-            # El aviso queda en disco incluso al cerrar durante otra subida.
-            if not any(r['command']=='collect' for r in self._queue):self.send('collect')
-        except OSError:
-            self._error='No se pudo preparar la copia online. El CSV local está guardado; revisa el espacio en disco.'
-            self.changed.emit()
+        return  # Guardar o exportar localmente nunca inicia una subida.
 
     @Slot()
     def shutdown(self):

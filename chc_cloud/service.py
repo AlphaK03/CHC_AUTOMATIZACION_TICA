@@ -1,5 +1,6 @@
 """Cola durable de copias CSV: un fallo online nunca cambia progreso TICA."""
 from datetime import datetime, timezone
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -10,11 +11,22 @@ import uuid
 
 from .auth import CloudAccount
 from .graph import GraphClient, GraphError, places_address, site_address
+from chc_runtime import output_layout
 
 TARGETS = [('detalles','Detalles'), ('duas_transito','DUAs Tránsito'), ('talon','Talón'),
            ('xmovimientos','XMovimientos'), ('bls','BLs'), ('manifiestos:tabla','Manifiestos'),
            ('manifiestos:conocimientos','Conocimientos'), ('manifiestos:duas','DUAs por manifiesto'),
            ('manifiestos:movimientos','Movimientos de manifiesto'), ('manifiestos:contenedores','Contenedores')]
+PROCEDURES = {'tabla':'Listado','conocimientos':'Conocimientos','duas':'DUAs',
+              'movimientos':'Movimientos','contenedores':'Contenedores'}
+
+
+def bot_folders(target):
+    if target.startswith('manifiestos:') and target.split(':',1)[1] in PROCEDURES:
+        return ['MANIFIESTOS',output_layout.FLOWS[target.split(':',1)[1]]]
+    if target in dict(TARGETS):
+        return [output_layout.BOTS[target]]
+    raise ValueError('Bot de exportación desconocido.')
 
 
 def atomic_json(path, value):
@@ -31,13 +43,19 @@ def safe_name(value):
 
 
 class CloudService:
-    def __init__(self, folder, app_settings, account=None, graph=None):
+    def __init__(self, folder, app_settings, account=None, graph=None, monthly=None):
         self.folder = Path(folder)
         (self.folder/'spool').mkdir(parents=True, exist_ok=True)
         self.settings_path = self.folder/'destinations.json'
-        self.destinations = json.loads(self.settings_path.read_text(encoding='utf-8')) if self.settings_path.exists() else {}
+        saved = json.loads(self.settings_path.read_text(encoding='utf-8')) if self.settings_path.exists() else {}
+        self.destination = saved.get('root',{}) if saved.get('version')==2 else {}
+        self.legacy_destinations = saved if saved and saved.get('version')!=2 else {}
         self.account = account or CloudAccount(self.folder, app_settings)
         self.graph = graph or GraphClient(self.account)
+        self.exports_settings=self.folder.parent/'exports.json'
+        self.exports_registry=output_layout.registry_path(settings=self.exports_settings)
+        self.monthly_reader=monthly
+        self.monthly_cache=None
         self.db = sqlite3.connect(self.folder/'publications.sqlite3')
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
@@ -49,6 +67,10 @@ class CloudService:
             id TEXT PRIMARY KEY, owner TEXT NOT NULL, itemId TEXT NOT NULL, etag TEXT NOT NULL);
           UPDATE jobs SET state='pending' WHERE state='uploading';
         ''')
+        with self.db:
+            for row in self.db.execute("SELECT id,destination FROM jobs WHERE state IN ('pending','error')").fetchall():
+                if json.loads(row['destination']).get('layoutVersion')!=2:
+                    self.db.execute("UPDATE jobs SET state='paused',error='Elige la carpeta común; los avisos anteriores se conservan.' WHERE id=?",(row['id'],))
         self.browse_site = None
         self.collection_error = ''
         self.sites_path = self.folder/'known_sites.json'
@@ -64,38 +86,93 @@ class CloudService:
         account = self.account_info()
         tasks = [dict(r) for r in self.db.execute('SELECT target,name,filename,state,error,updated FROM jobs ORDER BY updated DESC LIMIT 50')]
         return {'account': account.get('username','') if account else '',
-                'connected': bool(account), 'destinations': [{'key':key,'label':label,**self.destinations.get(key,{})} for key,label in TARGETS],
+                'connected': bool(account), 'destination': self.destination,
+                'needsFolderSelection': bool(self.legacy_destinations),
+                'localRoot':str(output_layout.local_root(settings=self.exports_settings)),
+                'months':self.months(),
                 'tasks': tasks, 'queueError':self.collection_error,
-                'pending': self.db.execute("SELECT COUNT(*) FROM jobs WHERE state IN ('pending','uploading','error')").fetchone()[0] + len(list((self.folder/'outbox').glob('*.json')))}
+                'pending': self.db.execute("SELECT COUNT(*) FROM jobs WHERE state IN ('pending','uploading','error')").fetchone()[0]}
+
+    def completed_targets(self,refresh=False):
+        if refresh or self.monthly_cache is None:
+            if self.monthly_reader:
+                data=self.monthly_reader()
+            else:
+                from workbench.monthly_progress import MonthlyReader
+                roots={m:output_layout.ROOT/'bots'/m for m in (*output_layout.BOTS,'manifiestos')}
+                data=MonthlyReader(roots).read()
+            self.monthly_cache={}
+            for row in data['rows']:
+                targets={c['module'] for c in row['cells'] if c['status']=='completed' and c['module']!='manifiestos'}
+                for flow,cell in zip(output_layout.FLOWS,row['procedures']):
+                    if cell['status']=='completed':targets.add('manifiestos:'+flow)
+                self.monthly_cache[row['period']]={'targets':targets,'label':row['label']}
+        return self.monthly_cache
+
+    def inventory(self):
+        if not self.exports_registry.exists():return []
+        with closing(sqlite3.connect(self.exports_registry.as_uri()+'?mode=ro',uri=True)) as db:
+            db.row_factory=sqlite3.Row
+            base=output_layout.local_root(settings=self.exports_settings)
+            return [dict(r) for r in db.execute('SELECT * FROM exports WHERE final=1') if Path(r['path']).is_file() and Path(r['path']).resolve().is_relative_to(base)]
+
+    def months(self):
+        completed=self.completed_targets()
+        groups={}
+        for row in self.inventory():
+            if row['target'] not in completed.get(row['period'],{}).get('targets',set()):continue
+            groups.setdefault(row['period'],[]).append(row)
+        return [{'period':key,'label':completed[key]['label'],'files':len(files),
+                 'bots':len({r['target'] for r in files})} for key,files in sorted(groups.items(),reverse=True)]
+
+    def upload_month(self,key):
+        if not self.account_info() or not self.destination.get('enabled'):
+            raise ValueError('Conecta tu cuenta y elige la carpeta común de SharePoint.')
+        completed=self.completed_targets(refresh=True)
+        eligible=[r for r in self.inventory() if r['period']==key and r['target'] in completed.get(key,{}).get('targets',set())]
+        if not eligible:raise ValueError('El mes no tiene CSV finales de bots con cobertura completa verificada. Exporta sus resultados y vuelve a actualizar.')
+        for row in eligible:
+            self.enqueue({'target':row['target'],'path':row['path'],'name':key,'owner':row['owner'],'spec':json.loads(row['spec'])})
+        self.sync()
 
     def connect(self):
         self.account.connect()
 
-    def save_destination(self, key, drive, item):
-        if key not in dict(TARGETS) or not self.browse_site or drive not in [d['id'] for d in self.browse_site['drives']]:
+    def save_destination(self, drive, item):
+        if not self.browse_site or drive not in [d['id'] for d in self.browse_site['drives']]:
             raise ValueError('Selecciona primero el sitio y la biblioteca.')
         account = self.account_info()
         if not account:
             raise ValueError('Conecta una cuenta CHC antes de elegir una carpeta.')
         current = self.graph.folders(drive, item)['folder']
-        old = self.destinations.get(key, {})
-        if old and (old.get('driveId'),old.get('folderId'),old.get('accountId')) != (drive,current['id'],account['home_account_id']):
+        old = self.destination
+        if self.legacy_destinations:
+            backup=self.folder/'destinations_legacy.json'
+            if not backup.exists():atomic_json(backup,self.legacy_destinations)
+        if self.legacy_destinations or (old and (old.get('driveId'),old.get('folderId'),old.get('accountId')) != (drive,current['id'],account['home_account_id'])):
             with self.db:
-                self.db.execute("UPDATE jobs SET state='paused',error='Destino cambiado; se conserva la copia local.' WHERE target=? AND state!='synced'",(key,))
-        self.destinations[key] = {'driveId': drive, 'folderId': current['id'], 'folderName': current['name'],
+                self.db.execute("UPDATE jobs SET state='paused',error='Destino cambiado; se conserva la copia local.' WHERE state!='synced'")
+        self.destination = {'driveId': drive, 'folderId': current['id'], 'folderName': current['name'],
             'webUrl': current.get('webUrl',''), 'siteId': self.browse_site['site']['id'],
             'accountId': account['home_account_id'], 'enabled': True}
-        atomic_json(self.settings_path, self.destinations)
+        atomic_json(self.settings_path, {'version':2,'root':self.destination})
+        self.legacy_destinations={}
 
     def enqueue(self, request):
-        destination = self.destinations.get(request['target'])
+        destination = self.destination
         if not destination or not destination.get('enabled'):
             return
         source = Path(request['path']).resolve()
+        safe_name(request['name'])
         if source.suffix.lower() != '.csv' or not source.is_file():
             raise ValueError('Solo se publican CSV de resultados existentes.')
-        name, filename = safe_name(request['name']), safe_name(source.name)
-        identity = json.dumps([destination['accountId'],destination['driveId'],destination['folderId'],name.casefold(),filename.casefold()])
+        spec=request.get('spec') or output_layout.specification(request['target'],output_layout.period(request['name']))
+        if spec['target']!=request['target']:raise ValueError('El CSV no pertenece al bot seleccionado.')
+        name, filename = safe_name(output_layout.month_label(spec['period'])),safe_name(spec['filename'])
+        destination={**destination,'layoutVersion':2,'relativeFolders':[safe_name(v) for v in spec['relativeFolders']],
+                     'period':spec['period']}
+        identity = json.dumps([destination['accountId'],destination['driveId'],destination['folderId'],
+                               [v.casefold() for v in destination['relativeFolders']],filename.casefold()])
         key = hashlib.sha256(identity.encode()).hexdigest()
         old = self.db.execute('SELECT * FROM jobs WHERE id=?', (key,)).fetchone()
         if old and old['owner'] != request['owner']:
@@ -112,7 +189,7 @@ class CloudService:
                 while chunk := stream.read(1024 * 1024):
                     digest_hash.update(chunk)
             digest = digest_hash.hexdigest()
-            if old and old['digest']==digest:
+            if old and old['digest']==digest and old['state']!='paused':
                 return
             spool = self.folder/'spool'/(key+'.csv')
             os.replace(temporary, spool)
@@ -123,20 +200,25 @@ class CloudService:
             temporary.unlink(missing_ok=True)
 
     def sync(self):
-        self.collect()
+        completed=self.completed_targets(refresh=True)
         account = self.account_info()
         if not account:
             return
         for row in list(self.db.execute("SELECT * FROM jobs WHERE state='pending' ORDER BY updated")):
             row = dict(row)
             destination = json.loads(row['destination'])
-            current = self.destinations.get(row['target'],{})
-            if destination['accountId'] != account['home_account_id'] or not current.get('enabled') or any(destination.get(k)!=current.get(k) for k in ('accountId','driveId','folderId')):
+            current = self.destination
+            if destination.get('layoutVersion')!=2 or destination['accountId'] != account['home_account_id'] or not current.get('enabled') or any(destination.get(k)!=current.get(k) for k in ('accountId','driveId','folderId')):
+                continue
+            if row['target'] not in completed.get(destination.get('period',''),{}).get('targets',set()):
+                with self.db:self.db.execute("UPDATE jobs SET state='error',error='El mes todavía no está completo; se conservó la copia local.' WHERE id=?",(row['id'],))
                 continue
             with self.db:
                 self.db.execute("UPDATE jobs SET state='uploading',error='' WHERE id=?",(row['id'],))
             try:
-                parent = self.graph.ensure_folder(destination['driveId'],destination['folderId'],row['name'])
+                parent=destination['folderId']
+                for folder in destination['relativeFolders']:
+                    parent=self.graph.ensure_folder(destination['driveId'],parent,safe_name(folder))
                 previous = self.db.execute('SELECT * FROM bindings WHERE id=?',(row['id'],)).fetchone()
                 if previous and previous['owner'] != row['owner']:
                     raise GraphError('El archivo online pertenece a otro lote.')
@@ -162,16 +244,8 @@ class CloudService:
                     self.db.execute("UPDATE jobs SET state='error',error=? WHERE id=?",(message,row['id']))
 
     def collect(self):
-        self.collection_error = ''
-        for path in sorted((self.folder/'outbox').glob('*.json')):
-            try:
-                request=json.loads(path.read_text(encoding='utf-8'))
-                self.enqueue(request)
-                path.unlink()
-            except Exception as error:
-                # Conservar el aviso; una próxima exportación puede resolverlo.
-                self.collection_error=str(error) if isinstance(error,(ValueError,GraphError)) else 'Una copia online sigue pendiente de preparar. Conserva el CSV local y vuelve a exportar.'
-                continue
+        # Los avisos de la versión automática se conservan y no se envían.
+        return
 
     def execute(self, request):
         command = request['command']
@@ -203,14 +277,17 @@ class CloudService:
                 raise ValueError('Selecciona una biblioteca del sitio autorizado.')
             result['browse'] = {**self.browse_site, **self.graph.folders(request['drive'],request.get('item','root')), 'driveId':request['drive']}
         elif command == 'save':
-            self.save_destination(request['key'],request['drive'],request['item'])
+            self.save_destination(request['drive'],request['item'])
         elif command == 'remove':
-            self.destinations.pop(request['key'],None)
-            atomic_json(self.settings_path,self.destinations)
+            if self.legacy_destinations and not (self.folder/'destinations_legacy.json').exists():
+                atomic_json(self.folder/'destinations_legacy.json',self.legacy_destinations)
+            self.legacy_destinations={}
+            self.destination={}
+            atomic_json(self.settings_path,{'version':2,'root':{}})
             with self.db:
-                self.db.execute("UPDATE jobs SET state='paused',error='Destino retirado; se conserva la copia local.' WHERE target=? AND state!='synced'",(request['key'],))
+                self.db.execute("UPDATE jobs SET state='paused',error='Destino retirado; se conserva la copia local.' WHERE state!='synced'")
         elif command == 'enqueue':
-            self.enqueue(request)
+            raise ValueError('Usa Subir a SharePoint para enviar un mes completo de forma explícita.')
         elif command == 'collect':
             self.collect()
         elif command == 'retry':
@@ -218,8 +295,12 @@ class CloudService:
                 self.db.execute("UPDATE jobs SET state='pending',error='' WHERE state='error'")
             self.sync()
         elif command == 'sync':
-            self.sync()
+            raise ValueError('La subida solo se inicia mediante una acción del usuario.')
+        elif command == 'upload_month':
+            self.upload_month(request['month'])
+        elif command == 'local_root':
+            output_layout.set_local_root(request['path'],settings=self.exports_settings)
         elif command != 'status':
             raise ValueError('Acción SharePoint desconocida.')
-        if command == 'status':self.collect()
+        if command == 'status':self.completed_targets(refresh=True)
         return {**result, 'snapshot':self.snapshot()}

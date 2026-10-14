@@ -231,10 +231,10 @@ ScrollView {
                             NumberField { id:limit; from:0; to:100000; editable:true; enabled:!moduleBridge.busy }
                         }
                     }
-                    Text { text:"Carpeta de resultados"; color:Theme.text; font.family:Theme.family; font.pixelSize:12 }
+                    Text { text:"Carpeta madre común a todos los bots"; color:Theme.text; font.family:Theme.family; font.pixelSize:12 }
                     RowLayout {
                         Layout.fillWidth:true
-                        Field { id:output; Layout.fillWidth:true; placeholderText:"Carpeta de resultados"; readOnly:true }
+                        Field { id:output; Layout.fillWidth:true; placeholderText:"Carpeta madre común"; readOnly:true }
                         ActionButton { text:"Elegir carpeta…"; enabled:!moduleBridge.busy; onClicked:outputFolder.open() }
                     }
                     RowLayout {
@@ -330,7 +330,7 @@ ScrollView {
     FileDialog { id:inputFile; title:"Base de BLs"; nameFilters:["Bases BLs (*.xlsx *.sqlite3 *.sqlite *.db)"]; onAccepted:input.text=page.localPath(selectedFile) }
     FileDialog { id:splitFile; title:"Dividir un CSV para Excel"; nameFilters:["CSV (*.csv)"]; onAccepted:moduleBridge.command("split",{source:page.localPath(selectedFile)}) }
     FileDialog { id:progressFile; title:"Importar una copia del progreso original"; nameFilters:["Progreso SQLite (*.sqlite3 *.sqlite *.db)"]; onAccepted:moduleBridge.command("import_progress",{source:page.localPath(selectedFile)}) }
-    FolderDialog { id:outputFolder; title:"Carpeta de resultados"; onAccepted:output.text=page.localPath(selectedFolder) }
+    FolderDialog { id:outputFolder; title:"Carpeta madre común a todos los bots"; onAccepted:output.text=page.localPath(selectedFolder) }
     ManifiestosBaseDialog { id:baseDialog; moduleBridge:page.moduleBridge }
     BlsKnowledgeDialog { id:knowledgeDialog; moduleBridge:page.moduleBridge; onPeriodsSelected:function(periods){page.selectedKnowledge=periods} }
 }

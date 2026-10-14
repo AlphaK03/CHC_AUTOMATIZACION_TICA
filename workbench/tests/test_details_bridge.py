@@ -121,7 +121,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.bridge.status, 'Completado')
         self.assertEqual(self.bridge.summary['attempts'], 2)
         folder = Path(self.bridge.outputFolder)
-        csv_path = next(folder.glob('Detalles_DUAs_*.csv'))
+        csv_path = next(folder.glob('DETALLES_*.CSV'))
         with csv_path.open(encoding='utf-8-sig', newline='') as stream:
             reader = csv.DictReader(stream)
             self.assertEqual(len(reader.fieldnames), 38)
@@ -167,7 +167,7 @@ class BridgeTests(unittest.TestCase):
         self.call('delete', {'confirmTableId': old_id})
         self.assertEqual(self.bridge.tables, [])
         self.assertTrue(list((self.root / 'data' / 'queues' / 'backups').glob('*.sqlite3')))
-        self.assertTrue(list((self.root / 'output').rglob('*.csv')))
+        self.assertTrue(list((self.root / 'output').rglob('*.CSV')))
 
     def test_qml_real_page_and_shutdown_preserves_sqlite(self):
         self.import_table()

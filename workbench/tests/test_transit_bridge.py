@@ -82,7 +82,7 @@ class TransitIntegrationTest(unittest.TestCase):
                 call('export')
                 rows = exported_rows()
                 self.assertEqual(len(rows), 156 if start.month == end.month else 52 + 52)
-                self.assertTrue(all(item.suffix=='.csv' for item in (root/'output').rglob('*') if item.is_file()))
+                self.assertTrue(all(item.suffix=='.CSV' for item in (root/'output').rglob('*') if item.is_file()))
                 self.assertTrue(list((root/'data/queues/backups').glob('*.sqlite3')))
             finally:
                 bridge.shutdown()

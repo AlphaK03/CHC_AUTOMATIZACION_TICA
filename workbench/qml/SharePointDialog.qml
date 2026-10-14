@@ -1,99 +1,221 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs as Native
 import "components"
 
 Dialog {
     id: dialog
     property var service: null
+    property bool picking: false
+    property bool showActivity: false
+    property bool savingFolder: false
     property string driveId: ""
+    property string selectedSite: ""
+    property string libraryName: ""
+    property var sites: []
     property var ancestors: []
-    title: "Cuenta y carpetas SharePoint"
+    title: picking ? "Elegir carpeta de SharePoint" : "Cuenta y resultados"
     modal: true
-    width: Math.min(840, parent ? parent.width - 60 : 840)
-    height: Math.min(710, parent ? parent.height - 50 : 710)
+    width: Math.min(900,parent ? parent.width-60 : 900)
+    height: Math.min(740,parent ? parent.height-40 : 740)
     anchors.centerIn: parent
-    padding: 22
-    standardButtons: Dialog.Close
+    padding: 24
+    standardButtons: Dialog.NoButton
     palette.windowText: Theme.text
     palette.buttonText: Theme.text
     palette.button: Theme.raised
-    background: Panel {}
-    onOpened: { if(service) service.refresh() }
-    contentItem: ScrollView {
-        clip: true
-        ColumnLayout {
-            width: dialog.availableWidth
-            spacing: 14
-            Text { text: service && service.connected ? service.account : "Sin cuenta conectada"; color: Theme.text; font.pixelSize: 17; font.weight: Font.DemiBold; Layout.fillWidth:true }
-            Text { text: "Los bots funcionan sin cuenta. Conecta CHC para guardar también una copia de los CSV en SharePoint."; color: Theme.muted; font.pixelSize:12; wrapMode:Text.WordWrap; Layout.fillWidth:true }
-            RowLayout {
-                ActionButton { objectName:"connectSharePoint"; text: service && service.connected ? "Cambiar cuenta" : "Conectar cuenta CHC"; primary:true; enabled: !!service && service.enabled && !service.busy; onClicked: service.connectAccount() }
-                ActionButton { text:"Desconectar"; visible:!!service && service.connected; enabled:!!service && !service.busy; onClicked:service.disconnectAccount() }
-                Item { Layout.fillWidth:true }
-                BusyIndicator { running:!!service && service.busy; visible:running; Layout.preferredWidth:28; Layout.preferredHeight:28 }
+    background: Panel { color:Theme.background }
+    header: Text {
+        text:dialog.title; color:Theme.text; font.family:Theme.family
+        font.pixelSize:18; font.weight:Font.DemiBold
+        leftPadding:24; topPadding:20; bottomPadding:8
+    }
+    footer: Item {
+        implicitHeight:64
+        ActionButton { anchors.right:parent.right; anchors.rightMargin:24; anchors.verticalCenter:parent.verticalCenter; text:"Cerrar"; onClicked:dialog.close() }
+    }
+    onOpened: { picking=false; if(service) service.refresh() }
+    function startPicker() {
+        picking=true; driveId=""; selectedSite=""; ancestors=[]
+        service.searchSites("https://chcconsultorescr.sharepoint.com","")
+    }
+    function folderReady() { return !!service && !!driveId && service.browse.driveId===driveId && !!service.browse.folder }
+    Connections {
+        target:dialog.service
+        function onChanged() {
+            if(service.browse.sites) dialog.sites=service.browse.sites
+            if(dialog.savingFolder && !service.busy) {
+                dialog.savingFolder=false
+                if(!service.error) dialog.picking=false
             }
-            Text { text: service ? service.error || service.status : "Conexión desactivada en demostración."; color: service && service.error ? Theme.accent : Theme.muted; wrapMode:Text.WordWrap; Layout.fillWidth:true; font.pixelSize:11 }
-            Rectangle { Layout.fillWidth:true; height:1; color:Theme.border }
-            Text { text:"Carpetas de resultados"; color:Theme.text; font.pixelSize:14; font.weight:Font.DemiBold }
-            Repeater {
-                model:service ? service.destinations : []
-                RowLayout {
-                    required property var modelData
-                    Layout.fillWidth:true
-                    Text { text:modelData.label; color:Theme.text; Layout.preferredWidth:175; font.pixelSize:12 }
-                    Text { text:modelData.webUrl || "Solo local"; color:Theme.muted; font.pixelSize:11; elide:Text.ElideMiddle; Layout.fillWidth:true; ToolTip.visible:routeHover.hovered; ToolTip.text:modelData.webUrl || ""; HoverHandler { id:routeHover } }
-                    ActionButton { text:"Quitar"; visible:!!modelData.folderId; enabled:!!service && !service.busy; onClicked:service.removeDestination(modelData.key) }
+        }
+    }
+    contentItem: ColumnLayout {
+        spacing:16
+        RowLayout {
+            Layout.fillWidth:true
+            Rectangle {
+                width:42; height:42; radius:12; color:Theme.raised
+                Icon { anchors.centerIn:parent; name:"folder"; tint:Theme.accent; width:23; height:23 }
+            }
+            ColumnLayout {
+                Layout.fillWidth:true; spacing:3
+                Text { text:service && service.connected ? service.account : "Conecta tu cuenta CHC"; color:Theme.text; font.pixelSize:15; font.weight:Font.DemiBold; Layout.fillWidth:true; elide:Text.ElideRight }
+                Text { text:service && service.connected ? "SharePoint conectado" : "El guardado local funciona sin cuenta"; color:service && service.connected ? Theme.success : Theme.muted; font.pixelSize:11 }
+            }
+            ActionButton { objectName:"connectSharePoint"; text:service && service.connected ? "Cuenta" : "Conectar"; primary:!service || !service.connected; enabled:!!service && service.enabled && !service.busy; onClicked:service && service.connected ? accountMenu.open() : service.connectAccount() }
+            Menu {
+                id:accountMenu
+                MenuItem { text:"Cambiar cuenta"; onTriggered:service.connectAccount() }
+                MenuItem { text:"Desconectar"; onTriggered:service.disconnectAccount() }
+            }
+            BusyIndicator { running:!!service && service.busy; visible:running; Layout.preferredWidth:28; Layout.preferredHeight:28 }
+        }
+        Text { visible:!!service && !!service.error; text:service ? service.error : ""; color:Theme.accent; font.pixelSize:11; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+        StackLayout {
+            currentIndex:dialog.picking ? 1 : 0
+            Layout.fillWidth:true; Layout.fillHeight:true
+            ScrollView {
+                clip:true
+                ColumnLayout {
+                    width:dialog.availableWidth; spacing:16
+                    Panel {
+                        Layout.fillWidth:true; implicitHeight:112
+                        ColumnLayout {
+                            anchors.fill:parent; anchors.margins:18; spacing:8
+                            RowLayout {
+                                Text { text:"CARPETA MADRE LOCAL"; color:Theme.muted; font.pixelSize:10; font.weight:Font.DemiBold; font.letterSpacing:1; Layout.fillWidth:true }
+                                ActionButton { text:"Cambiar"; subtle:true; enabled:!!service && !service.busy; onClicked:localFolder.open() }
+                            }
+                            Text { text:service ? service.localRoot : ""; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true; elide:Text.ElideMiddle }
+                            Text { text:"Todos los bots guardan aquí, en carpetas propias por mes."; color:Theme.faint; font.pixelSize:11 }
+                        }
+                    }
+                    Panel {
+                        Layout.fillWidth:true; implicitHeight:158
+                        ColumnLayout {
+                            anchors.fill:parent; anchors.margins:18; spacing:8
+                            RowLayout {
+                                Text { text:"CARPETA MADRE DE SHAREPOINT"; color:Theme.muted; font.pixelSize:10; font.weight:Font.DemiBold; font.letterSpacing:1; Layout.fillWidth:true }
+                                ActionButton { objectName:"chooseSharePointFolder"; text:service && service.destination.folderId ? "Cambiar" : "Elegir carpeta"; primary:true; enabled:!!service && service.connected && !service.busy; onClicked:dialog.startPicker() }
+                            }
+                            Text { text:service && service.destination.folderId ? service.destination.folderName || "Carpeta seleccionada" : "Elige una carpeta para todos los bots"; color:Theme.text; font.pixelSize:16; font.weight:Font.DemiBold; Layout.fillWidth:true }
+                            Text { text:service && service.destination.webUrl ? service.destination.webUrl : "La misma organización del guardado local."; color:Theme.muted; font.pixelSize:11; Layout.fillWidth:true; elide:Text.ElideMiddle }
+                            RowLayout {
+                                Text { text:"DETALLES  ·  TALON  ·  BLS  ·  TRANSITO  ·  XMOVIMIENTOS  ·  MANIFIESTOS"; color:Theme.faint; font.pixelSize:10; Layout.fillWidth:true; elide:Text.ElideRight }
+                                ActionButton { text:"Quitar"; subtle:true; visible:!!service && !!service.destination.folderId; enabled:!!service && !service.busy; onClicked:service.removeDestination() }
+                            }
+                        }
+                    }
+                    Panel {
+                        Layout.fillWidth:true; implicitHeight:144
+                        ColumnLayout {
+                            anchors.fill:parent; anchors.margins:18; spacing:10
+                            Text { text:"Subir un mes completo"; color:Theme.text; font.pixelSize:16; font.weight:Font.DemiBold }
+                            RowLayout {
+                                Layout.fillWidth:true
+                                ComboBox { id:monthBox; objectName:"sharePointMonth"; Layout.fillWidth:true; model:service ? service.months : []; textRole:"label"; displayText:count ? currentText : "Sin meses completos exportados"; enabled:!!service && !service.busy && count>0 }
+                                ActionButton { objectName:"uploadSharePointMonth"; text:"Subir a SharePoint"; primary:true; enabled:!!service && service.connected && !!service.destination.folderId && !service.busy && monthBox.currentIndex>=0; onClicked:service.uploadMonth(service.months[monthBox.currentIndex].period) }
+                            }
+                            Text { text:service && service.months.length ? "Solo se enviarán CSV de bots con ese mes completo y verificado." : "Los meses aparecerán al completar y exportar sus resultados."; color:Theme.faint; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+                        }
+                    }
+                    RowLayout {
+                        Text { text:"Las subidas se inician únicamente cuando las solicitas."; color:Theme.muted; font.pixelSize:11; Layout.fillWidth:true }
+                        ActionButton { text:dialog.showActivity ? "Ocultar actividad" : "Ver actividad"; subtle:true; onClicked:dialog.showActivity=!dialog.showActivity }
+                        ActionButton { text:"Actualizar"; subtle:true; enabled:!!service && !service.busy; onClicked:service.refresh() }
+                    }
+                    ColumnLayout {
+                        visible:dialog.showActivity; Layout.fillWidth:true; spacing:8
+                        RowLayout {
+                            Text { text:service ? service.status : ""; color:Theme.muted; font.pixelSize:12; Layout.fillWidth:true }
+                            ActionButton { text:"Reintentar envíos"; enabled:!!service && service.connected && !service.busy && service.pending>0; onClicked:service.retry() }
+                        }
+                        Repeater {
+                            model:service ? service.tasks : []
+                            Text { required property var modelData; text:modelData.filename+" · "+({pending:"Pendiente",uploading:"Subiendo",synced:"En SharePoint",error:"Por reintentar",paused:"En pausa"})[modelData.state]+(modelData.error ? "\n"+modelData.error : ""); color:modelData.state==="synced" ? Theme.success : Theme.muted; font.pixelSize:11; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+                        }
+                    }
                 }
             }
             ColumnLayout {
-                visible:!!service && service.connected
-                Layout.fillWidth:true
-                spacing:10
-                Text { text:"Agregar o cambiar carpeta"; color:Theme.text; font.pixelSize:13; font.weight:Font.DemiBold }
-                ComboBox { id:targetBox; objectName:"sharePointTarget"; Layout.fillWidth:true; model:service ? service.destinations : []; textRole:"label" }
+                spacing:12
                 RowLayout {
-                    Layout.fillWidth:true
-                    TextField { id:siteUrl; objectName:"sharePointSiteUrl"; Layout.fillWidth:true; text:"https://chcconsultorescr.sharepoint.com/_layouts/15/sharepoint.aspx/onedrive/places"; placeholderText:"URL del sitio o de Bibliotecas de SharePoint"; selectByMouse:true; color:Theme.text; background:Rectangle { color:Theme.surface; radius:6; border.color:Theme.border } }
-                    ActionButton { text:"Ver bibliotecas"; enabled:!!service && !service.busy && siteUrl.text.length>0; onClicked:{ dialog.driveId=""; dialog.ancestors=[]; service.openSite(siteUrl.text) } }
-                }
-                Text { text:"Puedes explorar los sitios que permita tu cuenta. Para guardar resultados, el sitio elegido debe autorizar la escritura para esta app."; color:Theme.faint; font.pixelSize:11; wrapMode:Text.WordWrap; Layout.fillWidth:true }
-                RowLayout {
-                    Layout.fillWidth:true
-                    TextField { id:siteSearch; Layout.fillWidth:true; placeholderText:"Buscar sitio por nombre"; selectByMouse:true; color:Theme.text; background:Rectangle { color:Theme.surface; radius:6; border.color:Theme.border } }
-                    ActionButton { objectName:"searchSharePointSites"; text:"Explorar sitios"; enabled:!!service && !service.busy; onClicked:{ dialog.driveId=""; dialog.ancestors=[]; service.searchSites("https://chcconsultorescr.sharepoint.com",siteSearch.text) } }
-                }
-                Text { visible:!!service && !!service.browse.places; text:"Elige un sitio para ver sus bibliotecas."; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true }
-                Repeater {
-                    model:service && service.browse.sites ? service.browse.sites : []
-                    ActionButton { required property var modelData; objectName:"sharePointKnownSite"; text:"Sitio · " + modelData.name; enabled:!!service && !service.busy; onClicked:{ siteUrl.text=modelData.url; dialog.driveId=""; dialog.ancestors=[]; service.openSite(modelData.url) } }
-                }
-                Repeater {
-                    model:service && service.browse.drives ? service.browse.drives : []
-                    ActionButton { required property var modelData; text:"Biblioteca · " + modelData.name; enabled:!!service && !service.busy; onClicked:{ dialog.driveId=modelData.id; dialog.ancestors=[]; service.openFolder(modelData.id,"root") } }
+                    TextField { id:siteSearch; objectName:"sharePointSiteSearch"; Layout.fillWidth:true; placeholderText:"Buscar un sitio"; selectByMouse:true; color:Theme.text; background:Rectangle { color:Theme.surface; radius:7; border.color:Theme.border } }
+                    ActionButton { objectName:"searchSharePointSites"; text:"Buscar"; enabled:!!service && !service.busy; onClicked:service.searchSites("https://chcconsultorescr.sharepoint.com",siteSearch.text) }
+                    ActionButton { text:"Volver"; subtle:true; enabled:!!service && !service.busy; onClicked:dialog.picking=false }
                 }
                 RowLayout {
-                    visible:dialog.driveId.length>0 && !!service && !!service.browse.folder
-                    Layout.fillWidth:true
-                    ActionButton { text:"Subir"; enabled:dialog.ancestors.length>0 && !!service && !service.busy; onClicked:{ let stack=dialog.ancestors.slice(); let parentId=stack.pop(); dialog.ancestors=stack; service.openFolder(dialog.driveId,parentId) } }
-                    Text { text:service && service.browse.folder ? service.browse.folder.name : ""; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true }
-                    ActionButton { objectName:"saveSharePointFolder"; text:"Usar esta carpeta"; primary:true; enabled:!!service && !service.busy && service.browse.driveId===dialog.driveId && targetBox.currentIndex>=0; onClicked:service.saveDestination(service.destinations[targetBox.currentIndex].key,dialog.driveId,service.browse.folder.id) }
+                    Layout.fillWidth:true; Layout.fillHeight:true; spacing:12
+                    Panel {
+                        Layout.preferredWidth:265; Layout.fillHeight:true
+                        ColumnLayout {
+                            anchors.fill:parent; anchors.margins:14; spacing:10
+                            RowLayout {
+                                Text { text:dialog.selectedSite ? "BIBLIOTECAS" : "SITIOS"; color:Theme.muted; font.pixelSize:10; font.weight:Font.DemiBold; font.letterSpacing:1; Layout.fillWidth:true }
+                                ActionButton { text:"Sitios"; subtle:true; visible:!!dialog.selectedSite; enabled:!!service && !service.busy; onClicked:{dialog.selectedSite="";dialog.driveId=""} }
+                            }
+                            ListView {
+                                id:sitesList
+                                Layout.fillWidth:true; Layout.fillHeight:true; clip:true; spacing:5
+                                model:dialog.selectedSite ? service && service.browse.drives ? service.browse.drives : [] : dialog.sites
+                                ScrollBar.vertical:ScrollBar {}
+                                delegate: Button {
+                                    required property var modelData
+                                    objectName:dialog.selectedSite ? "sharePointLibrary" : "sharePointKnownSite"
+                                    width:sitesList.width; height:52; hoverEnabled:true
+                                    text:modelData.name
+                                    enabled:!!service && !service.busy
+                                    background:Rectangle { radius:7; color:parent.hovered ? Theme.hover : "transparent" }
+                                    contentItem:Text { text:parent.text; color:Theme.text; font.pixelSize:12; wrapMode:Text.WordWrap; verticalAlignment:Text.AlignVCenter }
+                                    onClicked: {
+                                        dialog.driveId="";dialog.ancestors=[]
+                                        if(dialog.selectedSite){dialog.driveId=modelData.id;dialog.libraryName=modelData.name;service.openFolder(modelData.id,"root")}
+                                        else {dialog.selectedSite=modelData.name;service.openSite(modelData.url)}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Panel {
+                        Layout.fillWidth:true; Layout.fillHeight:true
+                        ColumnLayout {
+                            anchors.fill:parent; anchors.margins:16; spacing:10
+                            RowLayout {
+                                ActionButton { text:"Subir"; subtle:true; enabled:!!service && !service.busy && dialog.ancestors.length>0; onClicked:{let stack=dialog.ancestors.slice();let up=stack.pop();dialog.ancestors=stack;service.openFolder(dialog.driveId,up.id)} }
+                                Text { text:dialog.folderReady() ? service.browse.folder.name : "Selecciona una biblioteca"; color:Theme.text; font.pixelSize:14; font.weight:Font.DemiBold; Layout.fillWidth:true; elide:Text.ElideRight }
+                            }
+                            Text { text:dialog.selectedSite+(dialog.libraryName ? " / "+dialog.libraryName : ""); color:Theme.muted; font.pixelSize:11; Layout.fillWidth:true; elide:Text.ElideMiddle }
+                            Rectangle { height:1; color:Theme.border; Layout.fillWidth:true }
+                            ListView {
+                                id:folderList
+                                Layout.fillWidth:true; Layout.fillHeight:true; clip:true; spacing:4
+                                model:dialog.folderReady() ? service.browse.folders || [] : []
+                                ScrollBar.vertical:ScrollBar {}
+                                delegate: Button {
+                                    required property var modelData
+                                    objectName:"sharePointFolderRow"
+                                    width:folderList.width; height:44; hoverEnabled:true; text:modelData.name
+                                    enabled:!!service && !service.busy
+                                    background:Rectangle { radius:7; color:parent.hovered ? Theme.hover : "transparent" }
+                                    contentItem:RowLayout { spacing:10; Icon { name:"folder"; tint:Theme.accent; width:18; height:18 } Text { text:modelData.name; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true; elide:Text.ElideRight } Icon { name:"chevron"; tint:Theme.muted; width:15; height:15 } }
+                                    onClicked:{dialog.ancestors=dialog.ancestors.concat([{id:service.browse.folder.id,name:service.browse.folder.name}]);service.openFolder(dialog.driveId,modelData.id)}
+                                }
+                            }
+                            Text { visible:dialog.folderReady() && folderList.count===0 && !!service && !service.busy; text:"Esta carpeta no tiene subcarpetas. Puedes elegirla."; color:Theme.faint; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+                        }
+                    }
                 }
-                Repeater {
-                    model:service && service.browse.driveId===dialog.driveId ? service.browse.folders || [] : []
-                    ActionButton { required property var modelData; text:"Carpeta · " + modelData.name; enabled:!!service && !service.busy; onClicked:{ dialog.ancestors=dialog.ancestors.concat([service.browse.folder.id]); service.openFolder(dialog.driveId,modelData.id) } }
+                RowLayout {
+                    Text { text:dialog.folderReady() ? "Todos los bots crearán sus carpetas dentro de «"+service.browse.folder.name+"»." : "Elige sitio, biblioteca y carpeta."; color:Theme.muted; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+                    ActionButton { objectName:"saveSharePointFolder"; text:"Usar esta carpeta para todos"; primary:true; enabled:dialog.folderReady() && !!service && !service.busy; onClicked:{dialog.savingFolder=true;service.saveDestination(dialog.driveId,service.browse.folder.id)} }
                 }
-            }
-            Rectangle { Layout.fillWidth:true; height:1; color:Theme.border }
-            RowLayout {
-                Text { text:"Publicaciones · " + (service ? service.pending : 0) + " pendientes"; color:Theme.text; Layout.fillWidth:true; font.pixelSize:13 }
-                ActionButton { text:"Reintentar envíos"; enabled:!!service && service.connected && !service.busy && service.pending>0; onClicked:service.retry() }
-            }
-            Text { text:"Se copia el CSV dentro de una carpeta con el nombre del lote. Las subidas fallidas conservan el archivo local y no vuelven a consultar TICA."; color:Theme.faint; font.pixelSize:11; wrapMode:Text.WordWrap; Layout.fillWidth:true }
-            Repeater {
-                model:service ? service.tasks : []
-                Text { required property var modelData; text:modelData.name + " / " + modelData.filename + " · " + ({pending:"Pendiente",uploading:"Subiendo",synced:"En SharePoint",error:"Por reintentar",paused:"Destino retirado"})[modelData.state] + (modelData.error ? "\n" + modelData.error : ""); color:modelData.state==="synced" ? Theme.success : Theme.muted; font.pixelSize:11; wrapMode:Text.WordWrap; Layout.fillWidth:true }
             }
         }
+    }
+    Native.FolderDialog {
+        id:localFolder; title:"Carpeta madre local para todos los bots"
+        onAccepted:{let value=decodeURIComponent(selectedFolder.toString().replace(/^file:\/\//,""));if(/^\/[A-Za-z]:/.test(value))value=value.slice(1);service.setLocalRoot(value)}
     }
 }

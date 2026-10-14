@@ -4,8 +4,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from chc_cloud.service import CloudService
+from chc_cloud.service import CloudService,bot_folders
 from chc_cloud.graph import GraphClient, GraphError, site_address, places_address
+from chc_runtime import output_layout
 
 
 class Account:
@@ -17,11 +18,13 @@ class Account:
 
 
 class Graph:
-    def __init__(self): self.sent=[];self.fail=False
+    def __init__(self): self.sent=[];self.fail=False;self.created=[]
     def site(self,url): return {'site':{'id':'site'},'drives':[{'id':'drive','name':'Documentos'}]}
     def sites(self,host,query=''): return [{'id':'site','name':'Reportes','url':'https://'+host+'/sites/Reportes'}]
     def folders(self,drive,item): return {'folder':{'id':item,'name':item,'webUrl':'https://test.sharepoint.com/sites/reportes/'+item},'folders':[]}
-    def ensure_folder(self,drive,parent,name): return 'monthly'
+    def ensure_folder(self,drive,parent,name):
+        self.created.append((drive,parent,name))
+        return parent+'/'+name
     def upload(self,drive,parent,path,previous):
         if self.fail:raise GraphError('Sin acceso; conserva el CSV.')
         self.sent.append((Path(path).name,Path(path).read_bytes(),previous))
@@ -29,16 +32,20 @@ class Graph:
 
 
 class ServiceTests(unittest.TestCase):
+    def monthly(self):
+        return {'rows':[{'period':'2026-09','label':'Septiembre 2026',
+                        'cells':[{'module':m,'status':'completed'} for m in output_layout.BOTS],
+                        'procedures':[{'status':'completed'} for _ in output_layout.FLOWS]}]}
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.source=self.root/'Talon_septiembre26.csv';self.source.write_bytes(b'Numero;Total\r\n001;123\r\n')
         self.account=Account();self.graph=Graph()
-        self.service=CloudService(self.root/'cloud',{},self.account,self.graph)
+        self.service=CloudService(self.root/'cloud',{},self.account,self.graph,monthly=self.monthly)
         self.request={'target':'talon','path':str(self.source),'name':'septiembre26','owner':'table1'}
     def tearDown(self):self.service.db.close();self.temp.cleanup()
     def destination(self):
         self.service.execute({'command':'site','url':'https://test.sharepoint.com/sites/reportes'})
-        self.service.save_destination('talon','drive','folder')
+        self.service.save_destination('drive','folder')
     def test_without_account_or_destination_keeps_local_work(self):
         self.account.disconnect();self.service.enqueue(self.request);self.service.sync()
         self.assertEqual(self.service.snapshot()['pending'],0)
@@ -46,7 +53,7 @@ class ServiceTests(unittest.TestCase):
         self.assertFalse(self.graph.sent)
     def test_exact_csv_and_original_name_deduplicated_and_updated_with_etag(self):
         self.destination();self.service.enqueue(self.request);self.service.sync()
-        self.assertEqual(self.graph.sent[0],(self.source.name,self.source.read_bytes(),None))
+        self.assertEqual(self.graph.sent[0],('TALON_SEPTIEMBRE_2026.CSV',self.source.read_bytes(),None))
         self.service.enqueue(self.request);self.service.sync();self.assertEqual(len(self.graph.sent),1)
         self.source.write_bytes(b'Numero;Total\r\n001;123\r\n002;456\r\n')
         self.service.enqueue(self.request);self.service.sync()
@@ -55,7 +62,7 @@ class ServiceTests(unittest.TestCase):
     def test_failed_publication_survives_restart_and_explicit_retry(self):
         self.destination();self.service.enqueue(self.request);self.graph.fail=True;self.service.sync()
         self.assertEqual(self.service.snapshot()['tasks'][0]['state'],'error')
-        self.service.db.close();self.service=CloudService(self.root/'cloud',{},self.account,self.graph)
+        self.service.db.close();self.service=CloudService(self.root/'cloud',{},self.account,self.graph,monthly=self.monthly)
         self.graph.fail=False;self.service.execute({'command':'retry'})
         self.assertEqual(self.graph.sent[0][1],self.source.read_bytes());self.assertEqual(self.service.snapshot()['pending'],0)
     def test_disconnect_and_changed_account_cannot_upload_another_accounts_queue(self):
@@ -69,14 +76,14 @@ class ServiceTests(unittest.TestCase):
         self.service.sync();self.assertEqual(len(self.graph.sent),1)
     def test_removed_or_changed_destination_does_not_send_old_queue(self):
         self.destination();self.service.enqueue(self.request)
-        self.service.execute({'command':'remove','key':'talon'})
-        self.service.save_destination('talon','drive','different-folder')
+        self.service.execute({'command':'remove'})
+        self.service.save_destination('drive','different-folder')
         self.service.execute({'command':'retry'});self.assertFalse(self.graph.sent)
         self.assertEqual(self.service.snapshot()['tasks'][0]['state'],'paused')
     def test_restart_recovers_uploading_without_losing_snapshot(self):
         self.destination();self.service.enqueue(self.request)
         with self.service.db:self.service.db.execute("UPDATE jobs SET state='uploading'")
-        self.service.db.close();self.service=CloudService(self.root/'cloud',{},self.account,self.graph)
+        self.service.db.close();self.service=CloudService(self.root/'cloud',{},self.account,self.graph,monthly=self.monthly)
         self.assertEqual(self.service.snapshot()['tasks'][0]['state'],'pending')
         self.service.sync();self.assertEqual(len(self.graph.sent),1)
     def test_only_csv_and_valid_folder_names(self):
@@ -86,16 +93,13 @@ class ServiceTests(unittest.TestCase):
         source=self.root/'secret.txt';source.write_text('not a result')
         with self.assertRaises(ValueError):self.service.enqueue({**self.request,'path':str(source)})
 
-    def test_outbox_recovers_on_restart_and_failed_notice_remains_visible(self):
+    def test_old_automatic_outbox_is_not_uploaded(self):
         self.destination()
         outbox=self.service.folder/'outbox';outbox.mkdir()
         notice=outbox/'notice.json';notice.write_text(json.dumps(self.request),encoding='utf-8')
-        self.service.db.close();self.service=CloudService(self.root/'cloud',{},self.account,self.graph)
-        self.service.execute({'command':'status'});self.assertFalse(notice.exists())
-        self.service.sync();self.assertEqual(len(self.graph.sent),1)
-        notice.write_text(json.dumps({**self.request,'owner':'another-lot'}),encoding='utf-8')
-        state=self.service.execute({'command':'status'})['snapshot']
-        self.assertTrue(notice.exists());self.assertTrue(state['queueError']);self.assertEqual(state['pending'],1)
+        self.service.db.close();self.service=CloudService(self.root/'cloud',{},self.account,self.graph,monthly=self.monthly)
+        self.service.execute({'command':'status'});self.assertTrue(notice.exists())
+        self.assertFalse(self.graph.sent);self.assertEqual(self.service.snapshot()['pending'],0)
 
     def test_places_opens_site_catalog_and_library_url_opens_real_site(self):
         portal='https://test.sharepoint.com/_layouts/15/sharepoint.aspx/onedrive/places'
@@ -105,6 +109,44 @@ class ServiceTests(unittest.TestCase):
         result=self.service.execute({'command':'site','url':result['browse']['sites'][0]['url']})
         self.assertEqual(result['browse']['drives'][0]['name'],'Documentos')
         self.assertEqual(len(json.loads(self.service.sites_path.read_text(encoding='utf-8'))),1)
+
+    def test_one_destination_creates_bot_and_month_folders_for_every_module(self):
+        self.destination()
+        targets=['detalles','duas_transito','talon','xmovimientos','bls']+['manifiestos:'+v for v in ('tabla','conocimientos','duas','movimientos','contenedores')]
+        for target in targets:self.service.enqueue({**self.request,'target':target,'owner':target+':one'})
+        self.service.sync()
+        self.assertEqual(len(self.graph.sent),10)
+        for target in targets:
+            path='folder'
+            for name in bot_folders(target)+['SEPTIEMBRE_2026']:
+                self.assertIn(('drive',path,name),self.graph.created)
+                path+='/'+name
+        self.assertEqual(self.service.snapshot()['destination']['folderId'],'folder')
+
+    def test_legacy_per_bot_configuration_is_preserved_and_requires_common_folder(self):
+        self.service.db.close()
+        config=self.root/'cloud/destinations.json'
+        legacy={'talon':{'folderId':'old','driveId':'drive','accountId':'one'}}
+        config.write_text(json.dumps(legacy),encoding='utf-8')
+        self.service=CloudService(self.root/'cloud',{},self.account,self.graph,monthly=self.monthly)
+        self.assertFalse(self.service.destination);self.assertTrue(self.service.snapshot()['needsFolderSelection'])
+        self.destination()
+        self.assertEqual(json.loads((self.root/'cloud/destinations_legacy.json').read_text(encoding='utf-8')),legacy)
+        self.assertEqual(json.loads(config.read_text(encoding='utf-8'))['version'],2)
+
+    def test_manual_month_action_is_required_and_incomplete_month_is_rejected(self):
+        self.destination()
+        self.service.execute({'command':'local_root','path':str(self.root/'RESULTADOS')})
+        spec=output_layout.specification('talon','2026-09')
+        output_layout.publish(self.source,self.root/'RESULTADOS',spec,'table1',self.service.exports_registry)
+        self.service.execute({'command':'status'})
+        self.assertFalse(self.graph.sent)
+        self.assertEqual(self.service.snapshot()['months'][0]['period'],'2026-09')
+        self.service.execute({'command':'upload_month','month':'2026-09'})
+        self.assertEqual(len(self.graph.sent),1)
+        self.service.monthly_reader=lambda:{'rows':[]}
+        with self.assertRaises(ValueError):self.service.execute({'command':'upload_month','month':'2026-09'})
+        with self.assertRaises(ValueError):self.service.execute({'command':'sync'})
 
 
 class Response:
