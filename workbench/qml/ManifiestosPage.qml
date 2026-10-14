@@ -13,6 +13,14 @@ Item {
     property var titles: ["Tabla de manifiestos","Conocimientos asociados","DUAs por manifiesto","Movimientos de manifiesto","Contenedores asociados"]
     property bool optionsVisible: false
     property int rowOffset: 0
+    property var selectedKnowledge:[]
+    property var availableKnowledge:moduleBridge.knowledgeCatalog.periods || []
+    property bool knowledgeSelectionReady:selectedKnowledge.length>0 && selectedKnowledge.every(k=>availableKnowledge.some(p=>p.key===k))
+    function knowledgeLabel() {
+        if(availableKnowledge.length===0) return moduleBridge.knowledgeBusy ? "Buscando descargas completas…" : "Aún no hay descargas completas de Conocimientos"
+        let chosen=availableKnowledge.filter(p=>selectedKnowledge.indexOf(p.key)>=0)
+        return chosen.length===1 ? chosen[0].label : chosen.length ? chosen.length+" períodos seleccionados" : "Seleccione los meses y modalidades descargados"
+    }
     function localPath(url) { return decodeURIComponent(url.toString().replace(/^file:\/\/\//,"")) }
     function loadConfig() {
         const c = moduleBridge.config
@@ -31,6 +39,8 @@ Item {
         manifestIds.text = c.manifestIds || ""; limit.value = c.limit || 0
         input.text = c.input || ""; sheet.text = c.sheet || "BLS"
         retries.value = c.max_retries || 3
+        inputMode.currentIndex=c.inputMode==="file" ? 1 : 0
+        page.selectedKnowledge=c.knowledgePeriods || []
         history.currentIndex = moduleBridge.history.findIndex(item => item.id === moduleBridge.activeId)
     }
     function configuration() {
@@ -42,14 +52,15 @@ Item {
             workers:threads.value, headless:!visibleBrowser.checked, timeout:timeout.value,
             outputRoot:output.text, start:fromDate.text, end:toDate.text,
             courier:["todos","N","S"][courier.currentIndex], manifestIds:manifestIds.text,
-            limit:limit.value, input:input.text, sheet:sheet.text, max_retries:retries.value}
+            limit:limit.value, input:input.text, sheet:sheet.text, max_retries:retries.value,
+            inputMode:inputMode.currentIndex===0 ? "knowledge" : "file", knowledgePeriods:page.selectedKnowledge}
     }
     Component.onCompleted: loadConfig()
     Connections {
         target: moduleBridge
         function onEventReceived(event) {
             if(event.flow === moduleBridge.flow && (event.event === "ready" ||
-               (event.event === "result" && ["configure","refresh","select","import_progress"].indexOf(event.command) >= 0))) loadConfig()
+               (event.event === "result" && ["configure","refresh","select","import_progress","run","knowledge_empty"].indexOf(event.command) >= 0))) loadConfig()
         }
     }
     ColumnLayout {
@@ -93,6 +104,13 @@ Item {
                 RowLayout {
                     visible:page.isBls
                     Layout.fillWidth:true
+                    Select { id:inputMode; objectName:"blsInputMode"; model:["Desde Conocimientos","Archivo externo"]; Layout.preferredWidth:210; enabled:!moduleBridge.busy; onActivated:{if(currentIndex===0) moduleBridge.refreshKnowledge()} }
+                    Text { visible:inputMode.currentIndex===0; text:page.knowledgeLabel(); color:Theme.muted; Layout.fillWidth:true; elide:Text.ElideRight }
+                    ActionButton { objectName:"blsChooseKnowledge"; visible:inputMode.currentIndex===0; text:"Elegir meses…"; enabled:!moduleBridge.busy; onClicked:{knowledgeDialog.selectedPeriods=page.selectedKnowledge.slice(); knowledgeDialog.open()} }
+                }
+                RowLayout {
+                    visible:page.isBls && inputMode.currentIndex===1
+                    Layout.fillWidth:true
                     Field { id:input; Layout.fillWidth:true; placeholderText:"Seleccione la base de BLs"; readOnly:true }
                     ActionButton { text:"Seleccionar base…"; enabled:!moduleBridge.busy; onClicked:inputFile.open() }
                     Field { id:sheet; text:"BLS"; Layout.preferredWidth:110; enabled:!moduleBridge.busy; placeholderText:"Hoja" }
@@ -100,7 +118,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth:true
                     Field { id:tableName; objectName:"manifestTableName"; Layout.fillWidth:true; placeholderText:"Nombre de la tabla (opcional)"; enabled:!moduleBridge.busy }
-                    ActionButton { text:moduleBridge.busy ? "En ejecución…" : "Iniciar consulta"; objectName:"manifestStart"; primary:true; enabled:moduleBridge.ready && !moduleBridge.busy; onClicked:moduleBridge.command("run",{config:page.configuration()}) }
+                    ActionButton { text:moduleBridge.busy ? "En ejecución…" : "Iniciar consulta"; objectName:"manifestStart"; primary:true; enabled:moduleBridge.ready && !moduleBridge.busy && (!page.isBls || inputMode.currentIndex===1 || page.knowledgeSelectionReady); onClicked:moduleBridge.command("run",{config:page.configuration()}) }
                     ActionButton { text:"Detener"; enabled:moduleBridge.busy; onClicked:moduleBridge.stop() }
                 }
             }
@@ -197,4 +215,5 @@ Item {
     FileDialog { id:progressFile; title:"Importar una copia del progreso original"; nameFilters:["Progreso SQLite (*.sqlite3 *.sqlite *.db)"]; onAccepted:moduleBridge.command("import_progress",{source:page.localPath(selectedFile)}) }
     FolderDialog { id:outputFolder; title:"Carpeta de resultados"; onAccepted:output.text=page.localPath(selectedFolder) }
     ManifiestosBaseDialog { id:baseDialog; moduleBridge:page.moduleBridge }
+    BlsKnowledgeDialog { id:knowledgeDialog; moduleBridge:page.moduleBridge; onPeriodsSelected:function(periods){page.selectedKnowledge=periods} }
 }

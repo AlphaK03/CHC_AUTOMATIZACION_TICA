@@ -103,6 +103,11 @@ Excel mantiene sus hojas BLS/BLS_002/etc. y los valores de texto. La auditoría 
 Después de generar, **Abrir base en BLs** selecciona esa entrada y navega al módulo;
 la consulta de BLs se inicia únicamente al pulsar su botón Iniciar.
 
+Ampliación: BLs también ofrece **Desde Conocimientos → Elegir meses…**. El proveedor
+comprueba que las descargas estén terminadas, ofrece sus meses y modalidades reales
+y genera automáticamente la base al iniciar. El generador manual de este apartado
+sigue disponible. Leer [la conexión directa](BLS_DESDE_CONOCIMIENTOS.md).
+
 BLs deja de ser demo: su panel QML ejecuta `bots/bls/src/core/engine.py` en un proceso
 propio, acepta Excel o SQLite, permite indicar hoja, configurar concurrencia e
 intentos, detener, retomar el lote, exportar y revisar pendientes. Se conserva el

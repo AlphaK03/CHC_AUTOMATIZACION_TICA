@@ -280,6 +280,17 @@ necesitan. Los calendarios de los cuatro bots DUA permanecen operativos.
 
 ## 8. Cómo continuar desde otra sesión
 
+Ampliación BLs del 13/10/2026: el usuario confirmó que la base generada desde
+Conocimientos es su entrada y pidió usar meses/modalidades disponibles directamente.
+Implementado **BLs → Desde Conocimientos → Elegir meses → Iniciar**: proveedor
+aislado `bls_source`, disponibilidad verificada con SQLite y preparación automática
+Courier=N antes de llamar al motor BLs original. Solo Marítimo/Aéreo; pendientes,
+activos y selecciones limitadas no se ofrecen. Los rangos terminados se etiquetan
+por sus días; no se presentan como meses completos. No hay inicio automático al
+terminar Conocimientos: se actualiza el selector. Entrada manual y progreso previo
+se conservan. Nuevas pruebas locales sin TICA, y versión actualizada abierta antes
+de documentar. Leer `BLS_DESDE_CONOCIMIENTOS.md` para invariantes, rutas y alcance.
+
 1. Leer este documento, `AGENTS.md`, README principal y manual del panel.
 2. Revisar la nueva instrucción del usuario: pedir cambios visuales no autoriza
    automáticamente integrar o refactorizar motores.

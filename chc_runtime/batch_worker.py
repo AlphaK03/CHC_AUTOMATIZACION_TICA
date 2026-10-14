@@ -32,7 +32,7 @@ def main(module='manifiestos'):
         from input_files import load_input_file
     else:
         from manifest_scraper import ManifestScraper
-        if flow == 'bases':
+        if flow in ('bases','bls_source'):
             import bls_base
     from chc_runtime.manifest_service import BatchService
     lock = threading.Lock()
@@ -58,7 +58,7 @@ def main(module='manifiestos'):
             traceback.print_exc(file=sys.stderr)
             emit('error', command=command, requestId=request.get('requestId'), message=str(exc))
         finally:
-            emit('idle', snapshot=service.snapshot())
+            emit('idle', command=command, snapshot=service.snapshot())
     emit('ready', snapshot=service.snapshot())
     try:
         for line in sys.stdin:

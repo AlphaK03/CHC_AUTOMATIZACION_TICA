@@ -67,6 +67,11 @@ class BatchChannel(QObject):
         if self.busy and command not in ('stop','shutdown'):
             return False
         request = {'command':command, **(data or {})}
+        if command=='stop' and not self.ready:
+            self.pending=None
+            self.busy=False
+            self.changed.emit()
+            return True
         if not self.ready and command not in ('stop','shutdown'):
             if not self.start():
                 return False
@@ -147,7 +152,7 @@ class BatchBridge(QObject):
     baseBuilt = Signal(str)
     filePrepared = Signal(str)
 
-    def __init__(self, module_id='manifiestos', enabled=True, storage_root=None, offline_fixture=False):
+    def __init__(self, module_id='manifiestos', enabled=True, storage_root=None, offline_fixture=False, knowledge_root=None):
         super().__init__()
         self._module = module_id
         self._enabled = enabled
@@ -156,10 +161,27 @@ class BatchBridge(QObject):
         self._root = Path(storage_root or ROOT/'bots'/module_id).resolve()
         flows = ['bls'] if module_id=='bls' else ['tabla','conocimientos','duas','movimientos','contenedores','bases']
         self.channels = {flow:BatchChannel(module_id,flow,self._root,offline_fixture,self) for flow in flows}
+        self._knowledge_request=None
+        self._knowledge_error=''
+        self._knowledge_status=''
+        self._refresh_knowledge=False
+        if module_id=='bls':
+            source_root=Path(knowledge_root or (self._root.parent/'manifiestos' if offline_fixture else ROOT/'bots/manifiestos')).resolve()
+            self.channels['bls_source']=BatchChannel('manifiestos','bls_source',source_root,offline_fixture,self)
         for flow,channel in self.channels.items():
             channel.changed.connect(self.changed.emit)
             channel.eventReceived.connect(lambda event, f=flow:self.receive(f,event))
             channel.closed.connect(self.check_closed)
+        if module_id=='bls':
+            self.channels['bls_source'].changed.connect(self.source_changed)
+
+    def source_changed(self):
+        channel=self.channels['bls_source']
+        if self._knowledge_request is not None and channel.error and channel.process.state()==QProcess.NotRunning:
+            self._knowledge_request=None
+            self._knowledge_error=channel.error
+            self._knowledge_status='No se iniciaron consultas de BLs.'
+            self.changed.emit()
 
     def current(self): return self.channels[self._flow]
     @Property(bool, constant=True)
@@ -171,7 +193,7 @@ class BatchBridge(QObject):
     @Property(bool, notify=changed)
     def ready(self): return self.current().ready
     @Property(bool, notify=changed)
-    def busy(self): return self.current().busy
+    def busy(self): return self.current().busy or self._knowledge_request is not None or (self.isBls and self.channels['bls_source'].busy)
     @Property(bool, notify=changed)
     def running(self): return any(c.busy for c in self.channels.values())
     @Property(bool, notify=changed)
@@ -181,7 +203,7 @@ class BatchBridge(QObject):
     @Property(bool, notify=changed)
     def isClosed(self): return all(c.process.state()==QProcess.NotRunning for c in self.channels.values())
     @Property(str, notify=changed)
-    def error(self): return self.current().error
+    def error(self): return self._knowledge_error or self.current().error
     @Property('QVariantMap', notify=changed)
     def config(self): return self.current().snapshot['config']
     @Property('QVariantMap', notify=changed)
@@ -193,7 +215,16 @@ class BatchBridge(QObject):
     @Property(str, notify=changed)
     def activeId(self): return self.current().snapshot['activeId']
     @Property(str, notify=changed)
-    def status(self): return self.current().snapshot.get('message') or ('Listo' if self.ready else 'Preparando…')
+    def status(self): return self._knowledge_status or self.current().snapshot.get('message') or ('Listo' if self.ready else 'Preparando…')
+    @Property('QVariantMap', notify=changed)
+    def knowledgeCatalog(self):
+        if not self.isBls:
+            return {'periods':[]}
+        channel=self.channels['bls_source']
+        data=channel.snapshot.get('knowledgeCatalog',{'periods':[]})
+        return {**data,'message':channel.error} if channel.error else data
+    @Property(bool, notify=changed)
+    def knowledgeBusy(self): return self.isBls and self.channels['bls_source'].busy
     @Property('QVariantMap', notify=changed)
     def baseInfo(self): return self.channels.get('bases',self.current()).snapshot.get('baseInfo',{})
     @Property(bool, notify=changed)
@@ -213,6 +244,8 @@ class BatchBridge(QObject):
             self.current().send('refresh')
             if 'bases' in self.channels:
                 self.channels['bases'].send('refresh')
+            if self.isBls:
+                self.refreshKnowledge()
 
     @Slot(str)
     def setFlow(self, flow):
@@ -224,19 +257,55 @@ class BatchBridge(QObject):
 
     @Slot(str, 'QVariantMap', result=bool)
     def command(self, name, data):
+        if self.isBls and name=='run' and self.enabled:
+            config=dict(data.get('config',self.config))
+            if 'inputMode' not in config and config.get('input'):
+                config['inputMode']='file'
+            if config.get('inputMode',self.config.get('inputMode','knowledge'))=='knowledge':
+                if self.busy:
+                    return False
+                self._knowledge_error=''
+                self._knowledge_status='Preparando base desde Conocimientos…'
+                self._knowledge_request=config
+                accepted=self.channels['bls_source'].send('knowledge_build',{'periods':config.get('knowledgePeriods',[])})
+                if not accepted:
+                    self._knowledge_request=None
+                    self._knowledge_error=self.channels['bls_source'].error
+                self.changed.emit()
+                return accepted
+            self._knowledge_error=self._knowledge_status=''
         return self.current().send(name,data) if self.enabled else False
+
+    @Slot()
+    def refreshKnowledge(self):
+        if self.isBls and self.enabled and not self._closing:
+            channel=self.channels['bls_source']
+            if channel.busy or self._knowledge_request is not None:
+                self._refresh_knowledge=True
+            else:
+                channel.send('knowledge_catalog')
 
     @Slot(str, 'QVariantMap', result=bool)
     def baseCommand(self, name, data):
         return self.channels['bases'].send(name,data) if self.enabled else False
 
     @Slot()
-    def stop(self): self.current().send('stop')
+    def stop(self):
+        if self.isBls and self._knowledge_request is not None:
+            self._knowledge_request=None
+            self._knowledge_status='Preparación detenida; no se iniciaron consultas de BLs.'
+            self.channels['bls_source'].send('stop')
+        elif self.isBls and self.channels['bls_source'].busy:
+            self.channels['bls_source'].send('stop')
+        if self.current().busy:
+            self.current().send('stop')
     @Slot()
     def stopBase(self): self.channels['bases'].send('stop')
     @Slot()
     def shutdown(self):
         self._closing = True
+        self._knowledge_request=None
+        self._refresh_knowledge=False
         for channel in self.channels.values():
             channel.shutdown()
         self.changed.emit()
@@ -257,9 +326,25 @@ class BatchBridge(QObject):
     @Slot(str)
     def useBase(self, path):
         if self.isBls and not self.busy:
-            self.current().send('configure',{'config':{'input':path,'sheet':'BLS'}})
+            self.current().send('configure',{'config':{'input':path,'sheet':'BLS','inputMode':'file'}})
 
     def receive(self, flow, event):
+        if flow=='bls_source':
+            if event.get('event')=='error':
+                self._knowledge_error=event.get('message','No se pudo preparar la base.')
+                self._knowledge_status='No se iniciaron consultas de BLs.'
+                self._knowledge_request=None
+            if event.get('knowledgeBase') and self._knowledge_request is not None and not self._closing:
+                result=event['knowledgeBase']
+                config={**self._knowledge_request,'input':result['output'],'sheet':'BLS','inputMode':'knowledge'}
+                # Fechas/modalidades viajan en cada fila original; no hay modo global de búsqueda.
+                self._knowledge_request=None
+                self._knowledge_status=''
+                self.current().send('knowledge_empty' if result['empty'] else 'run',{'config':config})
+            if event.get('event')=='idle' and self._refresh_knowledge and not self._closing:
+                self._refresh_knowledge=False
+                QTimer.singleShot(0,self.refreshKnowledge)
+            self.changed.emit()
         self.eventReceived.emit({**event,'flow':flow})
         if event.get('event') == 'error':
             self.toast.emit(event.get('message','Error'))

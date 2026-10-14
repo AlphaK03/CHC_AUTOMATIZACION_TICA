@@ -7,6 +7,9 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
 [Uso, contratos y límites comprobados](docs/INTEGRACION_MANIFIESTOS.md).
+BLs permite elegir directamente meses y modalidades con descargas completas de
+Conocimientos; genera su base Courier=N e inicia su motor sin elegir archivos.
+[Conexión BLs–Conocimientos](docs/BLS_DESDE_CONOCIMIENTOS.md).
 Detalles importa bases a SQLite, consulta TICA, retoma pendientes, administra tablas
 y exporta con el motor actual. Esta rama añade **Diario automático**: base propia
 sin Excel, calendario y acumulación mensual. Tránsito usa la misma infraestructura

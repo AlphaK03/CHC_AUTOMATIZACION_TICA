@@ -74,6 +74,11 @@ Las opciones técnicas, importación de progreso SQLite y herramientas están en
 y generar SQLite o Excel Courier=N. **Abrir base en BLs** prepara la entrada del bot;
 las consultas empiezan al pulsar Iniciar. También se admiten entradas externas.
 
+En **BLs → Desde Conocimientos**, **Elegir meses…** ofrece solamente descargas
+terminadas de Marítimo/Aéreo. **Iniciar consulta** genera la base y ejecuta BLs.
+No hay que elegir un archivo intermedio. Los rangos indican sus días disponibles.
+[Uso, disponibilidad y recuperación](../docs/BLS_DESDE_CONOCIMIENTOS.md).
+
 Instalación nueva: `Instalar_Manifiestos.bat` e `Instalar_BLs.bat`.
 [Contratos, recuperación, rutas y alcance comprobado](../docs/INTEGRACION_MANIFIESTOS.md).
 

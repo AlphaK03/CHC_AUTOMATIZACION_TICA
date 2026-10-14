@@ -27,6 +27,14 @@
 - Mantener instancia única con `single_instance.py`: otra apertura activa la
   ventana existente antes de crear workers. No interrumpir consultas al actualizar.
   Capturas y smoke quedan aislados, sin una nueva ventana interactiva.
+- BLs obtiene su base desde Conocimientos terminados: leer
+  `docs/BLS_DESDE_CONOCIMIENTOS.md`. El proveedor `bls_source` comprueba SQLite,
+  ofrece solo Marítimo/Aéreo disponibles y prepara una instantánea sin tocar
+  originales. Distinguir rangos terminados de un mes completo; no usar pendientes,
+  páginas parciales, CSV ni filtros de IDs/límite como cobertura completa.
+- Mantener separado el proveedor y el proceso BLs. Conservar reglas Courier N,
+  firmas originales, texto/ceros, reanudación y compatibilidad por archivo.
+  Detener la preparación debe impedir que una respuesta tardía inicie BLs.
 - La infraestructura activa de los cuatro bots DUA está en `chc_runtime/`; los workers
   eligen un perfil. Compartir catálogo, cola, coordinador, puente Qt e interfaz,
   manteniendo configuración/datos/procesos separados. No duplicar este soporte.

@@ -60,7 +60,11 @@ def main():
     talon = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.talon_storage, module_id='talon')
     movements = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.movements_storage, module_id='xmovimientos')
     manifests = BatchBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.manifest_storage)
-    bls = BatchBridge(module_id='bls', enabled=not (args.demo or args.smoke_test), storage_root=args.bls_storage)
+    bls = BatchBridge(module_id='bls', enabled=not (args.demo or args.smoke_test), storage_root=args.bls_storage,
+                      knowledge_root=args.manifest_storage)
+    manifests.eventReceived.connect(lambda event: bls.refreshKnowledge() if
+        event.get('flow')=='conocimientos' and event.get('event')=='idle' and
+        event.get('command') in ('run','import_progress') else None)
     bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
                'manifiestos': manifests, 'bls': bls}
     preferences = Preferences(HERE.parent / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))

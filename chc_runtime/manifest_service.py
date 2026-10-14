@@ -14,7 +14,7 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls')
+FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
 LABELS = {'tabla':'Manifiestos', 'conocimientos':'Conocimientos', 'duas':'DUAs por manifiesto',
           'movimientos':'Movimientos de manifiesto', 'contenedores':'Contenedores', 'bls':'BLs'}
 
@@ -46,9 +46,12 @@ class BatchService:
             'workers':32 if flow == 'conocimientos' else 5 if flow == 'contenedores' else 2 if flow == 'bls' else 4,
             'headless':flow == 'bls', 'timeout':30 if flow == 'bls' else 120, 'name':'', 'outputRoot':str(self.root / 'resultados'),
             'courier':'todos', 'start':'', 'end':'', 'manifestIds':'', 'limit':0,
-            'input':'', 'sheet':'BLS', 'max_retries':3}, 'history':[], 'active':'', 'lastBase':''}
+            'input':'', 'sheet':'BLS', 'max_retries':3, 'inputMode':'knowledge',
+            'knowledgePeriods':[]}, 'history':[], 'active':'', 'lastBase':''}
         if self.index_path.exists():
             saved = json.loads(self.index_path.read_text(encoding='utf-8'))
+            if 'inputMode' not in saved.get('config',{}) and saved.get('config',{}).get('input'):
+                self.index['config']['inputMode']='file'
             self.index['config'].update(saved.get('config', {}))
             self.index.update({k:v for k,v in saved.items() if k != 'config'})
         self.sources = []
@@ -61,6 +64,7 @@ class BatchService:
         self.base_info = {}
         self._fixture_portals = {}
         self.processing = False
+        self.knowledge_catalog = {'periods':[],'message':'Actualice las descargas disponibles.'}
 
     def close(self):
         for portal in self._fixture_portals.values():
@@ -80,7 +84,8 @@ class BatchService:
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
             'summary':{key:summary.get(key,0) for key in ('total','succeeded','pending','running','excluded','rows','invalid')},
             'jobs':list(self._jobs.values())[:200], 'outputFolder':active.get('output',''),
-            'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info}
+            'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info,
+            'knowledgeCatalog':self.knowledge_catalog}
 
     def progress(self, payload):
         record = self.active()
@@ -127,7 +132,11 @@ class BatchService:
             if not any(item['id'] == request['id'] for item in self.index['history']):
                 raise ValueError('No se encontró la ejecución')
             self.index['active'] = request['id']
-            self.index['config'].update(self.active()['config'])
+            selected=dict(self.active()['config'])
+            if self.flow=='bls':
+                selected.setdefault('inputMode','file')
+                selected.setdefault('knowledgePeriods',[])
+            self.index['config'].update(selected)
             self.inspect()
             self.save()
         elif command == 'view':
@@ -142,6 +151,28 @@ class BatchService:
             return self.load_base(request)
         elif command == 'base_build':
             return self.build_base(request)
+        elif command in ('knowledge_catalog','knowledge_build'):
+            if self.flow!='bls_source':
+                raise ValueError('Esta operación requiere el proveedor de Conocimientos para BLs.')
+            from chc_runtime.knowledge_source import KnowledgeSource
+            provider=KnowledgeSource(self.root,self.stop,self.emit)
+            if command=='knowledge_build':
+                result=provider.build(request.get('periods',[]))
+                return {'knowledgeBase':result,'snapshot':self.snapshot()}
+            self.knowledge_catalog=provider.catalog()
+        elif command=='knowledge_empty':
+            if self.flow!='bls':
+                raise ValueError('Operación exclusiva de BLs')
+            config=request['config']
+            from input_files import BLS_COLUMNS
+            with closing(sqlite3.connect(Path(config['input']).resolve().as_uri()+'?mode=ro',uri=True)) as db:
+                if [r[1] for r in db.execute('PRAGMA table_info(BLS)')]!=BLS_COLUMNS or db.execute('SELECT 1 FROM BLS LIMIT 1').fetchone():
+                    raise ValueError('La base no acredita una selección sin BLs.')
+            self.index['config'].update({k:v for k,v in config.items() if k in self.index['config']})
+            self.index['active']=''
+            self._jobs={}
+            self.message='Conocimientos completos; no hay BLs Courier N para esta selección.'
+            self.save()
         elif command == 'split':
             # Función original usa diálogos Tk: la adaptación conserva el streaming sin GUI.
             return self.split(request['source'], int(request.get('maxRows',1048576)))
@@ -233,9 +264,28 @@ class BatchService:
             raise ValueError(f'Use entre 1 y {maximum} descargas simultáneas')
         if not 5 <= float(c['timeout']) <= 3600 or not 1 <= int(c['max_retries']) <= 10:
             raise ValueError('Timeout o número de intentos inválido')
-        name = name_checked(c['name'] or (LABELS[self.flow] + (f" {c['year']}-{int(c['month']):02d}" if self.flow!='bls' else '')))
+        default_name=LABELS[self.flow]+(f" {c['year']}-{int(c['month']):02d}" if self.flow!='bls' else '')
+        output_root=Path(c['outputRoot']).resolve()
+        identity_for=lambda name:hashlib.sha256((key+'|'+name+'|'+str(output_root)).encode()).hexdigest()[:24]
+        if self.flow=='bls' and c.get('inputMode')=='knowledge' and c.get('knowledgePeriods') and not c['name']:
+            periods=sorted(set(k.split('|')[0] for k in c['knowledgePeriods']))
+            modes=sorted(set(k.split('|')[1] for k in c['knowledgePeriods']))
+            mode_label='Marítimo y Aéreo' if len(modes)>1 else 'Marítimo' if modes[0]=='maritimo' else 'Aéreo'
+            default_name='BLs '+(' y '.join(periods) if len(periods)<=3 else periods[0]+' a '+periods[-1])+' '+mode_label
+            # Reutilizar incluso un lote manual previo de la misma entrada, conservando sus BLs.
+            previous=next((r for r in self.index['history'] if r['id']==identity_for(r['name'])),None)
+            if previous:
+                default_name=previous['name']
+            else:
+                used={r['name'] for r in self.index['history'] if Path(r['output']).parent==output_root}
+                base=default_name
+                version=2
+                while default_name in used:
+                    default_name=base+f' ({version})'
+                    version+=1
+        name = name_checked(c['name'] or default_name)
         # El nombre y destino distinguen lotes publicados, sin duplicar reservas por cambiar hilos.
-        identity = hashlib.sha256((key+'|'+name+'|'+str(Path(c['outputRoot']).resolve())).encode()).hexdigest()[:24]
+        identity = identity_for(name)
         record = next((item for item in self.index['history'] if item['id']==identity), None)
         if record is None:
             record = {'id':identity, 'name':name, 'period':f"{c['year']}-{int(c['month']):02d}" if self.flow!='bls' else 'Base BLs',
