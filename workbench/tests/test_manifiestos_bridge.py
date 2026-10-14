@@ -53,7 +53,8 @@ class ManifestIntegration(unittest.TestCase):
                     output = Path(record['outputFolder'])
                     self.assertTrue(list(output.glob('*.csv')))
                     self.assertTrue(all(p.suffix=='.csv' for p in output.iterdir()))
-                    with next(output.glob('*.csv')).open(encoding='utf-8-sig',newline='') as stream:
+                    prefix = 'manifiestos' if flow=='tabla' else flow
+                    with next(output.glob(prefix+'_*.csv')).open(encoding='utf-8-sig',newline='') as stream:
                         rows = list(csv.reader(stream))
                     if flow=='contenedores':
                         self.assertEqual(len(rows[0]),19)  # índice + los 18 campos, sin ID duplicado.
@@ -135,7 +136,7 @@ class ManifestIntegration(unittest.TestCase):
     def test_existing_external_csv_is_preserved_before_query(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            output=root/'resultados/Existente/conocimientos_maritimo_octubre26.csv'
+            output=root/'resultados/octubre26/conocimientos_maritimo_octubre26.csv'
             output.parent.mkdir(parents=True)
             output.write_text('archivo anterior',encoding='utf-8')
             bridge=BatchBridge(storage_root=root,offline_fixture=True)

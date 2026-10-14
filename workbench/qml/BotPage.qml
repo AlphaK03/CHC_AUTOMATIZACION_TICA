@@ -191,14 +191,9 @@ ScrollView {
                 anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 20; spacing: 12
                 Text { text: "Registro de actividad"; color: Theme.text; font.family: Theme.family; font.pixelSize: 15; font.weight: Font.DemiBold }
                 Text { text: "Aún no hay actividad en este módulo."; visible: !page.info.events || page.info.events.length === 0; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
-                Repeater {
-                    model: page.info.events || []
-                    RowLayout {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Text { text: parent.modelData.time; color: Theme.faint; font.family: "Consolas"; font.pixelSize: 11; Layout.preferredWidth: 80 }
-                        Text { text: parent.modelData.message; color: parent.modelData.kind === "success" ? Theme.success : Theme.muted; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                    }
+                ActivityView {
+                    Layout.fillWidth: true; Layout.preferredHeight: 160
+                    model: demo.selectedActivityModel
                 }
             }
         }

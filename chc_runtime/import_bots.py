@@ -30,6 +30,27 @@ class TalonJobStore(MultiRowJobStore):
 
 class MovementsJobStore(MultiRowJobStore):
     fields = MOVEMENT_FIELDS
+    supports_empty = True
+
+    def __init__(self, path):
+        super().__init__(path)
+        from .movement_empty import prepare_store
+        prepare_store(self)
+
+    def complete(self, job, result):
+        if result.get('empty'):
+            from .movement_empty import complete_empty
+            return complete_empty(self, job, result)
+        return super().complete(job, result)
+
+    def queue_empty(self, ids=None):
+        from .movement_empty import queue_empty
+        return queue_empty(self, ids)
+
+    def export(self, paths, fields):
+        super().export(paths, fields)
+        from .movement_empty import export_empty
+        export_empty(self, paths)
 
     @classmethod
     def validate_rows(cls, rows, expected):
@@ -60,6 +81,12 @@ class ImportRowsProcessor(PlaywrightDUAProcessor):
             error = soup.select_one('#ERROR')
             if error and error.get_text(strip=True):
                 raise ValueError('TICA devolvió un mensaje: ' + error.get_text(strip=True))
+            # Solo XMovimientos admite una consulta confirmada sin filas.
+            if self._flow.module_id == 'xmovimientos' and merged is None:
+                from .movement_empty import verified_empty_html, empty_record
+                if verified_empty_html(html, row['NroDUA']):
+                    evidence = await self._save_evidence(page, row['NroDUA'])
+                    return empty_record(row['NroDUA'], html, evidence)
             # El parser original comprueba identidad y ausencia de registros.
             data = self._flow.extract_data(html)
             records = data.astype(str).to_dict(orient='records')

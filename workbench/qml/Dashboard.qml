@@ -11,6 +11,9 @@ ScrollView {
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
     ColumnLayout {
         width: dashboard.availableWidth; spacing: 18
+        MonthStart { Layout.fillWidth: true }
+        MonthlyLog { Layout.fillWidth: true }
+        Item { height: 8 }
         Text { text: "Automatizaciones"; color: Theme.text; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.DemiBold }
         Text { text: "Selecciona el bot que quieres usar."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12 }
             GridLayout {

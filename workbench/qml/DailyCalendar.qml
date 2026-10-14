@@ -86,7 +86,7 @@ Dialog {
                     text: modelData.day ? String(modelData.day) : ""
                     background: Rectangle {
                         radius: 7
-                        color: !dayButton.modelData.day ? "transparent" : calendarDialog.inRange(dayButton.modelData.date) ? Theme.accentTint : dayButton.modelData.state === "completed" ? Qt.alpha(Theme.success,.18) : ["downloading", "processing"].indexOf(dayButton.modelData.state) >= 0 ? Theme.accentTint : Theme.raised
+                        color: !dayButton.modelData.day ? "transparent" : calendarDialog.inRange(dayButton.modelData.date) ? Theme.accentTint : dayButton.modelData.state === "completed" ? Qt.alpha(Theme.success,.18) : ["downloading", "processing", "omitted"].indexOf(dayButton.modelData.state) >= 0 ? Theme.accentTint : Theme.raised
                         border.color: calendarDialog.inRange(dayButton.modelData.date) ? Theme.accent : dayButton.modelData.state === "completed" ? Theme.success : calendarDialog.selectedDay.date === dayButton.modelData.date ? Theme.accent : "transparent"
                     }
                     contentItem: Text { text: dayButton.text; color: dayButton.modelData.state === "completed" ? Theme.success : Theme.text; font.family: Theme.family; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
@@ -99,10 +99,16 @@ Dialog {
             Text { text: "● Completado"; color: Theme.success; font.family: Theme.family; font.pixelSize: 11 }
             Text { text: "● En curso"; color: Theme.accent; font.family: Theme.family; font.pixelSize: 11 }
             Text { text: "● Pendiente"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
+            Text { text: "● Omitido"; color: Theme.accent; font.family: Theme.family; font.pixelSize: 11 }
+        }
+        RowLayout {
+            Layout.fillWidth:true
+            ActionButton { objectName:"retryCalendarDay"; text:"Reintentar día"; enabled:worker.ready && !worker.busy && !!calendarDialog.selectedDay.date && calendarDialog.selectedDay.available; onClicked:worker.retryDay(calendarDialog.selectedDay.date) }
+            ActionButton { objectName:"retryCalendarMonth"; text:"Reintentar mes"; enabled:worker.ready && !worker.busy; onClicked:worker.retryMonth(worker.daily.month) }
         }
         Text {
             Layout.fillWidth: true; wrapMode: Text.WordWrap
-            text: calendarDialog.selectedDay.date ? calendarDialog.selectedDay.date + " · " + ({completed:"Completado",downloading:"Descargando base",processing:"Procesando",pending:"Pendiente",future:"Todavía no disponible",outside:"Sin ejecutar"})[calendarDialog.selectedDay.state] + (calendarDialog.selectedDay.total ? " · " + calendarDialog.selectedDay.succeeded + " / " + calendarDialog.selectedDay.total + " guardados" : "") + (calendarDialog.selectedDay.error ? "\n" + calendarDialog.selectedDay.error : "") : "Elige el primer y último día del rango."
+            text: calendarDialog.selectedDay.date ? calendarDialog.selectedDay.date + " · " + ({completed:"Completado",downloading:"Descargando base",processing:"Procesando",pending:"Pendiente",omitted:"Omitido: pendientes para revisión manual",future:"Todavía no disponible",outside:"Sin ejecutar"})[calendarDialog.selectedDay.state] + (calendarDialog.selectedDay.total ? " · " + calendarDialog.selectedDay.succeeded + " / " + calendarDialog.selectedDay.total + " guardados" + (calendarDialog.selectedDay.empty ? " · " + calendarDialog.selectedDay.empty + " vacíos" : "") : "") + (calendarDialog.selectedDay.error ? "\n" + calendarDialog.selectedDay.error : "") : "Elige el primer y último día del rango."
             color: Theme.muted; font.family: Theme.family; font.pixelSize: 11
         }
     }

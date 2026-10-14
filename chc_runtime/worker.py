@@ -63,11 +63,32 @@ class DetailsService:
         self.session = utils.load_session()
         self.catalog = TableCatalog(self.root / 'data' / 'queues', store_factory=self.Store)
         self.catalog.discover_legacy()
+        if getattr(self.Store, 'supports_empty', False):
+            for table in self.catalog.list_tables():
+                path = self.catalog.database(table)
+                try:
+                    with RunLock(path):
+                        store = self.Store(path)
+                        store.close()
+                except RuntimeError as exc:
+                    # Una instancia ocupada conserva sus reservas y su bloqueo.
+                    if 'ya está siendo procesado' in str(exc):
+                        continue
+                    raise
         self.fields = list(self.profile['fields'])
         self.captcha = load_captcha_lookup(self.profile['root'] / 'config/captcha_lookup.json')
         self.stop_event = threading.Event()
         self.active_id = self.session.get('active_table_id', '')
         self.daily = DailyCoordinator(self, offline=offline)
+        if getattr(self.Store, 'supports_empty', False):
+            for table in self.catalog.list_tables():
+                try:
+                    with RunLock(self.catalog.database(table)):
+                        self.daily.reconcile(table)
+                except RuntimeError as exc:
+                    if 'ya está siendo procesado' in str(exc):
+                        continue
+                    raise
         if not self.active_id and self.session.get('input_file_path') and self.session.get('sheet_name'):
             self.active_id = utils.dataset_key(self.session['input_file_path'], self.session['sheet_name'])
         try:
@@ -88,7 +109,7 @@ class DetailsService:
 
     def summary(self, record):
         if not record:
-            return {state: 0 for state in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'total', 'attempts', 'source_rows', 'retained')}
+            return {state: 0 for state in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'empty', 'total', 'attempts', 'source_rows', 'retained')}
         # Instantánea de solo lectura: nunca recupera ni modifica reservas ajenas.
         with self.read_database(record) as db:
             revisions = active_revisions(db)
@@ -99,9 +120,10 @@ class DetailsService:
             source = db.execute("SELECT value FROM metadata WHERE key='source_rows'").fetchone()
             attempts = db.execute('SELECT COALESCE(SUM(attempts),0) FROM jobs').fetchone()[0]
             retained = db.execute('SELECT COUNT(*) FROM retained_results').fetchone()[0]
-        return {**{state: counts.get(state, 0) for state in ('pending', 'running', 'retry', 'succeeded', 'invalid')},
+            unverified = db.execute("SELECT count(*) FROM jobs WHERE status IN ('pending','retry') AND error_kind='NoMovimientosError'").fetchone()[0] if getattr(self.Store,'supports_empty',False) else 0
+        return {**{state: counts.get(state, 0) for state in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'empty')},
                 'total': sum(counts.values()), 'attempts': attempts,
-                'source_rows': json.loads(source[0]) if source else 0, 'retained': retained}
+                'source_rows': json.loads(source[0]) if source else 0, 'retained': retained, 'empty_unverified': unverified}
 
     def record(self):
         return self.catalog.get(self.active_id) if self.active_id else None
@@ -211,9 +233,12 @@ class DetailsService:
                                              offset=offset, limit=100)
         for row in rows:
             row['reason'] = ('Resultado guardado.' if row['status'] == 'succeeded' else
+                             'Vacío: sin movimientos en la última consulta. Se puede reintentar.' if row['status'] == 'empty' else
                              'Consulta en curso.' if row['status'] == 'running' else
                              'Listo para consultar.' if row['status'] == 'pending' and not row['last_error'] else
                              pending_reason(row['error_kind'], row['last_error']))
+            if row.get('autoOmitted'):
+                row['reason'] = 'Omitido del automático tras tres intentos. ' + row['reason']
         return {'rows': rows, 'total': total, 'offset': offset}
 
     def detail(self, job_id):
@@ -225,6 +250,8 @@ class DetailsService:
             if row is None:
                 raise ValueError('La fila ya no existe.')
             sources = [dict(item) for item in db.execute('SELECT revision,row_number,raw FROM source_rows WHERE job_id=?', (job_id,))]
+            has_empty = getattr(self.Store, 'supports_empty', False) and db.execute("SELECT 1 FROM sqlite_master WHERE name='empty_observations'").fetchone()
+            observed = db.execute('SELECT checked_at FROM empty_observations WHERE job_id=?', (job_id,)).fetchone() if has_empty else None
             attempts = [dict(item) for item in db.execute('SELECT started,finished,outcome,error FROM attempts WHERE job_id=? ORDER BY id DESC LIMIT 100', (job_id,))]
         result = json.loads(row['result']) if row['result'] else {}
         evidence = row['evidence']
@@ -233,10 +260,11 @@ class DetailsService:
             if archived.is_file():
                 evidence = str(archived)
         return {**dict(row), 'result': result, 'sources': sources, 'attemptHistory': attempts,
-                'evidence': evidence,
+                'evidence': evidence, 'emptyCheckedAt': observed[0] if observed else '',
                 'values': [{'field': name, 'value': str(result.get(name, ''))} for name in self.fields],
                 'resultRows': result.get('rows', []),
-                'reason': 'Resultado guardado.' if result else 'Consulta en curso.' if row['status'] == 'running' else
+                'reason': 'Resultado guardado.' if result else 'Vacío: sin movimientos en la última consulta. Se puede reintentar.' if row['status'] == 'empty' else
+                             'Consulta en curso.' if row['status'] == 'running' else
                           pending_reason(row['error_kind'], row['last_error']) if row['last_error'] else 'Listo para consultar.'}
 
     def execute(self, command, request):
@@ -248,6 +276,20 @@ class DetailsService:
             return {'daily': self.daily.snapshot()}
         if command == 'daily_run':
             return self.daily.run()
+        if command in {'retry_month','retry_day'}:
+            from datetime import date
+            import calendar
+            if command=='retry_day':
+                start=end=date.fromisoformat(request['day'])
+            else:
+                period=str(request['month'])
+                if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])',period):raise ValueError('Mes inválido.')
+                year,month=map(int,period.split('-'))
+                start=date(year,month,1)
+                from .daily import eligible_day
+                end=min(date(year,month,calendar.monthrange(year,month)[1]),eligible_day(local_now()))
+            if end<start:raise ValueError('El período no tiene días disponibles para consultar.')
+            return self.daily.run(start,end,manual=True)
         if command == 'initialize':
             return {'snapshot': self.snapshot(), 'runtime': self.runtime(), 'view': self.view({})}
         if command == 'inspect_excel':
@@ -308,6 +350,25 @@ class DetailsService:
                 finally:
                     store.close()
             logging.info('Resultados exportados desde SQLite; no se consultó el portal.')
+        elif command == 'retry_empty':
+            if not getattr(self.Store, 'supports_empty', False):
+                raise ValueError('Este módulo no registra consultas vacías.')
+            record = self.record()
+            if not record:
+                raise ValueError('Selecciona una tabla.')
+            with RunLock(self.catalog.database(record)):
+                store = self.Store(self.catalog.database(record))
+                try:
+                    duas = store.queue_empty(request.get('ids'))
+                finally:
+                    store.close()
+            if not duas:
+                raise ValueError('No hay vacíos en la selección para reintentar.')
+            self.daily.reopen(duas)
+            result = self.execute('run', {'daily_duas': duas, 'viewQuery': request.get('viewQuery', {})})
+            self.daily.reconcile(record)
+            result['snapshot'] = self.snapshot()
+            return result
         elif command == 'run':
             record = self.record()
             if not record:
@@ -315,7 +376,8 @@ class DetailsService:
             paths = self.paths(record)
             with RunLock(self.catalog.database(record)):
                 self.catalog.get(record['id'])
-                store = self.ScopedStore(self.catalog.database(record), request['daily_duas']) if 'daily_duas' in request else self.Store(self.catalog.database(record))
+                automatic=request.get('daily_automatic') is True
+                store = self.ScopedStore(self.catalog.database(record), request['daily_duas'], automatic=automatic) if 'daily_duas' in request else self.Store(self.catalog.database(record))
                 monitor_stop = threading.Event()
                 def monitor():
                     last = None
@@ -326,7 +388,7 @@ class DetailsService:
                             last = value
                 monitor_thread = threading.Thread(target=monitor, daemon=False)
                 try:
-                    processor = self.Processor(self.machine, paths, self.flow, self.captcha, self.stop_event)
+                    processor = self.Processor({**self.machine,'max_retries':3} if automatic else self.machine, paths, self.flow, self.captcha, self.stop_event)
                     monitor_thread.start()
                     processor.run(store, lambda summary: self.protocol.emit('progress', summary=summary))
                 finally:
@@ -335,8 +397,9 @@ class DetailsService:
                         monitor_thread.join()
                     summary = store.summary()
                     store.close()
+            if not automatic:self.daily.reconcile(record)
             return {'snapshot': self.snapshot(), 'view': self.view(request.get('viewQuery', {})),
-                    'runStatus': 'stopped' if self.stop_event.is_set() else 'completed' if summary['total'] == summary['succeeded'] else 'pending'}
+                    'runStatus': 'stopped' if self.stop_event.is_set() else 'completed' if summary['total'] == summary['succeeded'] + summary.get('empty', 0) else 'pending'}
         elif command == 'refresh':
             self.machine = utils.load_machine_config()
         else:

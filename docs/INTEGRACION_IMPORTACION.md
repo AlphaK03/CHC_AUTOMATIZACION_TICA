@@ -1,5 +1,13 @@
 # Talón y XMovimientos en CHC Workbench
 
+Actualización del 14 de octubre: ambos bots aplican tres intentos automáticos
+persistentes por pendiente en modo diario. Al agotarlos dejan el día **Omitido**
+y continúan; solo **Reintentar mes/día** reactiva los pendientes del período.
+La lista ofrece **Abrir en TICA**, una consulta visible independiente que no
+guarda ni cambia estados. En Talón una consulta sin tributos sigue pendiente de
+revisión; no se convirtió automáticamente al estado **Vacío** de XMovimientos.
+Véase [Workbench](../workbench/README.md#revisión-en-tica-y-recuperación-de-pendientes).
+
 Integración del 13 de octubre de 2026, autorizada para ambos bots con la estructura
 de Detalles y Tránsito. Se utilizan los parsers de **v2**, conservados sin cambios
 en `bots/talon/src/flows/talon_flow.py` y
@@ -81,8 +89,20 @@ Nombres: `Talon_DUAS_<tabla>.csv` y `xMovimiento_DUAS_<tabla>.csv`, UTF-8 con BO
 Los TXT, índices y CSV antiguos permanecen como referencia; no se convierten
 automáticamente en prueba de extracción completa.
 
-Un DUA sin tributos o movimientos queda pendiente y aparece en `sin_filas.txt`,
-como el tratamiento anterior; no se inventan registros ni se marca éxito vacío.
+Un DUA de Talón sin tributos queda pendiente y aparece en `sin_filas.txt`.
+Desde el 14/10/2026, XMovimientos registra **Vacío** cuando se verifica la identidad,
+el encabezado de Substk, cero filas y ausencia de errores/paginación. Es una consulta
+completada sin movimientos por ahora, distinta de Guardado y de Error. No produce
+filas CSV; conserva fecha/evidencia en `empty_observations`, `sin_filas.txt` y
+`vacios.json` internos. El calendario y la bitácora cuentan guardados y vacíos por
+separado; ambos permiten avanzar si todo el día está consultado. Los vacíos no se
+repiten en cada ronda: **Base de datos → Reintentar vacíos** consulta los elegidos,
+o todos si no hay selección. Reabre los días correspondientes; una respuesta nueva
+con datos pasa a Guardado y un fallo real queda pendiente con su error.
+La actualización de colas antiguas crea respaldo y amplía el CHECK de estado en
+una transacción, conservando rowid, referencias, resultados e intentos. Solo reclasifica
+NoMovimientosError con HTML válido; los que carecen de evidencia se muestran como
+**Vacío por verificar**, fuera del filtro Errores, y también admiten reconsulta.
 Esto es distinto de un régimen diario sin DUAs, cuyo vacío verificado sí permite
 completar la base. Ambos módulos heredan el supervisor corregido, todos los hilos
 en cada ronda, protección de procesos y cancelación. El plazo se renueva al
@@ -92,7 +112,8 @@ confirmar una página para permitir consultas extensas que siguen avanzando.
 
 - Dos integraciones Qt → proceso → navegador local, una por bot: envío con
   CAPTCHA y botón propios, múltiples filas, 52 filas en dos páginas, fallo HTTP
-  en la segunda sin resultado parcial y ausencia de filas conservada pendiente.
+  en la segunda sin resultado parcial y ausencia de filas pendiente en Talón,
+  registrada como Vacío en XMovimientos.
 - Agrupación de bultos y ceros iniciales; CSV con las columnas originales; visor
   completo y limpieza que conserva las 54 filas confirmadas del ejemplo.
 - Dos días por bot, cuatro regímenes por día, calendario 4/4 completado por día,
@@ -116,3 +137,11 @@ importaron resultados de prueba a las tablas operativas. Se abrió una ventana
 nueva con ambos módulos y se mantuvo la instancia de Detalles que estaba
 procesando, sin cerrar ni reiniciar esa ejecución. No hay servicio de Windows:
 para el modo continuo deben permanecer abiertos la app y el equipo.
+
+Revisión del 14/10/2026: tres consultas explícitas aisladas (`001-2026-078121`,
+`001-2026-078143`, `002-2026-088749`) confirmaron tablas vacías. La migración posterior
+clasificó 679 vacíos desde HTML existente y la revisión, conservando idénticos los
+881 DUAs/2.028 filas confirmadas y todos los intentos. Otros dos carecían de evidencia.
+Respaldos y comparación privados en `runtime/xmovimientos_revision/`. Cinco pruebas
+de almacenamiento/migración/reconsulta/calendario, integración real de workers con
+portal local y prueba mensual comprueban el nuevo contrato sin descargar más DUAs.

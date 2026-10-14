@@ -191,13 +191,22 @@ class TableCatalog:
         db = sqlite3.connect(self.database(record).as_uri() + '?mode=ro', uri=True, timeout=2)
         db.row_factory = sqlite3.Row
         try:
+            has_budget = db.execute("SELECT 1 FROM sqlite_master WHERE name='daily_automatic_attempts'").fetchone()
             where, args = '1=1', []
             if status == 'pending':
-                where += " AND j.status!='succeeded'"
+                where += " AND j.status NOT IN ('succeeded','empty')"
             elif status == 'succeeded':
                 where += " AND j.status='succeeded'"
+            elif status == 'empty':
+                where += " AND j.status='empty'"
             elif status == 'retry':
                 where += " AND j.status='retry'"
+                if getattr(self.store_factory, 'supports_empty', False):
+                    where += " AND j.error_kind!='NoMovimientosError'"
+            elif status == 'unverified_empty' and getattr(self.store_factory, 'supports_empty', False):
+                where += " AND j.status IN ('pending','retry') AND j.error_kind='NoMovimientosError'"
+            elif status == 'manual_pending':
+                where += " AND j.status IN ('pending','retry') AND COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=j.id),0)>=3" if has_budget else ' AND 0'
             elif status != 'all':
                 raise ValueError('Filtro inválido')
             revisions = active_revisions(db)
@@ -209,9 +218,12 @@ class TableCatalog:
                 where += " AND (COALESCE(j.dua,'') LIKE ? ESCAPE '\\' OR j.last_error LIKE ? ESCAPE '\\')"
                 args.extend([pattern, pattern])
             total = db.execute(f'SELECT COUNT(*) FROM jobs j WHERE {where}', args).fetchone()[0]
-            rows = db.execute(f'''SELECT j.id,j.dua,j.status,j.attempts,j.last_error,j.error_kind,
+            budget = "COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=j.id),0)" if has_budget else '0'
+            rows = db.execute(f'''SELECT j.id,j.dua,j.status,j.attempts,j.last_error,j.error_kind,{budget} automatic_attempts,
                 (SELECT raw FROM source_rows s WHERE s.job_id=j.id LIMIT 1) original
-                FROM jobs j WHERE {where} ORDER BY j.rowid LIMIT ? OFFSET ?''', [*args, limit, offset])
-            return total, [dict(row) for row in rows]
+                FROM jobs j WHERE {where} ORDER BY CASE WHEN j.status='running' THEN 0 ELSE 1 END, j.rowid LIMIT ? OFFSET ?''', [*args, limit, offset])
+            result = [dict(row) for row in rows]
+            for row in result:row['autoOmitted']=row['status'] in ('pending','retry') and row['automatic_attempts']>=3
+            return total, result
         finally:
             db.close()

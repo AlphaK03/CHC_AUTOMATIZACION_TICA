@@ -55,7 +55,7 @@ def main(module='manifiestos'):
         except asyncio.CancelledError:
             emit('result', command=command, requestId=request.get('requestId'), stopped=True)
         except Exception as exc:
-            traceback.print_exc(file=sys.stderr)
+            logging.exception('Falló el comando %s de %s.', command, flow)
             emit('error', command=command, requestId=request.get('requestId'), message=str(exc))
         finally:
             emit('idle', command=command, snapshot=service.snapshot())

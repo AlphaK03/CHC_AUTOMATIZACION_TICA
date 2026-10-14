@@ -1,6 +1,5 @@
 """Catálogo y adaptación de Manifiestos/BLs. Solo se importa dentro del worker."""
 import asyncio
-import calendar
 from contextlib import closing
 from datetime import date, datetime
 import hashlib
@@ -12,6 +11,8 @@ import shutil
 import sqlite3
 import tempfile
 import time
+
+from .manifest_names import manifest_scope, manifest_name, normalized_scope
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
@@ -33,6 +34,14 @@ def name_checked(value):
             or value.split('.')[0].upper() in {'CON','PRN','AUX','NUL', *(f'COM{i}' for i in range(1,10)), *(f'LPT{i}' for i in range(1,10))}):
         raise ValueError('Escriba un nombre de tabla válido, sin caracteres de ruta.')
     return value
+
+
+def bls_job(ordinal, payload, state, attempts, rows, error):
+    original = json.loads(payload) if isinstance(payload, str) else payload
+    manifest, bl = original.get('IDManifiesto', ''), original.get('BL original', '')
+    return dict(id=manifest+' / '+bl, manifest=manifest, bl=bl, ordinal=ordinal,
+                state=state, attempts=attempts, rows=rows, error=error,
+                page=0,checkpointPage=0,collectedRows=rows)
 
 
 class BatchService:
@@ -79,11 +88,13 @@ class BatchService:
     def snapshot(self):
         active = self.active() or {}
         summary = active.get('summary', {})
+        jobs = list(self._jobs.values())
+        jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,item['ordinal']))
         return {'config':dict(self.index['config']), 'history':[
             {'id':item['id'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
             'summary':{key:summary.get(key,0) for key in ('total','succeeded','pending','running','excluded','rows','invalid')},
-            'jobs':list(self._jobs.values())[:200], 'outputFolder':active.get('output',''),
+            'jobs':jobs[:200], 'activeJobs':[j for j in jobs if j['state']=='Descargando'] if self.processing else [], 'outputFolder':active.get('output',''),
             'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info,
             'knowledgeCatalog':self.knowledge_catalog}
 
@@ -95,14 +106,33 @@ class BatchService:
         if 'selected' in p:
             summary = dict(total=p['selected'], succeeded=p.get('saved',0), pending=p.get('pending',0),
                            running=p.get('active',0), excluded=p.get('excluded',0), rows=record.get('summary',{}).get('rows',0))
-        else:
+        elif 'total' in p:
             summary = dict(total=p.get('total',0), succeeded=p.get('saved',0), pending=p.get('pending',0),
                            running=p.get('running',0), excluded=0, invalid=p.get('invalid',0), rows=p.get('result_rows',0))
+        else:
+            # Preparar el navegador/base no significa reiniciar el avance guardado.
+            summary = dict(record.get('summary',{}))
         record['summary'] = summary
+        if payload.get('message'):
+            self.message = payload['message']
         jobs = payload.get('jobs', payload.get('rows', []))
         if payload.get('job'):
             jobs = [payload['job']]
         for item in jobs:
+            if self.flow=='bls':
+                ordinal = item['ordinal']
+                previous = self._jobs.get(ordinal,{})
+                row = bls_job(ordinal,
+                    {'IDManifiesto':item.get('manifest',''), 'BL original':item.get('bl','')},
+                    item.get('state',''),item.get('attempts',0),item.get('result_count',0),item.get('error',''))
+                for field in ('page','checkpointPage','collectedRows'):
+                    row[field] = item.get(field,previous.get(field,row[field]))
+                if row['state']!='Descargando':
+                    row['page'] = row['checkpointPage']
+                if row['state']=='Guardado':
+                    row['collectedRows'] = row['rows']
+                self._jobs[ordinal] = row
+                continue
             identifier = item.get('id') or (item.get('manifest','') + ' / ' + item.get('bl',''))
             self._jobs[identifier] = {'id':identifier, 'ordinal':item.get('ordinal',0),
                 'state':item.get('state',''), 'attempts':item.get('attempts',0),
@@ -112,13 +142,19 @@ class BatchService:
                 summary['rows'] += count-self._result_counts.get(identifier,0)
                 self._result_counts[identifier] = count
         record['databases'] = list(dict.fromkeys(record.get('databases',[]) + ([payload['database']] if payload.get('database') else [])))
-        terminal = payload.get('job',{}).get('state') in ('Guardado','Pendiente','Excluido')
+        terminal = bool(payload.get('job'))
         if time.monotonic() - self._last_event > .15 or payload.get('phase') == 'finished' or terminal:
             self.emit('progress', snapshot=self.snapshot())
             self._last_event = time.monotonic()
         if time.monotonic() - self._last_save > 2:
-            self.save()
             self._last_save = time.monotonic()
+            try:
+                self.save()
+            except OSError:
+                # El historial auxiliar puede estar abierto por otro lector de
+                # Windows. Nunca abortar un BL ya confirmado en SQLite por ello.
+                import logging
+                logging.exception('No se pudo actualizar el historial de %s; SQLite conserva el progreso.', self.flow)
 
     def execute(self, command, request):
         if command == 'configure':
@@ -243,28 +279,14 @@ class BatchService:
             key, _ = batch_scope(frame, settings)
             spec = {'input':c['input'], 'sheet':c['sheet']}
         else:
-            year, month = int(c['year']), int(c['month'])
-            if not 2000 <= year <= 2100 or not 1 <= month <= 12:
-                raise ValueError('Año o mes inválido')
-            modes = list(dict.fromkeys(c['modes']))
-            if not modes or any(m not in ('maritimo','aereo','terrestre') for m in modes):
-                raise ValueError('Seleccione al menos una modalidad')
-            start = date.fromisoformat(c['start'] or f'{year:04d}-{month:02d}-01')
-            end = date.fromisoformat(c['end'] or f'{year:04d}-{month:02d}-{calendar.monthrange(year,month)[1]}')
-            if start > end or any((d.year,d.month)!=(year,month) for d in (start,end)):
-                raise ValueError('El intervalo debe estar ordenado y dentro del mes elegido.')
-            if c['courier'] not in ('todos','N','S'):
-                raise ValueError('Filtro Courier inválido')
-            spec = {'flow':self.flow, 'year':year, 'month':month, 'modes':modes,
-                'start':start.isoformat(), 'end':end.isoformat(), 'courier':c['courier'] if self.flow=='conocimientos' else 'todos',
-                'ids':sorted(set(c['manifestIds'].split())), 'limit':int(c['limit'])}
-            key = hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()
+            spec = manifest_scope(self.flow, c)
+            key = hashlib.sha256(json.dumps(normalized_scope(spec),sort_keys=True).encode()).hexdigest()
         maximum = 20 if self.flow == 'bls' else 32
         if not 1 <= int(c['workers']) <= maximum:
             raise ValueError(f'Use entre 1 y {maximum} descargas simultáneas')
         if not 5 <= float(c['timeout']) <= 3600 or not 1 <= int(c['max_retries']) <= 10:
             raise ValueError('Timeout o número de intentos inválido')
-        default_name=LABELS[self.flow]+(f" {c['year']}-{int(c['month']):02d}" if self.flow!='bls' else '')
+        default_name=manifest_name(spec) if self.flow!='bls' else LABELS[self.flow]
         output_root=Path(c['outputRoot']).resolve()
         identity_for=lambda name:hashlib.sha256((key+'|'+name+'|'+str(output_root)).encode()).hexdigest()[:24]
         if self.flow=='bls' and c.get('inputMode')=='knowledge' and c.get('knowledgePeriods') and not c['name']:
@@ -283,17 +305,25 @@ class BatchService:
                 while default_name in used:
                     default_name=base+f' ({version})'
                     version+=1
-        name = name_checked(c['name'] or default_name)
+        name = name_checked(c['name'] or default_name) if self.flow=='bls' else name_checked(default_name)
         # El nombre y destino distinguen lotes publicados, sin duplicar reservas por cambiar hilos.
         identity = identity_for(name)
         record = next((item for item in self.index['history'] if item['id']==identity), None)
+        if self.flow!='bls':
+            # Recuperar también lotes anteriores con nombre manual, sin mover sus datos.
+            candidates = [item for item in self.index['history']
+                          if normalized_scope(item['spec']) == normalized_scope(spec)
+                          and Path(item['output']).parent == output_root]
+            record = next((item for item in candidates if item['id']==self.index['active']),
+                          candidates[-1] if candidates else None)
+            c['name'] = record['name'] if record else name
         if record is None:
             record = {'id':identity, 'name':name, 'period':f"{c['year']}-{int(c['month']):02d}" if self.flow!='bls' else 'Base BLs',
                 'spec':spec, 'config':dict(c), 'work':str(self.root/'data/jobs'/self.flow/identity),
                 'output':str(Path(c['outputRoot']).resolve()/name), 'databases':[], 'state':'Pendiente', 'summary':{}}
             self.index['history'].append(record)
         record['config'] = dict(c)
-        self.index['active'] = identity
+        self.index['active'] = record['id']
         self._jobs = {}
         self.inspect()
         self.save()
@@ -329,7 +359,11 @@ class BatchService:
             record['state'] = ('Con pendientes' if summary.get('pending') or summary.get('invalid') else
                                'Completado con exclusiones' if summary.get('excluded') else 'Completado')
             self.message = record['state']
-        except BaseException:
+        except BaseException as exc:
+            if not self.stop.is_set():
+                import logging
+                logging.exception('El proceso %s se detuvo; el progreso está conservado.', self.flow)
+                record['error'] = str(exc) or type(exc).__name__
             record['state'] = 'Detenido' if self.stop.is_set() else 'Error'
             self.message = record['state'] + '; progreso conservado'
             raise
@@ -340,6 +374,8 @@ class BatchService:
                 self.export()
             finally:
                 self.message = record['state'] + ('; progreso guardado' if record['state'] in ('Error','Detenido') else '')
+                if record['state']=='Error' and record.get('error'):
+                    self.message += ': ' + record['error']
                 self.save()
 
     async def run_manifests(self, record):
@@ -388,7 +424,7 @@ class BatchService:
 
     async def run_bls(self, record):
         from config_manager import DEFAULTS
-        from core.engine import BLSProcessor
+        from chc_runtime.bls_session import WorkbenchBLSProcessor
         from input_files import load_input_file
         c = self.index['config']
         config = {**DEFAULTS, 'sheet_name':c['sheet'], 'output_base_path':record['work'],
@@ -399,7 +435,7 @@ class BatchService:
         if self.fixture:
             from chc_runtime.bls_fixture import Session
             factory = lambda worker: Session()
-        processor = BLSProcessor(config,self.stop)
+        processor = WorkbenchBLSProcessor(config,self.stop)
         result = await processor.run_async(frame,session_factory=factory)
         record['databases'] = [result['database']]
         record['csv'] = result['output_csv']
@@ -432,11 +468,32 @@ class BatchService:
                 summary['rows'] += db.execute('SELECT count(*) FROM '+('results' if self.flow=='bls' else 'rows')).fetchone()[0]
                 if self.flow!='bls':
                     self._result_counts.update(db.execute("SELECT id,kept_count FROM jobs WHERE state='Guardado'"))
-                sql = ('SELECT id,ordinal,state,attempts,result_count,error FROM jobs' if self.flow=='bls' else
-                       'SELECT id,ordinal,state,attempts,kept_count,error FROM jobs')
-                records = db.execute(sql+" WHERE id LIKE ? ORDER BY ordinal LIMIT 200 OFFSET ?", ('%'+search+'%',max(0,offset)))
-                for identifier,ordinal,state,attempts,rows,error in records:
-                    self._jobs[identifier] = dict(id=identifier,ordinal=ordinal,state=state,attempts=attempts,rows=rows,error=error)
+                if self.flow=='bls':
+                    progress = {}
+                    checkpoint = path.with_name('bls_pages.sqlite3')
+                    if checkpoint.is_file():
+                        with closing(sqlite3.connect(checkpoint.resolve().as_uri()+'?mode=ro',uri=True,timeout=3)) as pages:
+                            signature = db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]
+                            if pages.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]!=signature:
+                                raise ValueError('Las páginas guardadas pertenecen a otra selección BLs')
+                            progress = {ordinal:(number,count) for ordinal,number,count in pages.execute(
+                                'SELECT ordinal,MAX(page),SUM(count) FROM pages GROUP BY ordinal')}
+                    records = db.execute('''SELECT ordinal,payload,state,attempts,result_count,error FROM jobs
+                        WHERE json_extract(payload,'$."IDManifiesto"') LIKE ?
+                           OR json_extract(payload,'$."BL original"') LIKE ?
+                        ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''', ('%'+search+'%','%'+search+'%',max(0,offset)))
+                    for ordinal,payload,state,attempts,rows,error in records:
+                        row = bls_job(ordinal,payload,state,attempts,rows,error)
+                        if ordinal in progress:
+                            number,collected = progress[ordinal]
+                            row.update(page=number,checkpointPage=number,
+                                       collectedRows=rows if state=='Guardado' else collected)
+                        self._jobs[ordinal] = row
+                else:
+                    records = db.execute('''SELECT id,ordinal,state,attempts,kept_count,error FROM jobs
+                        WHERE id LIKE ? ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''', ('%'+search+'%',max(0,offset)))
+                    for identifier,ordinal,state,attempts,rows,error in records:
+                        self._jobs[identifier] = dict(id=identifier,ordinal=ordinal,state=state,attempts=attempts,rows=rows,error=error)
         record['summary'] = summary
         if not self.processing:
             # Una reserva huérfana se recupera bajo el bloqueo al reanudar; no simular actividad.
@@ -451,8 +508,12 @@ class BatchService:
         # Un destino compartido no puede sobrescribir otro lote con filtros diferentes.
         owner_path = self.root/'data/publications'/(hashlib.sha256(str(destination).casefold().encode()).hexdigest()+'.json')
         if owner_path.exists() and json.loads(owner_path.read_text(encoding='utf-8'))['owner'] != record['id']:
+            if self.flow!='bls':
+                raise ValueError('La carpeta de este período ya publica otra selección. Retome su ejecución guardada o elija otra carpeta de resultados.')
             raise ValueError('Este nombre de tabla ya publica otro lote. Use otro nombre o retome su ejecución guardada.')
         if destination.exists() and not owner_path.exists():
+            if self.flow!='bls':
+                raise ValueError('El CSV ya existe fuera de este lote. Elija otra carpeta de resultados; el archivo anterior se conservó.')
             raise ValueError('El CSV ya existe fuera de este lote. Use otro nombre de tabla; el archivo anterior se conservó.')
         return destination,owner_path
 

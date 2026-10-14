@@ -10,6 +10,7 @@ ScrollView {
     property var worker: moduleBridge || details
     objectName: worker.moduleId === "detalles" ? "detailsRealPage" : worker.moduleId === "duas_transito" ? "transitRealPage" : worker.moduleId + "RealPage"
     property int tab: 0
+    property int confirmed: worker.summary.succeeded + (worker.summary.empty || 0)
     property var selectedIds: []
     property string activeId: worker.activeTable.id || ""
     property bool configDirty: false
@@ -25,7 +26,7 @@ ScrollView {
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
     function selectedIndex() { for(let i=0;i<worker.tables.length;i++) if(worker.tables[i].id === page.activeId) return i; return -1 }
-    function filterName() { return ["all", "pending", "succeeded", "retry"][filterBox.currentIndex] || "all" }
+    function filterName() { return (worker.moduleId === "xmovimientos" ? ["all", "pending", "succeeded", "retry", "empty", "unverified_empty", "manual_pending"] : ["all", "pending", "succeeded", "retry", "manual_pending"])[filterBox.currentIndex] || "all" }
     function refreshRows(offset) { worker.searchRows(filterName(), rowSearch.text.trim(), offset); page.selectedIds = [] }
     function toggleRow(key, checked) { let values = page.selectedIds.slice(); if(checked && values.indexOf(key)<0) values.push(key); if(!checked) values = values.filter(x => x !== key); page.selectedIds = values }
     function currentConfig() {
@@ -118,16 +119,18 @@ ScrollView {
                     anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 16; spacing: 10
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: worker.summary.succeeded + " / " + worker.summary.total; color: Theme.text; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                        Text { text: (worker.summary.total ? 100 * worker.summary.succeeded / worker.summary.total : 0).toFixed(1) + "%"; color: Theme.accent; font.family: Theme.family; font.pixelSize: 17 }
+                        Text { text: page.confirmed + " / " + worker.summary.total; color: Theme.text; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.DemiBold; Layout.fillWidth: true }
+                        Text { text: (worker.summary.total ? 100 * page.confirmed / worker.summary.total : 0).toFixed(1) + "%"; color: Theme.accent; font.family: Theme.family; font.pixelSize: 17 }
+                        ActionButton { objectName: "retryMonthButton"; visible: String(worker.activeTable.source_path || "").startsWith("daily://"); text: "Reintentar mes"; enabled: worker.ready && !worker.busy; onClicked: worker.retryMonth(String(worker.activeTable.source_path).slice(8)); ToolTip.visible: hovered; ToolTip.text: "Da hasta tres intentos nuevos a los pendientes del mes y consulta sus días sin completar" }
                     }
                     Rectangle {
                         Layout.fillWidth: true; height: 6; radius: 3; color: Theme.raised
-                        Rectangle { width: parent.width * (worker.summary.total ? worker.summary.succeeded / worker.summary.total : 0); height: parent.height; radius: 3; color: Theme.success }
+                        Rectangle { width: parent.width * (worker.summary.total ? page.confirmed / worker.summary.total : 0); height: parent.height; radius: 3; color: Theme.success }
                     }
                     RowLayout {
                         Layout.fillWidth: true; spacing: 22
                         Text { text: "Guardados: " + worker.summary.succeeded; color: Theme.success; font.family: Theme.family; font.pixelSize: 11 }
+                        Text { visible: worker.moduleId === "xmovimientos"; text: "Vacíos: " + (worker.summary.empty || 0); color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
                         Text { text: "Pendientes: " + (worker.summary.pending + worker.summary.retry); color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
                         Text { text: "En curso: " + worker.summary.running; color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
                         Text { text: "Revisar: " + worker.summary.invalid; color: worker.summary.invalid ? Theme.accent : Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
@@ -149,15 +152,14 @@ ScrollView {
                         Text { text: "Actividad"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; font.weight: Font.DemiBold; Layout.fillWidth: true }
                         ActionButton { text: "Limpiar vista"; subtle: true; implicitHeight: 26; onClicked: worker.clearActivity() }
                     }
-                    ListView {
-                        Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 6; model: worker.events
-                        ScrollBar.vertical: ScrollBar {}
-                        delegate: RowLayout {
-                            required property var modelData
-                            width: ListView.view.width - 12
-                            Text { text: parent.modelData.time; color: Theme.faint; font.family: "Consolas"; font.pixelSize: 10; Layout.preferredWidth: 65 }
-                            Text { text: parent.modelData.message; color: parent.modelData.level === "SUCCESS" ? Theme.success : parent.modelData.level === "WARNING" ? Theme.accent : ["ERROR","CRITICAL"].indexOf(parent.modelData.level)>=0 ? "#ef9ea2" : Theme.muted; font.family: Theme.family; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                        }
+                    Text {
+                        objectName: "detailsActiveJobs"
+                        visible: worker.activeJobs.length > 0; text: "Descargando: " + worker.activeJobs.join("   ·   ")
+                        color: Theme.accent; font.family: "Consolas"; font.pixelSize: 11
+                        Layout.fillWidth: true; wrapMode: Text.WordWrap
+                    }
+                    ActivityView {
+                        Layout.fillWidth: true; Layout.fillHeight: true; model: worker.activityModel
                     }
                 }
             }
@@ -171,9 +173,9 @@ ScrollView {
                 ActionButton { objectName: "detailsStopButton"; text: "Detener"; iconName: "pause"; enabled: (worker.running || worker.dailyActive) && worker.status !== "Deteniendo y guardando…"; onClicked: worker.stopQueries() }
                 ActionButton {
                     objectName: "detailsStartButton"
-                    text: worker.dailyActive ? "Automático activo" : worker.busy ? "Procesando…" : page.dailyMode ? "Iniciar automático" : worker.summary.total && worker.summary.total === worker.summary.succeeded ? "Actualizar resultados" : worker.summary.attempts ? "Retomar pendientes" : "Iniciar consultas"
+                    text: worker.dailyActive ? "Automático activo" : worker.busy ? "Procesando…" : page.dailyMode ? "Iniciar automático" : worker.summary.total && worker.summary.total === page.confirmed ? "Actualizar resultados" : worker.summary.attempts ? "Retomar pendientes" : "Iniciar consultas"
                     iconName: "play"; primary: true
-                    enabled: worker.ready && !worker.busy && !!worker.config.output_base_path && (page.dailyMode ? worker.runtime.chromiumReady && dailyStart.text.trim() !== "" : page.activeId !== "" && (worker.runtime.chromiumReady || worker.summary.total === worker.summary.succeeded))
+                    enabled: worker.ready && !worker.busy && !!worker.config.output_base_path && (page.dailyMode ? worker.runtime.chromiumReady && dailyStart.text.trim() !== "" : page.activeId !== "" && (worker.runtime.chromiumReady || worker.summary.total === page.confirmed))
                     onClicked: page.startQueries()
                 }
             }
@@ -195,10 +197,11 @@ ScrollView {
                     SpinBox { id: workerSpin; from: 1; to: 20; value: worker.config.cant_hilos || 1; enabled: worker.ready && !worker.busy; palette.text: Theme.text; palette.base: Theme.raised; palette.button: Theme.raised; palette.buttonText: Theme.text; onValueModified: page.configDirty = true }
                     Text { text: "Tiempo de espera (s)"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
                     SpinBox { id: timeoutSpin; from: 5; to: 120; value: worker.config.timeout || 30; enabled: worker.ready && !worker.busy; palette.text: Theme.text; palette.base: Theme.raised; palette.button: Theme.raised; palette.buttonText: Theme.text; onValueModified: page.configDirty = true }
-                    Text { text: "Rondas de intentos"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
+                    Text { text: "Rondas de intentos (modo Manual)"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
                     SpinBox { id: retrySpin; from: 1; to: 10; value: worker.config.max_retries || 3; enabled: worker.ready && !worker.busy; palette.text: Theme.text; palette.base: Theme.raised; palette.button: Theme.raised; palette.buttonText: Theme.text; onValueModified: page.configDirty = true }
                 }
                 Toggle { id: headlessToggle; text: "Mantener el navegador oculto"; checked: worker.config.headless !== false; enabled: worker.ready && !worker.busy; onClicked: page.configDirty = true }
+                Text { text: "Diario y reintentos del calendario: hasta 3 intentos por DUA. Después, los pendientes quedan para revisión manual."; color: Theme.faint; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                 ActionButton { id: advancedButton; property bool expanded: false; text: expanded ? "Ocultar opciones avanzadas" : "Opciones avanzadas"; subtle: true; onClicked: expanded = !expanded }
                 ColumnLayout {
                     visible: advancedButton.expanded; Layout.fillWidth: true; spacing: 10
@@ -253,7 +256,7 @@ ScrollView {
                 }
                 RowLayout {
                     Layout.fillWidth: true; spacing: 10
-                    Select { id: filterBox; Layout.preferredWidth: 160; model: ["Todas", "Pendientes", "Guardadas", "Por reintentar"]; onActivated: page.refreshRows(0); enabled: worker.ready && (!worker.busy || worker.running) }
+                    Select { id: filterBox; Layout.preferredWidth: 160; model: worker.moduleId === "xmovimientos" ? ["Todas", "Pendientes", "Guardadas", "Errores", "Vacías", "Vacías por verificar", "Omitidas del automático"] : ["Todas", "Pendientes", "Guardadas", "Por reintentar", "Omitidas del automático"]; onActivated: page.refreshRows(0); enabled: worker.ready && (!worker.busy || worker.running) }
                     Field { id: rowSearch; Layout.fillWidth: true; placeholderText: "Buscar por DUA o último error"; onAccepted: page.refreshRows(0) }
                     ActionButton { text: "Buscar"; iconName: "search"; enabled: worker.ready && (!worker.busy || worker.running); onClicked: page.refreshRows(0) }
                 }
@@ -274,6 +277,7 @@ ScrollView {
                     delegate: Rectangle {
                         id: rowDelegate
                         required property var modelData
+                        property bool emptyUnverified: worker.moduleId === "xmovimientos" && modelData.error_kind === "NoMovimientosError"
                         width: jobList.width - 14; height: 56
                         color: page.selectedIds.indexOf(modelData.id) >= 0 ? Theme.accentTint : "transparent"
                         Rectangle { height: 1; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; color: Theme.border }
@@ -283,10 +287,11 @@ ScrollView {
                             Text { text: rowDelegate.modelData.dua || rowDelegate.modelData.original || "(vacío)"; color: Theme.text; font.family: "Consolas"; font.pixelSize: 12; Layout.preferredWidth: 210; elide: Text.ElideRight }
                             ColumnLayout {
                                 Layout.fillWidth: true; spacing: 3
-                                Text { text: ({pending:"Pendiente",running:"En curso",retry:"Por reintentar",succeeded:"Guardado",invalid:"Revisar dato"})[rowDelegate.modelData.status] || rowDelegate.modelData.status; color: rowDelegate.modelData.status === "succeeded" ? Theme.success : rowDelegate.modelData.status === "pending" ? Theme.muted : Theme.accent; font.family: Theme.family; font.pixelSize: 11 }
+                                Text { text: rowDelegate.emptyUnverified ? "Vacío por verificar" : ({pending:"Pendiente",running:"En curso",retry:worker.moduleId === "xmovimientos" ? "Error" : "Por reintentar",empty:"Vacío",succeeded:"Guardado",invalid:"Revisar dato"})[rowDelegate.modelData.status] || rowDelegate.modelData.status; color: rowDelegate.modelData.status === "succeeded" ? Theme.success : rowDelegate.emptyUnverified || ["pending","empty"].indexOf(rowDelegate.modelData.status) >= 0 ? Theme.muted : Theme.accent; font.family: Theme.family; font.pixelSize: 11 }
                                 Text { text: rowDelegate.modelData.reason; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.fillWidth: true; elide: Text.ElideRight }
                             }
                             Text { text: String(rowDelegate.modelData.attempts); color: Theme.muted; font.family: Theme.family; font.pixelSize: 11; Layout.preferredWidth: 65 }
+                            ActionButton { objectName: "duaOpenTica"; text: "TICA"; visible: !!rowDelegate.modelData.dua; enabled: !worker.manualReview.running && !worker.closing; onClicked: worker.openInTica(rowDelegate.modelData.id); ToolTip.visible: hovered; ToolTip.text: "Abrir una consulta automatizada en un navegador visible" }
                             ActionButton { text: "Ver"; iconName: "chevron"; subtle: true; enabled: !worker.busy || worker.running; onClicked: worker.showDetail(rowDelegate.modelData.id) }
                         }
                     }
@@ -302,11 +307,14 @@ ScrollView {
                 RowLayout {
                     Layout.fillWidth: true; spacing: 10
                     ActionButton { text: "Eliminar elegidas (" + page.selectedIds.length + ")"; enabled: page.selectedIds.length > 0 && !worker.busy; onClicked: page.requestDelete("rows") }
+                    ActionButton { objectName: "retryEmptyButton"; visible: worker.moduleId === "xmovimientos"; text: "Reintentar vacíos"; enabled: ((worker.summary.empty || 0) + (worker.summary.empty_unverified || 0)) > 0 && !worker.busy; onClicked: worker.retryEmpty(page.selectedIds) }
                     ActionButton { text: "Limpiar completadas"; enabled: worker.summary.succeeded > 0 && !worker.busy; onClicked: page.requestDelete("clean") }
                     Item { Layout.fillWidth: true }
                     ActionButton { text: "Eliminar tabla"; enabled: page.activeId !== "" && !worker.busy; onClicked: page.requestDelete("table") }
                 }
                 Text { text: "Cada eliminación pide confirmación y crea un respaldo. Los resultados confirmados se conservan al limpiar filas."; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                ReviewStatus { Layout.fillWidth: true; inspector: worker.manualReview }
+                Text { text: "TICA abre una revisión visible; no cambia el estado ni guarda resultados del lote."; color: Theme.faint; font.pixelSize: 10; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             }
         }
 
@@ -390,10 +398,12 @@ ScrollView {
             contentWidth: availableWidth; clip: true
             ColumnLayout {
                 width: detailScroll.availableWidth; spacing: 14
-                Text { text: "Resultado"; color: Theme.text; font.family: Theme.family; font.pixelSize: 14; font.weight: Font.DemiBold }
+                Text { text: worker.jobDetail.status === "empty" ? "Vacío: sin movimientos por ahora" : "Resultado"; color: Theme.text; font.family: Theme.family; font.pixelSize: 14; font.weight: Font.DemiBold }
+                ActionButton { text: "Abrir en TICA"; visible: !!worker.jobDetail.dua; enabled: !worker.manualReview.running && !worker.closing; onClicked: worker.openInTica(worker.jobDetail.id) }
+                Text { visible: worker.jobDetail.status === "empty"; text: "Última consulta: " + (worker.jobDetail.emptyCheckedAt ? new Date(worker.jobDetail.emptyCheckedAt).toLocaleString() : "—"); color: Theme.muted; font.pixelSize: 12 }
                 Select { id: detailLine; visible: (worker.jobDetail.resultRows || []).length > 1; Layout.fillWidth: true; model: (worker.jobDetail.resultRows || []).map((row,index) => (row.Item ? "Línea " + row.Item : row.Tributo ? "Tributo " + row.Tributo : row.Movimiento ? "Movimiento " + row.Movimiento : "Fila " + (index+1)) + " · " + (index+1) + " / " + worker.jobDetail.resultRows.length) }
                 Repeater {
-                    model: worker.jobDetail.values || []
+                    model: worker.jobDetail.status === "empty" ? [] : worker.jobDetail.values || []
                     ColumnLayout {
                         required property var modelData
                         Layout.fillWidth: true; spacing: 5

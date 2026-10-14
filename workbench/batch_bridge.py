@@ -1,12 +1,17 @@
 """Puente Qt para procedimientos independientes; no importa motores de bots."""
 import json
 from pathlib import Path
+import sys
 
 from PySide6.QtCore import QObject, Property, QProcess, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 from process_guard import ProcessTreeGuard
+from manual_review import ManualReview
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+from chc_runtime.manifest_names import manifest_scope, manifest_name
 EMPTY = {'config':{}, 'history':[], 'activeId':'', 'jobs':[], 'outputFolder':'', 'lastBase':'', 'baseInfo':{},
          'summary':{k:0 for k in ('total','succeeded','pending','running','excluded','rows','invalid')}}
 
@@ -154,6 +159,9 @@ class BatchBridge(QObject):
 
     def __init__(self, module_id='manifiestos', enabled=True, storage_root=None, offline_fixture=False, knowledge_root=None):
         super().__init__()
+        self._review = ManualReview(module_id, storage_root or ROOT/'bots'/module_id, offline_fixture, self)
+        self._review.toast.connect(self.toast.emit)
+        self._review.closed.connect(self.check_closed)
         self._module = module_id
         self._enabled = enabled
         self._closing = False
@@ -184,6 +192,12 @@ class BatchBridge(QObject):
             self.changed.emit()
 
     def current(self): return self.channels[self._flow]
+    @Slot('QVariantMap', result=str)
+    def automaticTableName(self, config):
+        try:
+            return manifest_name(manifest_scope(self._flow, config))
+        except (KeyError, TypeError, ValueError):
+            return ''
     @Property(bool, constant=True)
     def enabled(self): return self._enabled
     @Property(bool, constant=True)
@@ -201,7 +215,9 @@ class BatchBridge(QObject):
     @Property(bool, notify=changed)
     def closing(self): return self._closing
     @Property(bool, notify=changed)
-    def isClosed(self): return all(c.process.state()==QProcess.NotRunning for c in self.channels.values())
+    def isClosed(self): return self._review.isClosed and all(c.process.state()==QProcess.NotRunning for c in self.channels.values())
+    @Property(QObject, constant=True)
+    def manualReview(self): return self._review
     @Property(str, notify=changed)
     def error(self): return self._knowledge_error or self.current().error
     @Property('QVariantMap', notify=changed)
@@ -210,6 +226,8 @@ class BatchBridge(QObject):
     def summary(self): return self.current().snapshot['summary']
     @Property('QVariantList', notify=changed)
     def jobs(self): return self.current().snapshot['jobs']
+    @Property('QVariantList', notify=changed)
+    def activeJobs(self): return self.current().snapshot.get('activeJobs',[]) if self.current().busy else []
     @Property('QVariantList', notify=changed)
     def history(self): return self.current().snapshot['history']
     @Property(str, notify=changed)
@@ -304,6 +322,7 @@ class BatchBridge(QObject):
     @Slot()
     def shutdown(self):
         self._closing = True
+        self._review.shutdown()
         self._knowledge_request=None
         self._refresh_knowledge=False
         for channel in self.channels.values():
@@ -322,6 +341,11 @@ class BatchBridge(QObject):
 
     @Slot()
     def openResults(self): self.openPath(self.current().snapshot.get('outputFolder',''))
+
+    @Slot(str, int)
+    def openInTica(self, job_id, ordinal):
+        if self.enabled and not self.closing and self.activeId:
+            self._review.open({'flow':self.flow, 'recordId':self.activeId, 'jobId':job_id, 'ordinal':ordinal})
 
     @Slot(str)
     def useBase(self, path):

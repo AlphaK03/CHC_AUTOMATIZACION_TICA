@@ -7,10 +7,12 @@ from PySide6.QtCore import QObject, Property, QProcess, QTimer, QUrl, Signal, Sl
 from PySide6.QtGui import QDesktopServices
 from remaining_time import RemainingTime
 from process_guard import ProcessTreeGuard
+from activity_model import ActivityModel
+from manual_review import ManualReview
 
 ROOT = Path(__file__).resolve().parents[1]
 BOT = ROOT / 'bots' / 'detalles'
-EMPTY = {key: 0 for key in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'total', 'attempts', 'source_rows', 'retained')}
+EMPTY = {key: 0 for key in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'empty', 'total', 'attempts', 'source_rows', 'retained')}
 
 
 class DetailsBridge(QObject):
@@ -34,6 +36,9 @@ class DetailsBridge(QObject):
         self._enabled = enabled
         self._storage_root = str(storage_root or self._bot)
         self._offline_fixture = offline_fixture
+        self._review = ManualReview(module_id, self._storage_root, offline_fixture, self)
+        self._review.toast.connect(self.toast.emit)
+        self._review.closed.connect(self._review_closed)
         self._snapshot = {'tables': [], 'activeTable': {}, 'summary': dict(EMPTY), 'config': {}, 'session': {}, 'fields': [], 'outputFolder': ''}
         self._runtime = {'chromiumReady': False, 'captchaEntries': 0}
         self._file_info = {'path': '', 'sheets': []}
@@ -42,6 +47,7 @@ class DetailsBridge(QObject):
         self._view = {'rows': [], 'offset': 0, 'total': 0}
         self._query = {'filter': 'all', 'search': '', 'offset': 0}
         self._events = []
+        self._activity_model = ActivityModel(parent=self)
         self._error = ''
         self._ready = False
         self._busy = False
@@ -103,13 +109,17 @@ class DetailsBridge(QObject):
     @Property(bool, notify=changed)
     def closing(self): return self._closing
     @Property(bool, notify=changed)
-    def isClosed(self): return self._process.state() == QProcess.NotRunning
+    def isClosed(self): return self._process.state() == QProcess.NotRunning and self._review.isClosed
+    @Property(QObject, constant=True)
+    def manualReview(self): return self._review
     @Property(str, notify=changed)
     def status(self): return self._status
     @Property(str, notify=changed)
     def error(self): return self._error
     @Property('QVariantMap', notify=changed)
     def summary(self): return self._snapshot['summary']
+    @Property('QVariantList', notify=changed)
+    def activeJobs(self): return self.summary.get('active_duas', []) if self.running else []
     @Property('QVariantList', notify=changed)
     def tables(self): return self._snapshot['tables']
     @Property('QVariantMap', notify=changed)
@@ -132,6 +142,8 @@ class DetailsBridge(QObject):
     def offset(self): return self._view['offset']
     @Property('QVariantList', notify=changed)
     def events(self): return self._events
+    @Property(QObject, constant=True)
+    def activityModel(self): return self._activity_model
     @Property(str, notify=changed)
     def outputFolder(self): return self._snapshot['outputFolder']
     @Property(str, notify=changed)
@@ -176,13 +188,13 @@ class DetailsBridge(QObject):
             self._busy = True
             self._error = ''
             self._status = {'run': 'Consultando el portal…', 'import': 'Guardando tabla…', 'export': 'Exportando resultados…'}.get(command, self._status)
-        if command == 'run':
+        if command in {'run', 'retry_empty'}:
             self._running = True
             self._remaining.reset(self.summary)
             self._eta_timer.start()
             self._update_remaining()
             self._refresh_timer.start()
-        elif command == 'daily_run':
+        elif command in {'daily_run','retry_month','retry_day'}:
             self._daily_active = True
             self._status = 'Preparando ejecución diaria…'
         self._process.write((json.dumps(request, ensure_ascii=False) + '\n').encode('utf-8'))
@@ -237,6 +249,7 @@ class DetailsBridge(QObject):
         elif kind == 'log':
             self._events.insert(0, event)
             del self._events[2000:]
+            self._activity_model.prepend(event)
         elif kind == 'result':
             if 'runtime' in event:
                 self._runtime = event['runtime']
@@ -254,18 +267,18 @@ class DetailsBridge(QObject):
             if 'importSummary' in event:
                 report = event['importSummary']
                 self.toast.emit(f"Tabla guardada: {report['added']} nuevos, {report['existing']} existentes, {report['invalid']} para revisar.")
-            if event.get('command') == 'run':
+            if event.get('command') in {'run', 'retry_empty'}:
                 self._running = False
                 self._clear_remaining()
                 self._refresh_timer.stop()
                 self._status = {'completed': 'Completado', 'pending': 'Finalizado con pendientes', 'stopped': 'Detenido; pendientes guardados'}[event['runStatus']]
-            elif event.get('command') == 'daily_run':
+            elif event.get('command') in {'daily_run','retry_month','retry_day'}:
                 self._daily_active = self._running = False
                 self._clear_remaining()
                 self._refresh_timer.stop()
-                self._status = 'Rango completado; resultados guardados.' if event.get('runStatus') == 'completed' else 'Automático detenido; progreso guardado.'
+                self._status = 'Rango completado; resultados guardados.' if event.get('runStatus') == 'completed' else 'Rango revisado; quedan pendientes para revisión manual.' if event.get('runStatus')=='pending' else 'Automático detenido; progreso guardado.'
             elif event.get('command') in {'import', 'select', 'refresh'}:
-                self._status = 'Todo guardado' if self.summary['total'] and self.summary['total'] == self.summary['succeeded'] else 'Pendientes listos para retomar'
+                self._status = 'Todo consultado' if self.summary['total'] and self.summary['total'] == self.summary['succeeded'] + self.summary.get('empty', 0) else 'Pendientes listos para retomar'
             elif event.get('command') == 'configure':
                 self.toast.emit('Configuración guardada.')
             elif event.get('command') == 'export':
@@ -274,7 +287,7 @@ class DetailsBridge(QObject):
         elif kind in {'error', 'fatal'}:
             self._error = event['message']
             self._status = 'No se pudo completar la operación'
-            if event.get('command') in {'run', 'daily_run'}:
+            if event.get('command') in {'run', 'retry_empty', 'daily_run','retry_month','retry_day'}:
                 self._running = False
                 self._daily_active = False
                 self._clear_remaining()
@@ -356,6 +369,10 @@ class DetailsBridge(QObject):
     def saveConfig(self, values):
         self._send('configure', {'config': values})
 
+    def request(self, command, data=None):
+        """Inicio coordinado: conservar el identificador de su respuesta exacta."""
+        return self._sequence if self._send(command,data) else 0
+
     @Slot(str)
     def setOutput(self, value):
         path = QUrl(value).toLocalFile() if value.startswith('file:') else value
@@ -365,6 +382,10 @@ class DetailsBridge(QObject):
     def startQueries(self): self._send('run')
     @Slot()
     def startDaily(self): self._send('daily_run')
+    @Slot(str)
+    def retryMonth(self, month): self._send('retry_month', {'month':month})
+    @Slot(str)
+    def retryDay(self, day): self._send('retry_day', {'day':day})
     @Slot(str)
     def loadCalendar(self, month): self._send('daily_calendar', {'month': month})
     @Slot()
@@ -380,6 +401,10 @@ class DetailsBridge(QObject):
     @Slot(str)
     def showDetail(self, job_id): self._send('detail', {'jobId': job_id})
     @Slot(str)
+    def openInTica(self, job_id):
+        if self.enabled and not self.closing and self.activeTable.get('id'):
+            self._review.open({'tableId': self.activeTable['id'], 'jobId': job_id})
+    @Slot(str)
     def renameTable(self, name): self._send('rename', {'name': name})
     @Slot('QVariantList', str)
     def removeRows(self, ids, table_id): self._send('remove_rows', {'ids': ids, 'confirmTableId': table_id})
@@ -390,6 +415,7 @@ class DetailsBridge(QObject):
     @Slot()
     def clearActivity(self):
         self._events = []
+        self._activity_model.clear()
         self.changed.emit()
     @Slot()
     def openOutput(self):
@@ -398,6 +424,10 @@ class DetailsBridge(QObject):
     @Slot()
     def openLogs(self):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(self._storage_root) / 'logs')))
+    @Slot('QVariantList')
+    def retryEmpty(self, ids):
+        self._send('retry_empty', {'ids': list(ids) if ids else None})
+
     @Slot()
     def openEvidence(self):
         evidence = self._detail.get('evidence', '')
@@ -429,6 +459,7 @@ class DetailsBridge(QObject):
         if self._closing:
             return
         self._closing = True
+        self._review.shutdown()
         if self._process.state() == QProcess.NotRunning:
             self.closed.emit()
             return
@@ -439,6 +470,11 @@ class DetailsBridge(QObject):
         self._shutdown_timer.start()
         self._status = 'Cerrando y guardando pendientes…'
         self.changed.emit()
+
+    def _review_closed(self):
+        self.changed.emit()
+        if self._closing and self.isClosed:
+            self.closed.emit()
 
     def _started(self):
         try:

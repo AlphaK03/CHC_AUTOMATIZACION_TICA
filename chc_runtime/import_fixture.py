@@ -12,6 +12,7 @@ def install_offline_fixture(processor_class):
         dua = row['NroDUA']
         code, year, number = dua.split('-')
         talon = flow.module_id == 'talon'
+        details = flow.module_id == 'detalles'
         image, word = next(iter(processor.captcha_lookup.items()))
         async def handle(route):
             request = route.request
@@ -33,7 +34,7 @@ def install_offline_fixture(processor_class):
                 if stage == 'form':
                     posted = parse_qs(request.post_data or '')
                     expected = {'vVCODI_ADUA': code, 'vVANO_PRE': year, 'vVNUME_CORR': number, 'cfield': word,
-                                'DETALLE' if talon else 'MANAERMAR': '1'}
+                                'DETALLE' if talon or details else 'MANAERMAR': '1'}
                     if any(posted.get(k) != [v] for k,v in expected.items()):
                         await route.fulfill(status=400, body='Campos o acción incorrectos')
                         return
@@ -44,6 +45,8 @@ def install_offline_fixture(processor_class):
                 if stage == 'detail':
                     target = '/hcimppon.aspx?' + urlencode({'stage':'rows','page':1})
                     html = header + f'<button name="LIQDUA" onclick="location.href=\'{target}\'">Liquidación</button>'
+                elif details:
+                    html = header + '<p>Detalle del DUA de prueba local</p>'
                 else:
                     if number == '999998' and page_number == 2:
                         await route.fulfill(status=503, body='Fallo después de la primera página')

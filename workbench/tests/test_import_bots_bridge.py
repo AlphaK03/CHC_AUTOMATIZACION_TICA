@@ -50,7 +50,8 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 manual_id=bridge.activeTable['id']
                 call('run')
                 self.assertEqual(bridge.summary['succeeded'],2,bridge.error)
-                self.assertEqual(bridge.summary['retry'],2)
+                self.assertEqual(bridge.summary['retry'],2 if module=='talon' else 1)
+                self.assertEqual(bridge.summary.get('empty',0),0 if module=='talon' else 1)
                 csv_path=next(Path(bridge.outputFolder).glob('*.csv'))
                 def read_csv(path):
                     with path.open(encoding='utf-8-sig',newline='') as stream:return list(csv.DictReader(stream))
@@ -70,6 +71,16 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                     self.assertIsNone(db.execute("select result from jobs where dua='001-2026-999998'").fetchone()[0])
                 no_rows=root/'data/exports'/manual_id/'sin_filas.txt'
                 self.assertEqual(no_rows.read_text().strip(),'001-2026-999997')
+                if module == 'xmovimientos':
+                    call('view', {'filter':'empty'})
+                    self.assertEqual([row['status'] for row in bridge.rows], ['empty'])
+                    call('detail', {'jobId':'001-2026-999997'})
+                    self.assertTrue(bridge.jobDetail['emptyCheckedAt'])
+                    self.assertEqual(bridge.jobDetail['last_error'], '')
+                    before = bridge.summary['attempts']
+                    call('retry_empty', {'ids':['001-2026-999997']})
+                    self.assertEqual(bridge.summary['attempts'], before + 1)
+                    self.assertEqual((bridge.summary['empty'],bridge.summary['retry']), (1,1))
                 today=date.fromisoformat(bridge.daily['startDate'])+timedelta(days=1)
                 start,end=today-timedelta(days=2),today-timedelta(days=1)
                 call('configure',{'config':{'daily_mode':True,'daily_start_date':start.isoformat(),'daily_end_date':end.isoformat()}})
@@ -85,7 +96,8 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
                     self.assertEqual(db.execute('select sum(attempts) from queries').fetchone()[0],8)
                 call('select',{'tableId':manual_id})
-                self.assertEqual(bridge.summary['retry'],2)
+                self.assertEqual(bridge.summary['retry'],2 if module=='talon' else 1)
+                self.assertEqual(bridge.summary.get('empty',0),0 if module=='talon' else 1)
                 call('clean',{'confirmTableId':manual_id})
                 call('export')
                 self.assertEqual(len(read_csv(csv_path)),54)

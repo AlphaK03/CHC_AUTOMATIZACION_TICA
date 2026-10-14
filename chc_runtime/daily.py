@@ -37,22 +37,35 @@ def next_midnight(now):
 
 class DailyJobStore(JobStore):
     """Reserva solo los DUAs del día; el CSV mantiene todo el acumulado mensual."""
-    def __init__(self, path, duas):
+    def __init__(self, path, duas, automatic=False):
+        self.automatic = automatic
         super().__init__(path)
         with self.transaction() as db:
             db.execute('CREATE TEMP TABLE daily_scope (dua TEXT PRIMARY KEY)')
             db.executemany('INSERT OR IGNORE INTO daily_scope VALUES (?)', ((dua,) for dua in duas))
+            db.execute('''CREATE TABLE IF NOT EXISTS daily_automatic_attempts (
+                job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+                used INTEGER NOT NULL DEFAULT 0 CHECK(used>=0))''')
+            if automatic:
+                # Fallos históricos también agotaron oportunidades; no repetirlos
+                # indefinidamente al estrenar la actualización. Interrupciones no cuentan.
+                db.execute('''INSERT OR IGNORE INTO daily_automatic_attempts
+                    SELECT j.id,MIN(3,(SELECT count(*) FROM attempts a WHERE a.job_id=j.id AND a.outcome='retry'))
+                    FROM jobs j WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=j.dua)''')
 
     def claim(self, round_number):
         with self.transaction() as db:
             row = db.execute('''SELECT id,dua FROM jobs INDEXED BY jobs_ready
                 WHERE status IN ('pending','retry') AND run_attempts < ?
                 AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)
-                ORDER BY run_attempts, rowid LIMIT 1''', (round_number,)).fetchone()
+                AND (?=0 OR COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=jobs.id),0)<3)
+                ORDER BY run_attempts, rowid LIMIT 1''', (round_number,self.automatic)).fetchone()
             if row is None:
                 return None
             db.execute("UPDATE jobs SET status='running', attempts=attempts+1, run_attempts=run_attempts+1 WHERE id=?", (row['id'],))
             attempt = db.execute('INSERT INTO attempts(job_id) VALUES (?)', (row['id'],)).lastrowid
+            if self.automatic:
+                db.execute('UPDATE daily_automatic_attempts SET used=used+1 WHERE job_id=?',(row['id'],))
             return {'id': row['id'], 'dua': row['dua'], 'attempt_id': attempt}
 
     def summary(self):
@@ -62,8 +75,13 @@ class DailyJobStore(JobStore):
             attempts = self.db.execute('''SELECT COALESCE(SUM(attempts),0) FROM jobs
                 WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)''').fetchone()[0]
             total = self.db.execute('SELECT COUNT(*) FROM daily_scope').fetchone()[0]
-        return {**{state: counts.get(state, 0) for state in ('pending', 'running', 'retry', 'succeeded', 'invalid')},
-                'total': sum(counts.values()), 'attempts': attempts, 'source_rows': total}
+            active = [r[0] for r in self.db.execute("SELECT dua FROM jobs WHERE status='running' AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua) ORDER BY rowid LIMIT 20")]
+            ready = self.db.execute('''SELECT count(*) FROM jobs WHERE status IN ('pending','retry')
+                AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)
+                AND COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=jobs.id),0)<3''').fetchone()[0] if self.automatic else None
+        return {**{state: counts.get(state, 0) for state in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'empty')},
+                'total': sum(counts.values()), 'attempts': attempts, 'source_rows': total,
+                'active_duas': active, 'automatic_ready': ready}
 
 
 class DailyLedger:
@@ -76,11 +94,17 @@ class DailyLedger:
                     day TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT 'pending',
                     base_ready INTEGER NOT NULL DEFAULT 0, table_id TEXT NOT NULL DEFAULT '',
                     total INTEGER NOT NULL DEFAULT 0, succeeded INTEGER NOT NULL DEFAULT 0,
+                    empty INTEGER NOT NULL DEFAULT 0,
                     error TEXT NOT NULL DEFAULT '', updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
                 CREATE TABLE IF NOT EXISTS daily_duas (
                     day TEXT NOT NULL REFERENCES days(day), dua TEXT NOT NULL, PRIMARY KEY(day,dua));
                 CREATE TABLE IF NOT EXISTS months (period TEXT PRIMARY KEY, table_id TEXT NOT NULL);
             ''')
+
+            if 'empty' not in {row[1] for row in db.execute('PRAGMA table_info(days)')}:
+                db.execute('ALTER TABLE days ADD COLUMN empty INTEGER NOT NULL DEFAULT 0')
+            if 'retry_cycles' not in {row[1] for row in db.execute('PRAGMA table_info(days)')}:
+                db.execute('ALTER TABLE days ADD COLUMN retry_cycles INTEGER NOT NULL DEFAULT 0')
 
     @contextmanager
     def connect(self, readonly=False):
@@ -99,7 +123,7 @@ class DailyLedger:
             return dict(row) if row else {}
 
     def update(self, day, **values):
-        allowed = {'state', 'base_ready', 'table_id', 'total', 'succeeded', 'error'}
+        allowed = {'state', 'base_ready', 'table_id', 'total', 'succeeded', 'empty', 'error', 'retry_cycles'}
         if not values.keys() <= allowed:
             raise ValueError('Campos de calendario inválidos.')
         with self.connect() as db:
@@ -120,7 +144,7 @@ class DailyLedger:
 
     def next_day(self, start, last):
         with self.connect(True) as db:
-            completed = {row[0] for row in db.execute("SELECT day FROM days WHERE state='completed' AND day BETWEEN ? AND ?", (start.isoformat(), last.isoformat()))}
+            completed = {row[0] for row in db.execute("SELECT day FROM days WHERE state IN ('completed','omitted') AND day BETWEEN ? AND ?", (start.isoformat(), last.isoformat()))}
         current = start
         while current <= last:
             if current.isoformat() not in completed:
@@ -285,17 +309,71 @@ class DailyCoordinator:
 
     def confirmed(self, record, duas):
         success = set()
+        verified = "status='succeeded'"
+        if getattr(self.service, 'profile', {}).get('id') == 'xmovimientos':
+            verified += " OR (status='empty' AND EXISTS (SELECT 1 FROM empty_observations o WHERE o.job_id=jobs.id))"
         with self.service.read_database(record) as db:
             for offset in range(0, len(duas), 900):
                 chunk = duas[offset:offset + 900]
                 marks = ','.join('?' for _ in chunk)
-                success.update(row[0] for row in db.execute(f'''SELECT dua FROM jobs WHERE status='succeeded' AND dua IN ({marks})
+                success.update(row[0] for row in db.execute(f'''SELECT dua FROM jobs WHERE ({verified}) AND dua IN ({marks})
                     UNION SELECT dua FROM retained_results WHERE dua IN ({marks})''', (*chunk, *chunk)))
         return len(success)
+
+    def empty_count(self, record, duas):
+        if getattr(self.service, 'profile', {}).get('id') != 'xmovimientos':
+            return 0
+        found = set()
+        with self.service.read_database(record) as db:
+            for offset in range(0, len(duas), 900):
+                chunk = duas[offset:offset+900]
+                marks = ','.join('?' for _ in chunk)
+                found.update(row[0] for row in db.execute(f"SELECT dua FROM jobs WHERE status='empty' AND dua IN ({marks})", chunk))
+        return len(found)
+
+    def reopen(self, duas):
+        with self.ledger.connect() as db:
+            for offset in range(0, len(duas), 900):
+                chunk = duas[offset:offset+900]
+                marks = ','.join('?' for _ in chunk)
+                db.execute(f"UPDATE days SET state='pending',error='' WHERE state='completed' AND day IN (SELECT day FROM daily_duas WHERE dua IN ({marks}))", chunk)
+
+    def reconcile(self, record):
+        with self.ledger.connect(True) as db:
+            days = [date.fromisoformat(row[0]) for row in db.execute('SELECT day FROM days WHERE table_id=? AND base_ready=1', (record['id'],))]
+        for day in days:
+            duas = self.ledger.duas(day)
+            confirmed = self.confirmed(record, duas)
+            empty = self.empty_count(record, duas)
+            complete = confirmed == len(duas) == self.ledger.get(day)['total']
+            previous = self.ledger.get(day)['state']
+            self.ledger.update(day, state='completed' if complete else 'omitted' if previous=='omitted' else 'pending', succeeded=confirmed-empty, empty=empty,
+                               error='' if complete else 'Pendientes omitidos del automático; requieren un reintento manual.' if previous=='omitted' else 'Quedan DUAs pendientes; se retomarán automáticamente.')
+
+    def reset_manual_range(self, start, end):
+        """Una acción explícita concede tres oportunidades nuevas, sin tocar resultados."""
+        with self.ledger.connect() as db:
+            db.execute("UPDATE days SET state='pending',retry_cycles=0,error='' WHERE day BETWEEN ? AND ? AND state!='completed'",(start.isoformat(),end.isoformat()))
+            tables = [row[0] for row in db.execute("SELECT DISTINCT table_id FROM days WHERE day BETWEEN ? AND ? AND table_id!=''",(start.isoformat(),end.isoformat()))]
+            duas = [row[0] for row in db.execute('SELECT DISTINCT dua FROM daily_duas WHERE day BETWEEN ? AND ?',(start.isoformat(),end.isoformat()))]
+        for table_id in tables:
+            record = self.service.catalog.get(table_id)
+            with RunLock(self.service.catalog.database(record)):
+                store = self.service.Store(self.service.catalog.database(record))
+                try:
+                    with store.transaction() as db:
+                        db.execute('''CREATE TABLE IF NOT EXISTS daily_automatic_attempts (
+                            job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+                            used INTEGER NOT NULL DEFAULT 0 CHECK(used>=0))''')
+                        for offset in range(0,len(duas),900):
+                            chunk=duas[offset:offset+900];marks=','.join('?' for _ in chunk)
+                            db.execute(f"INSERT OR REPLACE INTO daily_automatic_attempts SELECT id,0 FROM jobs WHERE dua IN ({marks}) AND status IN ('pending','retry')",chunk)
+                finally:store.close()
 
     def cycle(self, day):
         self.day = day.isoformat()
         self.month = day.strftime('%Y-%m')
+        self.ledger.update(day,retry_cycles=self.ledger.get(day).get('retry_cycles',0)+1)
         if not self.ledger.get(day).get('base_ready'):
             self.ledger.update(day, state='downloading', error='')
             self.emit('downloading', 'Descargando base del ' + day.strftime('%d/%m/%Y'))
@@ -310,18 +388,22 @@ class DailyCoordinator:
             return False
         self.ledger.update(day, state='processing', error='')
         self.emit('processing', 'Procesando el ' + day.strftime('%d/%m/%Y'))
-        self.service.execute('run', {'daily_duas': duas})
+        self.service.execute('run', {'daily_duas': duas, 'daily_automatic':True})
         confirmed = self.confirmed(record, duas)
         complete = confirmed == len(duas)
-        self.ledger.update(day, state='completed' if complete else 'pending', succeeded=confirmed,
-                           error='' if complete else 'Quedan DUAs pendientes; se retomarán automáticamente.')
-        self.emit('completed' if complete else 'pending',
-                  f'{day:%d/%m/%Y}: {confirmed} de {len(duas)} guardados.', refresh=True)
+        # La descarga usa tres rondas acotadas; si quedan fallos se dejan al usuario.
+        omitted = not complete and not self.service.stop_event.is_set()
+        state = 'completed' if complete else 'omitted' if omitted else 'pending'
+        self.ledger.update(day, state=state, succeeded=confirmed-self.empty_count(record, duas),
+                           empty=self.empty_count(record, duas),
+                           error='' if complete else 'Pendientes omitidos del automático; puedes reintentar el día o el mes manualmente.' if omitted else 'Descarga detenida; progreso conservado.')
+        self.emit(state,
+                  f'{day:%d/%m/%Y}: {confirmed} de {len(duas)} consultados.', refresh=True)
         return complete
 
-    def run(self):
-        start = self.start_date()
-        end = self.end_date()
+    def run(self, start=None, end=None, manual=False):
+        start = start or self.start_date()
+        end = end if manual else self.end_date()
         if start >= self.now().date():
             raise ValueError('La fecha inicial debe ser anterior a hoy.')
         if end and (end < start or end >= self.now().date()):
@@ -331,9 +413,10 @@ class DailyCoordinator:
         if not self.offline and not (SOURCE / 'drivers' / 'msedgedriver.exe').is_file():
             raise ValueError('Ejecuta Instalar_Base_Diaria.bat antes de iniciar el modo diario.')
         with RunLock(self.ledger.path):
+            if manual:self.reset_manual_range(start,end)
             # Preserve the initial date across restarts; "yesterday" is only
             # the initial default, never an advancing cursor that skips backlog.
-            if not self.service.machine.get('daily_start_date') or not self.service.machine.get('daily_mode'):
+            if not manual and (not self.service.machine.get('daily_start_date') or not self.service.machine.get('daily_mode')):
                 self.service.configure({'daily_start_date': start.isoformat(), 'daily_mode': True})
             self.active = True
             finished = False
@@ -354,17 +437,20 @@ class DailyCoordinator:
                     try:
                         complete = self.cycle(day)
                     except DownloadPending as error:
-                        self.ledger.update(day, state='pending', error=str(error))
+                        cycles = self.ledger.get(day).get('retry_cycles',0)
+                        self.ledger.update(day, state='omitted' if cycles>=3 else 'pending', error=str(error))
                         complete = False
-                    if not complete and not self.service.stop_event.is_set():
-                        wake = self.now() + timedelta(minutes=5)
-                        self.emit('retrying', 'Pendientes guardados. Reintento en 5 min.', wake.isoformat())
-                        self.service.stop_event.wait(300)
+                    if not complete and not self.service.stop_event.is_set() and self.ledger.get(day)['state']!='omitted':
+                        self.emit('retrying', 'Reintentando la base pendiente; máximo tres intentos.')
+                        self.service.stop_event.wait(min(2**self.ledger.get(day).get('retry_cycles',1),5))
             except Exception as error:
                 if self.day:
                     self.ledger.update(date.fromisoformat(self.day), state='pending', error=str(error))
                 raise
             finally:
                 self.active = False
-                self.emit('completed' if finished else 'stopped', 'Rango completado; resultados guardados.' if finished else 'Automático detenido; progreso guardado.')
-        return {'snapshot': self.service.snapshot(), 'daily': self.snapshot(), 'runStatus': 'completed' if finished else 'stopped'}
+                with self.ledger.connect(True) as db:
+                    omitted=db.execute("SELECT count(*) FROM days WHERE state='omitted' AND day BETWEEN ? AND ?",(start.isoformat(),(end or eligible_day(self.now())).isoformat())).fetchone()[0]
+                self.emit('finished_with_pending' if finished and omitted else 'completed' if finished else 'stopped',
+                          f'Rango revisado; {omitted} días con pendientes para reintentar manualmente.' if finished and omitted else 'Rango completado; resultados guardados.' if finished else 'Automático detenido; progreso guardado.')
+        return {'snapshot': self.service.snapshot(), 'daily': self.snapshot(), 'runStatus': 'pending' if finished and omitted else 'completed' if finished else 'stopped'}

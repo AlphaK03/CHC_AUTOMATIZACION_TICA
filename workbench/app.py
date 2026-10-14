@@ -14,6 +14,7 @@ from details_bridge import DetailsBridge
 from batch_bridge import BatchBridge
 from preferences import Preferences
 from single_instance import SingleInstance
+from monthly_bridge import MonthlyProgress
 
 HERE = Path(__file__).resolve().parent
 
@@ -68,7 +69,13 @@ def main():
     bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
                'manifiestos': manifests, 'bls': bls}
     preferences = Preferences(HERE.parent / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
-    backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls)
+    storage={'detalles':args.details_storage,'duas_transito':args.transit_storage,
+             'talon':args.talon_storage,'xmovimientos':args.movements_storage,
+             'manifiestos':args.manifest_storage,'bls':args.bls_storage}
+    monthly=MonthlyProgress({key:root or HERE.parent/'bots'/key for key,root in storage.items()}
+                            if not (args.demo or args.smoke_test) else {})
+    backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls, monthly)
+    app.aboutToQuit.connect(backend.monthLauncher.cancel)
     for bridge in bridges.values():
         bridge.toast.connect(backend.toast.emit)
     preferences.error.connect(backend.toast.emit)
@@ -93,6 +100,7 @@ def main():
     engine.warnings.connect(lambda warnings: errors.extend(warning.toString() for warning in warnings))
     engine.load(QUrl.fromLocalFile(str(HERE / 'qml' / 'Main.qml')))
     if not engine.rootObjects():
+        print('\n'.join(errors), file=sys.stderr)
         return 1
     window = engine.rootObjects()[0]
     instance.window = window

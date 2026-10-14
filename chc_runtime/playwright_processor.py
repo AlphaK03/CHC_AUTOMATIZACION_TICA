@@ -16,53 +16,11 @@ from .identifiers import dua_fields, validate_result
 from .portal_form import fill_and_submit, wait_form_ready
 from .messages import pending_reason
 from .detail_navigation import install_lightweight_detail
+from .async_operations import AttemptDeadline, bounded_result, close_browser_resource
 
 
 class ExtraStepRequired(RuntimeError):
     """Caso reservado para diagnóstico posterior; no se hace el clic adicional."""
-
-
-class AttemptDeadline:
-    def __init__(self, seconds):
-        self.value = asyncio.get_running_loop().time() + seconds
-
-    def reschedule(self, value):
-        self.value = value
-
-
-def _consume_result(task):
-    if not task.cancelled():
-        task.exception()
-
-
-async def bounded_result(operation, timeout=5, deadline=None):
-    """El supervisor no espera que Playwright acepte cancelar una operación."""
-    task = asyncio.ensure_future(operation)
-    task.add_done_callback(_consume_result)
-    deadline = deadline or AttemptDeadline(timeout)
-    try:
-        while True:
-            remaining = max(0, deadline.value - asyncio.get_running_loop().time())
-            done, _ = await asyncio.wait({task}, timeout=remaining)
-            if task in done:
-                return task.result()
-            # Tránsito puede renovar el plazo al confirmar otra página.
-            if deadline.value <= asyncio.get_running_loop().time():
-                raise TimeoutError('El intento excedió su plazo; se libera para reintentar.')
-    except BaseException:
-        if not task.done():
-            task.cancel()
-        raise
-
-
-async def close_browser_resource(close, timeout=5):
-    """Un navegador sin respuesta tampoco puede bloquear la cancelación del lote."""
-    try:
-        await bounded_result(close(), timeout=timeout)
-        return True
-    except Exception:
-        logging.debug('No respondió el cierre del recurso del navegador.', exc_info=True)
-        return False
 
 
 class PlaywrightDUAProcessor:
@@ -105,7 +63,9 @@ class PlaywrightDUAProcessor:
             summary = store.summary()
             logging.info('%s %d DUAs guardados; %d pendientes.',
                          'Proceso detenido.' if self.stop_event.is_set() else 'Consultas terminadas.',
-                         summary['succeeded'], summary['total'] - summary['succeeded'])
+                         summary['succeeded'], summary['total'] - summary['succeeded'] - summary.get('empty', 0))
+            if summary.get('empty'):
+                logging.info('%d DUAs consultados sin movimientos (Vacío).', summary['empty'])
         finally:
             # Los resultados se confirmaron antes en SQLite; fallar aquí no los pierde.
             store.export(self.output_paths, self.fields)
@@ -113,7 +73,7 @@ class PlaywrightDUAProcessor:
 
     async def _run_async(self, store, callback):
         summary = store.summary()
-        if self.stop_event.is_set() or summary['total'] == summary['succeeded'] + summary['invalid']:
+        if self.stop_event.is_set() or summary.get('automatic_ready') == 0 or summary['total'] == summary['succeeded'] + summary['invalid'] + summary.get('empty', 0):
             return
         if getattr(sys, 'frozen', False):
             os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH',
@@ -132,7 +92,7 @@ class PlaywrightDUAProcessor:
                                  'Reintentando automáticamente los DUAs que quedaron pendientes.')
                     await self._run_round(store, browser, round_number, callback)
                     summary = store.summary()
-                    if summary['succeeded'] + summary['invalid'] == summary['total']:
+                    if summary.get('automatic_ready') == 0 or summary['succeeded'] + summary['invalid'] + summary.get('empty', 0) == summary['total']:
                         break
                     if round_number < int(self.machine.get('max_retries', 3)):
                         await self._cooldown(min(2 ** round_number, 30))
@@ -220,7 +180,8 @@ class PlaywrightDUAProcessor:
                         # Los errores de disco siguen siendo fatales y no se reintentan como red.
                         store.complete(job, record)
                         resolved = True
-                        logging.info('DUA %s guardado.', job['dua'], extra={'tag': 'SUCCESS'})
+                        logging.info('DUA %s: Vacío, sin movimientos por ahora.' if record.get('empty') else 'DUA %s guardado.',
+                                     job['dua'], extra={'tag': 'INFO' if record.get('empty') else 'SUCCESS'})
                     self._notify(store, callback)
                     if time.monotonic() - self._last_export >= self.machine.get('export_interval', 60):
                         store.export(self.output_paths, self.fields)

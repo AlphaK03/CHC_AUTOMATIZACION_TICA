@@ -1,5 +1,12 @@
 # Piloto: Detalles con base propia diaria
 
+Actualización del 14 de octubre: el diario limita a tres intentos automáticos por
+pendiente, conserva el límite al reiniciar y continúa con el siguiente día cuando
+queda **Omitido**. El calendario y el lote permiten **Reintentar mes/día** para
+solicitar hasta tres oportunidades nuevas conservando los resultados guardados.
+La lista de casos sin guardar ofrece **Abrir en TICA** con navegador visible
+independiente. Véase [Workbench](../workbench/README.md#revisión-en-tica-y-recuperación-de-pendientes).
+
 Rama: `feature/detalles-base-diaria-calendario`. Implementado para Detalles y
 comprobado offline. Los otros bots siguen en demo. No se lanzó ninguna descarga
 diaria real como prueba automática de esta entrega.

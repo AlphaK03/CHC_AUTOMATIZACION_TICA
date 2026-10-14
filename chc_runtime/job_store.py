@@ -86,7 +86,7 @@ class JobStore:
             CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS jobs (
                 id TEXT PRIMARY KEY, dua TEXT, status TEXT NOT NULL
-                    CHECK(status IN ('pending','running','retry','succeeded','invalid')),
+                    CHECK(status IN ('pending','running','retry','succeeded','invalid','empty')),
                 attempts INTEGER NOT NULL DEFAULT 0, run_attempts INTEGER NOT NULL DEFAULT 0,
                 last_error TEXT NOT NULL DEFAULT '', error_kind TEXT NOT NULL DEFAULT '',
                 evidence TEXT NOT NULL DEFAULT '', result TEXT,
@@ -273,6 +273,8 @@ class JobStore:
                        ('pending' if cancelled else 'retry', str(error)[:4000], kind, evidence, job['id']))
             db.execute('UPDATE attempts SET outcome=?,error=?,finished=CURRENT_TIMESTAMP WHERE id=?',
                        ('interrupted' if cancelled else 'retry', str(error)[:4000], job['attempt_id']))
+            if cancelled and getattr(self,'automatic',False):
+                db.execute('UPDATE daily_automatic_attempts SET used=MAX(0,used-1) WHERE job_id=?',(job['id'],))
 
     def summary(self):
         with self.lock:
@@ -283,10 +285,12 @@ class JobStore:
                     WHERE s.job_id=jobs.id AND s.revision IN ({marks})) GROUP BY status''',
                 revisions).fetchall())
             attempts = self.db.execute('SELECT COALESCE(SUM(attempts),0) FROM jobs').fetchone()[0]
+            active = [r[0] for r in self.db.execute("SELECT dua FROM jobs WHERE status='running' ORDER BY rowid LIMIT 20")]
         return {**{state: counts.get(state, 0) for state in
-                   ('pending', 'running', 'retry', 'succeeded', 'invalid')},
+                   ('pending', 'running', 'retry', 'succeeded', 'invalid', 'empty')},
                 'total': sum(counts.values()), 'attempts': attempts,
-                'source_rows': self.meta('source_rows', 0)}
+                'source_rows': self.meta('source_rows', 0),
+                'active_duas': active}
 
     def remove_jobs(self, ids=None, succeeded_only=False):
         """El llamador debe tener RunLock. Conserva resultados para futuras exportaciones."""
@@ -327,7 +331,7 @@ class JobStore:
             revisions = active_revisions(self.db)
             marks = ','.join('?' for _ in revisions)
             for row in self.db.execute(f'''SELECT id,dua,status,attempts,last_error,error_kind,evidence
-                    FROM jobs WHERE status!='succeeded' AND (status!='invalid' OR EXISTS (
+                    FROM jobs WHERE status NOT IN ('succeeded','empty') AND (status!='invalid' OR EXISTS (
                         SELECT 1 FROM source_rows s WHERE s.job_id=jobs.id AND s.revision IN ({marks})))
                     ORDER BY rowid''', revisions):
                 item = dict(row)

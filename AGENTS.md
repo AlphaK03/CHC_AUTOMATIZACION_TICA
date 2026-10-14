@@ -35,6 +35,16 @@
 - Mantener separado el proveedor y el proceso BLs. Conservar reglas Courier N,
   firmas originales, texto/ceros, reanudación y compatibilidad por archivo.
   Detener la preparación debe impedir que una respuesta tardía inicie BLs.
+- BLs añade paginación/reanudación mediante `chc_runtime/bls_session.py` y
+  `bls_pages.py`, sin modificar las fuentes originales. Conservar la firma y
+  reserva del motor, los checkpoints por BL y la verificación de primera/última
+  páginas antes de seguir. Parciales no son Guardado ni CSV confirmado; validar
+  identidad, secuencia, columnas, offsets, EOF y líneas sin duplicados. Nunca
+  descartar un checkpoint incompatible ni inferir páginas para lotes antiguos.
+- BLs captura AJAX antes de llenar/perder foco: TICA puede resolver la búsqueda
+  por GET sin emitir el POST de Confirmar. `bls_search.py` valida los filtros
+  GeneXus, mensajes, 24 columnas, manifiesto, BL y secuencia; nunca usar el DOM
+  previo ni un timeout como ausencia. Cubrir GET y POST con el portal local.
 - La infraestructura activa de los cuatro bots DUA está en `chc_runtime/`; los workers
   eligen un perfil. Compartir catálogo, cola, coordinador, puente Qt e interfaz,
   manteniendo configuración/datos/procesos separados. No duplicar este soporte.
@@ -48,6 +58,20 @@
   resumen Sftributos1; no paginarlo con el botón del grid Sftributos. XMovimientos
   conserva seis columnas y agrupa/suma bultos sobre todas las páginas del DUA.
   Mantener `MultiRowJobStore` común; no migrar índices/CSV antiguos como éxitos.
+- XMovimientos registra `empty` con observación verificable de identidad, encabezado,
+  cero filas y ausencia de errores/paginación (`movement_empty.py`). Separarlo de
+  Guardado/Error: no generar filas CSV ni reintentos inmediatos. Permitir avanzar
+  calendario/bitácora contando vacíos aparte. Reconsulta explícita `retry_empty`,
+  acotada a vacíos elegidos/todos, reabre sus días y conserva historial/resultados.
+  Migrar CHECK con respaldo y transacción; NoMovimientosError sin HTML válido
+  permanece «Vacío por verificar», fuera del filtro Errores. Cubrir con
+  `test_movement_empty.py`, `test_import_bots_bridge.py` y bitácora mensual.
+- Mostrar los trabajos Descargando antes de limitar a 200 filas, para todos los
+  procedimientos; mantener zona visible de trabajo activo fuera del historial.
+  DUAs activos llegan con el progreso; BLs expone manifiesto/BL/página/filas.
+  No forzar scroll del historial. `test_active_jobs*.py` cubre orden, actualizaciones
+  simultáneas y QML. Registrar causas de parada BLs en su log persistente; fallar
+  al escribir el historial JSON auxiliar no debe abortar un resultado SQLite.
 - El usuario autorizó subir a Git y crear el piloto diario de Detalles con proveedor
   copiado desde DUAS_SCRAPPING y calendario persistente. Los orígenes quedan intactos.
   El modo automático se inicia por acción del usuario; verificar offline, sin
@@ -69,6 +93,25 @@
   no lanzar el ejecutable original ni depender de él.
 - Interfaz en `workbench/qml/`; demo en `workbench/demo.py`; arranque en
   `workbench/app.py`; entorno propio `workbench/.venv/`.
+- Actividad usa `activity_model.py` y `ActivityView.qml`: mantener inserciones
+  incrementales y la fila/offset al leer; no reemplazar el modelo por un array
+  al notificar contadores. Seguir novedades solo desde el inicio, con prioridad
+  al desplazamiento manual. Temporizadores de scroll deben cancelarse al destruir
+  la página. Ver `workbench/tests/test_activity_scroll.py` antes de modificarlo.
+- Bitácora de Vista general: `workbench/monthly_progress.py` lee únicamente
+  catálogos, calendarios y lotes existentes; `monthly_bridge.py` lo ejecuta fuera
+  de Qt. No importar motores, iniciar descargas ni escribir en el progreso.
+  Mes completo requiere cobertura y resultados verificados, sin pendientes;
+  el nombre mensual de un archivo no prueba cobertura. Separar meses de BLs por
+  payload y modalidades de Manifiestos; no sumar rangos entre modalidades.
+  Pruebas aisladas en `test_monthly_progress.py` y `test_monthly_qml.py`.
+- Inicio mensual explícito en `workbench/month_launcher.py` y `MonthStart.qml`:
+  conservar procesos ocupados, scope mensual, trabajadores por proceso y firmas.
+  DUA usa el rango acotado del coordinador diario; confirmar requestId/configuración
+  antes de iniciar. BLs depende del mes/modalidades completos de Conocimientos.
+  Cancelación/cierre/respuestas tardías no deben iniciar nuevos trabajos; detener
+  solo tareas propias, no productores ya activos observados. No iniciar al abrir.
+  Cubrir con `test_month_launcher*.py` y portales locales, sin lotes reales.
 - Preferencia explícita del usuario: interfaz sencilla, similar a la clásica.
   Mostrar el flujo principal; evitar tarjetas, textos técnicos y opciones extra
   a la vista. Conservar funciones secundarias en menús, ventanas o secciones plegadas.
@@ -115,3 +158,13 @@
   ser explícitas, acotadas y con una carpeta de salida independiente.
 - No asumir que copiar el código demuestra independencia de generadores externos.
 - No publicar ni desplegar automáticamente como parte de una revisión local.
+- La revisión visible en TICA usa `ManualReview` y un proceso/guardia propios.
+  Leer la selección de SQLite en modo solo lectura; nunca crear servicios ni
+  recuperar trabajos al inspeccionar. No cerrar el worker de descarga.
+  En Windows precargar parsers nativos antes de leer stdin y usar `os.read`
+  para la señal de cierre: imports tardíos y lectores buffered bloquearon pruebas.
+- El diario conserva `daily_automatic_attempts` entre reinicios y limita a tres
+  oportunidades por pendiente; cancelar devuelve la oportunidad. `omitted` no
+  se reabre automáticamente ni cuenta como completado. Solo `retry_month` o
+  `retry_day` rearman los pendientes del rango explícito, conservando guardados,
+  historial y configuración. El mes actual se limita a días anteriores a hoy.

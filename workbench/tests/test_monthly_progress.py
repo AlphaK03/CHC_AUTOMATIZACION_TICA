@@ -1,0 +1,183 @@
+"""La bitácora no confunde una selección terminada con un mes completo."""
+from contextlib import contextmanager
+from datetime import date
+import hashlib
+import json
+from pathlib import Path
+import sqlite3
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from monthly_progress import MonthlyReader,month_days
+
+
+@contextmanager
+def write(path):
+    db=sqlite3.connect(path)
+    try:
+        with db:yield db
+    finally:db.close()
+
+
+class MonthlyTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
+        self.today=date(2026,10,13)
+
+    def tearDown(self):self.temp.cleanup()
+
+    def reader(self):return MonthlyReader({'detalles':self.root},self.today)
+
+    def dua_table(self,source='daily://2026-09',done=True):
+        folder=self.root/'data/queues';folder.mkdir(parents=True)
+        with write(folder/'catalog.sqlite3') as db:
+            db.execute('CREATE TABLE saved_tables(id,name,filename,source_path,source_sheet,deleted)')
+            db.execute('INSERT INTO saved_tables VALUES (?,?,?,?,?,0)',('id','septiembre26','month.sqlite3',source,'BLS'))
+        with write(folder/'month.sqlite3') as db:
+            db.execute('CREATE TABLE jobs(dua,status,result)')
+            for day in range(1,31):
+                db.execute('INSERT INTO jobs VALUES (?,?,?)',(str(day),'succeeded' if done or day!=30 else 'retry','[]' if done or day!=30 else None))
+        return folder/'month.sqlite3'
+
+    def ledger(self,count=30):
+        folder=self.root/'data/daily';folder.mkdir(parents=True)
+        with write(folder/'calendar.sqlite3') as db:
+            db.execute('CREATE TABLE days(day,state,base_ready,total,table_id)')
+            db.execute('CREATE TABLE daily_duas(day,dua)')
+            for number in range(1,count+1):
+                day=f'2026-09-{number:02d}'
+                db.execute('INSERT INTO days VALUES (?,?,?,?,?)',(day,'completed',1,1,'id'))
+                db.execute('INSERT INTO daily_duas VALUES (?,?)',(day,str(number)))
+
+    def cell(self,result,module='detalles'):return next(c for c in result['rows'][0]['cells'] if c['module']==module)
+
+    def test_full_calendar_and_results_complete_month_without_writing(self):
+        self.dua_table();self.ledger()
+        files=list(self.root.rglob('*.sqlite3'))
+        hashes={p:hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
+        result=self.reader().read()
+        self.assertEqual(self.cell(result)['status'],'completed')
+        self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in files},hashes)
+
+    def test_partial_calendar_or_stale_completed_day_is_never_month_complete(self):
+        self.dua_table(done=False);self.ledger()
+        self.assertEqual(self.cell(self.reader().read())['status'],'partial')
+        with write(self.root/'data/queues/month.sqlite3') as db:
+            db.execute("UPDATE jobs SET status='succeeded',result='[]'")
+        with write(self.root/'data/daily/calendar.sqlite3') as db:
+            db.execute("DELETE FROM days WHERE day='2026-09-30'")
+        self.assertEqual(self.cell(self.reader().read())['status'],'partial')
+
+    def test_monthly_name_and_finished_import_do_not_prove_coverage(self):
+        self.dua_table(source='base.xlsx')
+        self.assertEqual(self.cell(self.reader().read())['status'],'ready')
+
+    def test_omitted_day_with_unsaved_data_never_marks_month_complete(self):
+        self.dua_table(done=False);self.ledger()
+        with write(self.root/'data/daily/calendar.sqlite3') as db:
+            db.execute("UPDATE days SET state='omitted' WHERE day='2026-09-30'")
+        self.assertNotEqual(self.cell(self.reader().read())['status'],'completed')
+
+    def test_month_with_failed_bases_and_no_table_is_still_visible_as_pending(self):
+        self.ledger(count=2)
+        with write(self.root/'data/daily/calendar.sqlite3') as db:
+            db.execute("UPDATE days SET state='omitted',base_ready=0,table_id=''")
+        result=self.reader().read()
+        self.assertEqual(result['rows'][0]['period'],'2026-09')
+        self.assertEqual(self.cell(result)['status'],'pending')
+        self.assertIn('2 días',self.cell(result)['detail'])
+
+    def test_completed_days_do_not_hide_added_pending_jobs(self):
+        path=self.dua_table();self.ledger()
+        with write(path) as db:db.execute("INSERT INTO jobs VALUES ('extra','pending',NULL)")
+        self.assertNotEqual(self.cell(self.reader().read())['status'],'completed')
+
+    def test_xmovimientos_empty_requires_observation_and_counts_as_consulted_not_saved(self):
+        path=self.dua_table();self.ledger()
+        with write(path) as db:
+            db.execute('ALTER TABLE jobs ADD COLUMN id TEXT')
+            db.execute('UPDATE jobs SET id=dua')
+            db.execute('CREATE TABLE empty_observations(job_id,checked_at,evidence)')
+            db.execute("UPDATE jobs SET status='empty',result=NULL WHERE dua='30'")
+            db.execute("INSERT INTO empty_observations VALUES ('30','2026-09-30','evidence.html')")
+        reader=MonthlyReader({'xmovimientos':self.root},self.today)
+        result=reader.read()
+        self.assertEqual(self.cell(result,'xmovimientos')['status'],'completed')
+        self.assertIn('29 guardados',self.cell(result,'xmovimientos')['detail'])
+        self.assertIn('1 vacíos',self.cell(result,'xmovimientos')['detail'])
+        with write(path) as db:db.execute('DELETE FROM empty_observations')
+        result=MonthlyReader({'xmovimientos':self.root},self.today).read()
+        self.assertNotEqual(self.cell(result,'xmovimientos')['status'],'completed')
+
+    def manifest(self,name,start='',end='',mode='maritimo',pending=False,limit=0):
+        folder=self.root/'data/jobs/conocimientos'/name;folder.mkdir(parents=True)
+        path=folder/'progress.sqlite3'
+        with write(path) as db:
+            db.executescript('CREATE TABLE metadata(scope);CREATE TABLE jobs(id,state);CREATE TABLE manifests(id);'
+                'CREATE TABLE selection(id);CREATE TABLE partial_pages(manifest);CREATE TABLE runs(state,finished);')
+            db.execute('INSERT INTO metadata VALUES (?)',(json.dumps(dict(year=2026,month=9,mode=mode,desde=start,hasta=end,limit=limit)),))
+            db.execute('INSERT INTO selection VALUES (1)')
+            db.execute('INSERT INTO jobs VALUES (?,?)',('1','Pendiente' if pending else 'Guardado'))
+            if not pending:db.execute("INSERT INTO manifests VALUES ('1')")
+            db.execute("INSERT INTO runs VALUES ('Finalizada','date')")
+        return path
+
+    def test_manifest_counts_override_history_and_partial_filters(self):
+        path=self.manifest('full',pending=True)
+        reader=MonthlyReader({'manifiestos':self.root},self.today)
+        reader.read()
+        self.assertEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'pending')
+        with write(path) as db:
+            db.execute("UPDATE jobs SET state='Guardado'");db.execute("INSERT INTO manifests VALUES ('1')")
+            db.execute("INSERT INTO partial_pages VALUES ('1')")
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertNotEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'completed')
+
+    def test_disjoint_ranges_merge_only_within_the_same_mode(self):
+        self.manifest('first','2026-09-01','2026-09-15')
+        path=self.manifest('last','2026-09-16','2026-09-30',mode='aereo')
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'ready')
+        with write(path) as db:
+            scope=json.loads(db.execute('SELECT scope FROM metadata').fetchone()[0]);scope['mode']='maritimo'
+            db.execute('UPDATE metadata SET scope=?',(json.dumps(scope),))
+        reader=MonthlyReader({'manifiestos':self.root},self.today);result=reader.read()
+        self.assertEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'completed')
+        self.assertEqual(self.cell(result,'manifiestos')['label'],'1/5 completos')
+
+    def test_completed_sea_does_not_hide_pending_air(self):
+        self.manifest('sea')
+        self.manifest('air',mode='aereo',pending=True)
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertNotEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'completed')
+        self.assertIn('maritimo',reader.cell('2026-09','manifiestos','conocimientos')['detail'])
+
+    def test_current_month_never_completed_and_missing_database_not_success(self):
+        reader=self.reader()
+        reader.add('2026-10','detalles','','octubre26',1,1,days=month_days('2026-10'))
+        self.assertNotEqual(reader.cell('2026-10','detalles')['status'],'completed')
+        path=self.dua_table();path.unlink()
+        result=self.reader().read()
+        self.assertEqual(self.cell(result)['status'],'unknown')
+        self.assertEqual(result['errors'],1)
+
+    def test_bls_multi_month_is_grouped_from_jobs_not_current_configuration(self):
+        index=self.root/'data/workbench/bls/session.json';index.parent.mkdir(parents=True)
+        work=self.root/'data/jobs/bls/batch';folder=work/'BLS/signature/SQLite';folder.mkdir(parents=True)
+        source=self.root/'base.sqlite3'
+        source.with_suffix('.json').write_text(json.dumps({'coverage':[{'key':'2026-09|maritimo','fullMonth':True},{'key':'2026-08|maritimo','fullMonth':True}]}))
+        index.write_text(json.dumps({'history':[{'name':'varios meses','spec':{'input':str(source)},'work':str(work),'config':{'month':10}}]}))
+        with write(folder/'bls.sqlite3') as db:
+            db.executescript('CREATE TABLE jobs(id,payload,state,result_count);CREATE TABLE results(job);')
+            for key,state in [('2026-09','Pendiente'),('2026-08','Guardado')]:
+                db.execute('INSERT INTO jobs VALUES (?,?,?,?)',(key,json.dumps({'Mes':key}),state,1 if state=='Guardado' else 0))
+                if state=='Guardado':db.execute('INSERT INTO results VALUES (?)',(key,))
+        result=MonthlyReader({'bls':self.root},self.today).read()
+        self.assertEqual([r['period'] for r in result['rows']],['2026-09','2026-08'])
+        self.assertEqual(self.cell(result,'bls')['status'],'pending')
+        self.assertEqual(next(c for c in result['rows'][1]['cells'] if c['module']=='bls')['status'],'completed')
+
+
+if __name__=='__main__':unittest.main()

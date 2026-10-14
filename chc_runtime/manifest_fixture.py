@@ -49,9 +49,12 @@ class FixturePortal:
         from conocimientos import IDENTITY
         code = {'maritimo':'1','aereo':'4','terrestre':'7'}[self.mode]
         fields = IDENTITY+['vVCONS','vVDUAS','vVMOVSTK','vVCONTE']
-        grid = {'GridName':'Grid1','Count':3}
+        # Variante positiva para integración mensual. El portal negativo conserva
+        # su tercer manifiesto inválido; solo existe en el fixture HTTP local.
+        numbers = range(1,3) if os.environ.get('CHC_MANIFEST_FIXTURE_COMPLETE')=='1' else range(1,4)
+        grid = {'GridName':'Grid1','Count':len(numbers)}
         rows = []
-        for n in range(1,4):
+        for n in numbers:
             parts = [code,'0',f"{self.spec['year']}000{n}",'P027',f"01/{self.spec['month']:02d}/{str(self.spec['year'])[-2:]}"]
             mid = '-'.join(parts)
             links = [endpoint+'?'+urlencode({'id':mid,'n':n}) for endpoint in

@@ -18,7 +18,9 @@ No sustituye el proveedor de DUAs por régimen usado por los cuatro bots DUA.
 ## Uso
 
 1. Abrir `Abrir_Workbench.bat` y seleccionar **Manifiestos**.
-2. Elegir procedimiento, mes, año y modalidades. El nombre de tabla es opcional.
+2. Elegir procedimiento en la barra horizontal: Manifiestos, Conocimientos, DUAs,
+   Movimientos o Contenedores. En Procesamiento, elegir mes, año y modalidades.
+   La tabla recibe un nombre automático, por ejemplo `octubre26` o `enero27`.
 3. Pulsar **Iniciar consulta**. **Detener** conserva los resultados confirmados.
 4. Para continuar un lote, elegirlo en **Ejecuciones guardadas** y volver a iniciar.
 5. **Ver resultados** abre su carpeta pública, que contiene exclusivamente CSV de datos.
@@ -27,9 +29,19 @@ Cambiar de procedimiento no detiene el anterior. Cada uno mantiene su configurac
 cola, proceso e historial. Las modalidades seleccionadas se recorren secuencialmente,
 como en el original; dentro de cada modalidad se aplica su concurrencia.
 
-En **Más → Configuración** se encuentran descargas simultáneas, navegador visible,
-espera, intervalo dentro del mes, selección de IDs, límite de manifiestos, Courier
-para Conocimientos y carpeta de resultados. Los IDs se separan con espacios y el
+El nombre de los cinco procedimientos no se escribe manualmente. Cambia al elegir
+período y selección; las variantes de modalidades, fechas, Courier, límite o IDs
+reciben sufijos deterministas para conservar su alcance y sus CSV independientes.
+Una misma selección en la misma carpeta reutiliza su ejecución aunque cambien el
+nombre enviado, los hilos o el orden de las modalidades. Los lotes anteriores se
+reconocen por su selección y conservan identidad, nombre, rutas y progreso; no se
+renombran ni se fusionan bases existentes. BLs conserva su política de nombres.
+No se sobrescriben CSV externos: ante un conflicto se pide otra carpeta de resultados.
+
+En **Configuración** se encuentran consultas simultáneas, navegador visible,
+espera y carpeta de resultados. **Opciones avanzadas** contiene el intervalo
+dentro del mes, selección de IDs, límite de manifiestos y Courier para Conocimientos.
+Los IDs se separan con espacios y el
 límite cero significa todos. Guardar recibe confirmación del proceso, no simula éxito.
 Tabla principal representa el listado del período; los filtros de IDs/límite están
 destinados a los procedimientos que recorren manifiestos.

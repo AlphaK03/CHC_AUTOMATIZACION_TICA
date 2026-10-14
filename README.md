@@ -6,9 +6,37 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
+Vista general incluye una bitácora mensual de los seis bots: estados reales,
+meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
+Se actualiza leyendo el progreso guardado, sin iniciar consultas.
+La cobertura parcial y los archivos terminados sin cobertura acreditada se distinguen
+de un mes completo. [Uso de la bitácora](workbench/README.md#bitácora-mensual).
+
+Los paneles de actividad conservan el mensaje y la posición al leer el historial.
+Solo siguen automáticamente las novedades cuando el lector está al inicio.
+Las consultas en curso aparecen primero y en una zona fija: DUAs en Actividad;
+BLs con manifiesto, BL, página y filas acumuladas en «Descargando ahora».
+XMovimientos distingue **Vacío**, **Vacío por verificar** y **Error**. Los vacíos
+confirmados permiten avanzar el calendario y se pueden volver a consultar desde
+**Base de datos → Reintentar vacíos**, sin generar filas ficticias en el CSV.
+Vista general también permite elegir un mes terminado, marcar los bots/procedimientos
+y asignar trabajadores antes de **Iniciar seleccionados**. Retoma avances y mantiene
+los procesos ocupados; BLs espera Conocimientos completos del período elegido.
+[Inicio conjunto por mes](workbench/README.md#inicio-conjunto-por-mes).
+
+Los procedimientos de Manifiestos se eligen en una barra horizontal con el estilo de la navegación
+lateral; cada uno ofrece Procesamiento y Configuración, como los otros bots.
+El nombre de tabla se genera por período (`octubre26`, `enero27`) y se retoma la
+misma selección sin duplicarla. Modalidades o filtros distintos añaden un sufijo.
 [Uso, contratos y límites comprobados](docs/INTEGRACION_MANIFIESTOS.md).
 BLs permite elegir directamente meses y modalidades con descargas completas de
 Conocimientos; genera su base Courier=N e inicia su motor sin elegir archivos.
+Su lista muestra la fila, manifiesto y BL originales; conserva los contadores
+durante la preparación y permite continuar únicamente los pendientes.
+También muestra página y filas acumuladas por BL. Las páginas verificadas se
+guardan para retomar una descarga interrumpida, sin confirmar un BL parcial.
+La búsqueda acepta respuestas GET y POST verificadas de TICA; un timeout queda
+pendiente y no se interpreta como un BL inexistente.
 [Conexión BLs–Conocimientos](docs/BLS_DESDE_CONOCIMIENTOS.md).
 Detalles importa bases a SQLite, consulta TICA, retoma pendientes, administra tablas
 y exporta con el motor actual. Esta rama añade **Diario automático**: base propia
@@ -123,6 +151,13 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 - [Piloto diario de Detalles: uso y calendario](docs/PILOTO_DETALLES_DIARIO.md).
 
 ## Comprobar esta entrega
+
+Los casos pendientes y guardados cuentan con **Abrir en TICA**, que abre un navegador visible
+para revisar el DUA, BL o manifiesto sin cambiar su estado ni detener descargas.
+En modo diario, Detalles, Tránsito, Talón y XMovimientos realizan como máximo tres
+intentos automáticos por pendiente. Al agotarlos, el día queda **Omitido** y el bot
+continúa. **Reintentar mes** o **Reintentar día** permite solicitar otra ronda de
+hasta tres intentos para los pendientes; los resultados guardados se conservan.
 
 Desde la raíz, con Python 3.12 y sin instalar dependencias de los bots:
 

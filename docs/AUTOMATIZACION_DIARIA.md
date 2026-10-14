@@ -1,5 +1,12 @@
 # Bases propias y ejecución diaria de los bots
 
+Actualización del 14 de octubre: los cuatro bots de DUA hacen hasta tres intentos
+automáticos por pendiente y mantienen ese límite al reiniciar. Después dejan el
+día **Omitido** y continúan; no lo reabren por sí solos. **Reintentar mes/día**
+solicita otra ronda solo para pendientes. Esta política sustituye la recuperación
+automática indefinida descrita como objetivo inicial. Véase el uso actualizado en
+[Workbench](../workbench/README.md#revisión-en-tica-y-recuperación-de-pendientes).
+
 Requisito registrado el 12 de octubre de 2026. Detalles tiene el primer piloto en
 `feature/detalles-base-diaria-calendario`; leer [PILOTO_DETALLES_DIARIO.md](PILOTO_DETALLES_DIARIO.md).
 Este contrato también describe el objetivo de los otros consumidores, aún pendientes.

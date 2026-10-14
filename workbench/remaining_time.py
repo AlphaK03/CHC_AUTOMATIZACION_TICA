@@ -14,13 +14,13 @@ class RemainingTime:
     def reset(self, summary):
         now = self.clock()
         self.samples.clear()
-        self.samples.append((now, summary.get('succeeded', 0)))
-        self.initial_count = summary.get('succeeded', 0)
+        self.samples.append((now, summary.get('succeeded', 0) + summary.get('empty', 0)))
+        self.initial_count = summary.get('succeeded', 0) + summary.get('empty', 0)
         self.last_success = now
 
     def observe(self, summary):
         now = self.clock()
-        count = summary.get('succeeded', 0)
+        count = summary.get('succeeded', 0) + summary.get('empty', 0)
         if not self.samples or count < self.samples[-1][1]:
             self.reset(summary)
             return

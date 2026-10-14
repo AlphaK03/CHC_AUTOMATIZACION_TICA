@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
+from activity_model import ActivityModel
+from month_launcher import MonthLauncher
 
 PRESENTATION = {
     'manifiestos': {'title':'Manifiestos', 'subtitle':'Manifiestos y conocimientos', 'icon':'ship',
@@ -30,8 +32,9 @@ PRESENTATION = {
 class DemoBackend(QObject):
     changed = Signal()
     toast = Signal(str)
+    monthlyChanged = Signal()
 
-    def __init__(self, registry: Path, details=None, transit=None, talon=None, movements=None, manifests=None, bls=None):
+    def __init__(self, registry: Path, details=None, transit=None, talon=None, movements=None, manifests=None, bls=None, monthly=None):
         super().__init__()
         entries = json.loads(registry.read_text(encoding='utf-8'))['modules']
         self._modules = []
@@ -45,14 +48,19 @@ class DemoBackend(QObject):
                                   'status': 'available', 'progress': 0, 'total': 240,
                                   'workers': 2, 'events': []})
         self._route = 'overview'
+        self._activity_models={item['id']:ActivityModel(limit=30,parent=self) for item in self._modules}
         self._query = ''
         self._activity = []
         self.details = details
+        self.monthly = monthly
+        if monthly:monthly.changed.connect(self.monthlyChanged.emit)
         self._bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
                          'manifiestos': manifests, 'bls': bls}
+        self._month_launcher=MonthLauncher(self._bridges,parent=self)
         for bridge in self._bridges.values():
             if bridge and bridge.enabled:
                 bridge.changed.connect(self.changed.emit)
+                if monthly:bridge.changed.connect(monthly.schedule)
         self._timer = QTimer(self)
         self._timer.setInterval(350)
         self._timer.timeout.connect(self._tick)
@@ -66,7 +74,7 @@ class DemoBackend(QObject):
             bridge = self._bridges.get(item['id'])
             if bridge and bridge.enabled:
                 item.update(mode='real', status='running' if bridge.running or bridge.dailyActive else 'available' if bridge.ready else 'unavailable',
-                            progress=bridge.summary['succeeded'], total=bridge.summary['total'])
+                            progress=bridge.summary['succeeded'] + bridge.summary.get('empty', 0), total=bridge.summary['total'])
         return modules
 
     @Property('QVariantList', notify=changed)
@@ -78,13 +86,32 @@ class DemoBackend(QObject):
     def route(self):
         return self._route
 
+    @Property(QObject, constant=True)
+    def monthLauncher(self):return self._month_launcher
+
     @Property('QVariantMap', notify=changed)
     def selectedModule(self):
         return next((item.copy() for item in self._modules if item['id'] == self._route), {})
 
+    @Property(QObject, notify=changed)
+    def selectedActivityModel(self):return self._activity_models.get(self._route)
+
     @Property('QVariantList', notify=changed)
     def activity(self):
         return self._activity[:6]
+
+    @Property('QVariantList', notify=monthlyChanged)
+    def monthlyRows(self):return self.monthly.rows if self.monthly else []
+
+    @Property(bool, notify=monthlyChanged)
+    def monthlyBusy(self):return bool(self.monthly and self.monthly.busy)
+
+    @Property(str, notify=monthlyChanged)
+    def monthlyMessage(self):return self.monthly.message if self.monthly else 'La bitácora muestra únicamente descargas reales.'
+
+    @Slot()
+    def refreshMonthly(self):
+        if self.monthly:self.monthly.refresh()
 
     @Property(int, notify=changed)
     def runningCount(self):
@@ -116,6 +143,7 @@ class DemoBackend(QObject):
                  'module': item['title'], 'color': item['color'], 'kind': kind}
         item['events'].insert(0, event)
         del item['events'][30:]
+        self._activity_models[item['id']].prepend(event)
         self._activity.insert(0, event)
         del self._activity[40:]
 
@@ -123,6 +151,7 @@ class DemoBackend(QObject):
     def navigate(self, route):
         if route == 'overview' or any(item['id'] == route for item in self._modules):
             self._route = route
+            if route=='overview':self.refreshMonthly()
             bridge = self._bridges.get(route)
             if bridge and bridge.enabled:
                 bridge.connectModule()
@@ -167,6 +196,7 @@ class DemoBackend(QObject):
         item = self._current()
         if item:
             item.update(loaded=False, progress=0, status='available', events=[])
+            self._activity_models[item['id']].clear()
             self.changed.emit()
             self.toast.emit('El espacio de prueba se ha reiniciado.')
 
