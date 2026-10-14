@@ -650,3 +650,14 @@ datos. Detalles no permite cierre con DUAs sin guardar. SharePoint acepta estado
 completos, al día y cierres manuales vigentes, solo mediante acción del usuario;
 subir un mes no envía pendientes de otro mes. 19 pruebas cloud y 18 de bitácora/Qt
 verifican las reglas vigentes, además de las integraciones de exportación anteriores.
+
+### Corrección del selector de carpetas SharePoint
+
+El usuario reportó bibliotecas visibles pero sin carpetas al elegirlas. Reproducido
+en Qt: al cambiar el modelo desde el clic se destruía el delegado y aparecía
+`ReferenceError: dialog is not defined`, interrumpiendo la petición. Navegación
+movida a funciones del diálogo con identidad capturada antes del cambio de lista.
+Prueba Qt recorre sitio/biblioteca/subcarpeta, notificaciones síncronas, carpeta sin
+subcarpetas y selección correcta. App actualizada abierta antes de documentar;
+cuenta real recorre Automatización TIC@ → Documentos y muestra sus carpetas.
+No se guardó un destino ni se subieron resultados durante la comprobación.

@@ -127,6 +127,11 @@ calendario diario y cinco procedimientos de Manifiestos con entrega a BLs.
 17 comprobaciones de bitácora y una de Qt cubren omitidos, Detalles estricto,
 mes actual, cierre manual persistente/reversible y su invalidación al cambiar datos.
 
+El selector procesa clics desde funciones del diálogo, fuera de los delegados
+de las listas: cambiar sitio o recibir una respuesta recrea esas filas y antes
+interrumpía la navegación. La prueba Qt recorre sitio → biblioteca → subcarpeta,
+incluye notificaciones síncronas y comprueba selección de una carpeta sin subcarpetas.
+
 Pruebas reales autorizadas del 14 de octubre de 2026:
 
 - OAuth con el registro existente y cuenta CHC: satisfactorio.

@@ -41,6 +41,21 @@ Dialog {
         service.searchSites("https://chcconsultorescr.sharepoint.com","")
     }
     function folderReady() { return !!service && !!driveId && service.browse.driveId===driveId && !!service.browse.folder }
+    // Cambiar el modelo destruye su delegado: ejecutar la navegación desde el diálogo.
+    function chooseLocation(isLibrary,itemId,itemName,itemUrl) {
+        driveId=""; ancestors=[]
+        if(isLibrary) {
+            driveId=itemId; libraryName=itemName
+            service.openFolder(itemId,"root")
+        } else {
+            selectedSite=itemName; libraryName=""
+            service.openSite(itemUrl)
+        }
+    }
+    function chooseFolder(itemId) {
+        ancestors=ancestors.concat([{id:service.browse.folder.id,name:service.browse.folder.name}])
+        service.openFolder(driveId,itemId)
+    }
     Connections {
         target:dialog.service
         function onChanged() {
@@ -157,7 +172,7 @@ Dialog {
                                 ActionButton { text:"Sitios"; subtle:true; visible:!!dialog.selectedSite; enabled:!!service && !service.busy; onClicked:{dialog.selectedSite="";dialog.driveId=""} }
                             }
                             ListView {
-                                id:sitesList
+                                id:sitesList; objectName:"sharePointLocationList"
                                 Layout.fillWidth:true; Layout.fillHeight:true; clip:true; spacing:5
                                 model:dialog.selectedSite ? service && service.browse.drives ? service.browse.drives : [] : dialog.sites
                                 ScrollBar.vertical:ScrollBar {}
@@ -169,11 +184,7 @@ Dialog {
                                     enabled:!!service && !service.busy
                                     background:Rectangle { radius:7; color:parent.hovered ? Theme.hover : "transparent" }
                                     contentItem:Text { text:parent.text; color:Theme.text; font.pixelSize:12; wrapMode:Text.WordWrap; verticalAlignment:Text.AlignVCenter }
-                                    onClicked: {
-                                        dialog.driveId="";dialog.ancestors=[]
-                                        if(dialog.selectedSite){dialog.driveId=modelData.id;dialog.libraryName=modelData.name;service.openFolder(modelData.id,"root")}
-                                        else {dialog.selectedSite=modelData.name;service.openSite(modelData.url)}
-                                    }
+                                    onClicked:dialog.chooseLocation(!!dialog.selectedSite,modelData.id || "",modelData.name,modelData.url || "")
                                 }
                             }
                         }
@@ -189,7 +200,7 @@ Dialog {
                             Text { text:dialog.selectedSite+(dialog.libraryName ? " / "+dialog.libraryName : ""); color:Theme.muted; font.pixelSize:11; Layout.fillWidth:true; elide:Text.ElideMiddle }
                             Rectangle { height:1; color:Theme.border; Layout.fillWidth:true }
                             ListView {
-                                id:folderList
+                                id:folderList; objectName:"sharePointFolderList"
                                 Layout.fillWidth:true; Layout.fillHeight:true; clip:true; spacing:4
                                 model:dialog.folderReady() ? service.browse.folders || [] : []
                                 ScrollBar.vertical:ScrollBar {}
@@ -200,7 +211,7 @@ Dialog {
                                     enabled:!!service && !service.busy
                                     background:Rectangle { radius:7; color:parent.hovered ? Theme.hover : "transparent" }
                                     contentItem:RowLayout { spacing:10; Icon { name:"folder"; tint:Theme.accent; width:18; height:18 } Text { text:modelData.name; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true; elide:Text.ElideRight } Icon { name:"chevron"; tint:Theme.muted; width:15; height:15 } }
-                                    onClicked:{dialog.ancestors=dialog.ancestors.concat([{id:service.browse.folder.id,name:service.browse.folder.name}]);service.openFolder(dialog.driveId,modelData.id)}
+                                    onClicked:dialog.chooseFolder(modelData.id)
                                 }
                             }
                             Text { visible:dialog.folderReady() && folderList.count===0 && !!service && !service.busy; text:"Esta carpeta no tiene subcarpetas. Puedes elegirla."; color:Theme.faint; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }

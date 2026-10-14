@@ -35,16 +35,47 @@ class SharePointTests(unittest.TestCase):
                 self.assertFalse(cloud.connected);self.assertEqual(cloud.error,'')
                 self.assertTrue(find('connectSharePoint').property('enabled'))
                 # Datos de navegación sintéticos; impedir toda llamada de red.
-                captured=[];cloud.send=lambda command,data=None:captured.append((command,data))
+                captured=[]
+                def capture_send(command,data=None):
+                    captured.append((command,data))
+                    cloud.changed.emit()  # Igual que el despacho real: puede recrear delegados.
+                cloud.send=capture_send
                 cloud._snapshot.update(connected=True,account='prueba@chc.example')
-                cloud._browse={'driveId':'drive','drives':[{'id':'drive','name':'Documentos'}],
-                              'folder':{'id':'folder','name':'Resultados'},'folders':[]}
+                dialog=find('sharePointDialog');dialog.setProperty('picking',True)
+                dialog.setProperty('sites',[{'id':'site','name':'Prueba','url':'https://test.sharepoint.com/sites/prueba'}])
+                window.setVisible(True);APP.processEvents()
+                def visual_find(item,name):
+                    if item.objectName()==name:return item
+                    for child in item.childItems():
+                        found=visual_find(child,name)
+                        if found:return found
+                location=visual_find(window.contentItem(),'sharePointKnownSite')
+                self.assertIsNotNone(location)
+                QMetaObject.invokeMethod(location,'clicked',Qt.DirectConnection)
+                self.assertTrue(captured,(warnings,dialog.property('selectedSite'),location.property('enabled')))
+                self.assertEqual(captured[-1],('site',{'url':'https://test.sharepoint.com/sites/prueba'}))
+                cloud._browse={'site':{'id':'site'},'drives':[{'id':'drive','name':'Documentos'}]}
                 cloud.changed.emit();APP.processEvents()
-                dialog=find('sharePointDialog');dialog.setProperty('driveId','drive');dialog.setProperty('picking',True)
-                APP.processEvents()
+                library=visual_find(window.contentItem(),'sharePointLibrary')
+                self.assertIsNotNone(library)
+                QMetaObject.invokeMethod(library,'clicked',Qt.DirectConnection)
+                self.assertEqual(captured[-1],('folders',{'drive':'drive','item':'root'}))
+                cloud._browse={'driveId':'drive','drives':[{'id':'drive','name':'Documentos'}],
+                              'folder':{'id':'folder','name':'Resultados'},'folders':[{'id':'nested','name':'Descargas'}]}
+                cloud.changed.emit();APP.processEvents()
+                folder_list=find('sharePointFolderList')
+                self.assertEqual(folder_list.property('count'),1)
+                nested=visual_find(window.contentItem(),'sharePointFolderRow')
+                self.assertIsNotNone(nested)
+                QMetaObject.invokeMethod(nested,'clicked',Qt.DirectConnection)
+                self.assertEqual(captured[-1],('folders',{'drive':'drive','item':'nested'}))
+                self.assertEqual(dialog.property('driveId'),'drive')
+                cloud._browse={**cloud._browse,'folder':{'id':'nested','name':'Descargas'},'folders':[]}
+                cloud.changed.emit();APP.processEvents()
+                self.assertEqual(folder_list.property('count'),0)
                 button=find('saveSharePointFolder');self.assertTrue(button.property('enabled'))
                 QMetaObject.invokeMethod(button,'clicked',Qt.DirectConnection)
-                self.assertEqual(captured[-1],('save',{'drive':'drive','item':'folder'}))
+                self.assertEqual(captured[-1],('save',{'drive':'drive','item':'nested'}))
                 self.assertFalse(find('uploadSharePointMonth').property('enabled'))
                 cloud._snapshot.update(destination={'folderId':'folder'},months=[{'period':'2026-09','label':'Septiembre 2026','files':1}])
                 cloud.changed.emit();APP.processEvents();dialog.setProperty('picking',False)

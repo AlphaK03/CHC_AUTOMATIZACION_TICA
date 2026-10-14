@@ -204,3 +204,7 @@
   durante una prueba de conexión; ver `docs/SHAREPOINT.md` para evidencia.
   Aceptar Bibliotecas/places y FileBrowser/Forms con id/listurl/RootFolder;
   normalizar sitio y validar host sin reenviar tokens fuera de Microsoft Graph.
+- En el selector SharePoint ejecutar navegación desde funciones del diálogo;
+  cambiar el modelo destruye los delegados de ListView y su contexto de clic.
+  Pasar identidad antes del cambio, probar sitio/biblioteca/subcarpeta con
+  notificaciones síncronas y permitir elegir carpetas sin subcarpetas.
