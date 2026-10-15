@@ -1,0 +1,14 @@
+{
+    "base_path": "",
+    "output_base_path": "C:/Users/keylo/CHC Consultores/CHC-CONSULTORES - Automatizacion TICA/Datos_Generales/Datos_Procesados/Transito_BOT/Prueba (Eliminar despues)",
+    "max_retries": 3,
+    "timeout": 30,
+    "cant_hilos": 2,
+    "reuse_context": true,
+    "lightweight_details": true,
+    "headless": true,
+    "dark_mode": true,
+    "daily_mode": true,
+    "daily_start_date": "2026-10-12",
+    "daily_end_date": "2026-10-12"
+}
