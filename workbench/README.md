@@ -13,7 +13,8 @@ Desde la raíz del repositorio, hacer doble clic en `Abrir_Workbench.bat`.
 Abre directamente Detalles con dos pestañas: Procesamiento y Configuración.
 Base de datos abre una ventana aparte; las acciones secundarias están en Más.
 El entorno local está preparado. En un equipo nuevo, ejecutar primero
-`Instalar_Workbench.bat`, `Instalar_Detalles.bat` e `Instalar_Transito.bat` (Python 3.12).
+`Instalar_Workbench.bat` y los instaladores de los módulos que se utilizarán
+(Python 3.12); la lista completa está en el README principal.
 
 Alternativa en PowerShell:
 
@@ -24,7 +25,8 @@ py -3.12 -m venv workbench/.venv
 ```
 
 Se instala `PySide6-Essentials==6.12.0`, con los bindings y módulos Qt necesarios.
-El panel no usa WebEngine ni un servidor web. Las dependencias del motor de
+La conexión opcional a SharePoint usa MSAL, msal-extensions y requests en este
+mismo entorno. El panel no usa WebEngine ni un servidor web. Las dependencias del motor de
 Detalles se instalan por separado en `bots/detalles/.venv/`.
 
 ## Detalles operativo
@@ -173,11 +175,20 @@ y [vista clara](../docs/preview/inicio-mensual-claro.png).
 
 **Vista general → Bitácora de descargas** reúne los meses identificados en el
 historial real, del más reciente al más antiguo. Cada mes muestra Detalles,
-Tránsito, Talón, XMovimientos, BLs y Manifiestos. Un punto verde indica **Completado**:
-mes pasado con cobertura mensual verificada y sin trabajos pendientes en sus lotes.
+Tránsito, Talón, XMovimientos, BLs y Manifiestos. **Completado** acredita cobertura
+mensual y resultados según la política de cada bot. Detalles exige todos sus DUAs
+guardados. Los demás admiten omitidos fuera del resultado final; sus pendientes
+se conservan y pueden reintentarse. Vacíos verificados de XMovimientos cuentan aparte.
 **En curso**, **Parcial**, **Pendiente** y **Sin iniciar** permiten ver qué falta.
 **Lote listo** significa que terminó la selección, pero no se acredita todo el mes.
-Un mes en curso conserva estado parcial; una fuente ilegible queda **Sin verificar**.
+**Al día** indica que el mes actual está terminado hasta la última fecha consultable,
+respetando las 00:01 de Costa Rica; al aparecer un nuevo día vuelve a comprobarse.
+Una fuente ilegible queda **Sin verificar**.
+
+**Cierre manual…** permite elegir bot/procedimiento y **Marcar completo**, o
+**Usar comprobación automática** para retirar esa marca. No modifica resultados
+ni borra pendientes. En Detalles no permite saltar DUAs sin guardar. La marca
+aparece como **Completado manual** y se invalida al cambiar datos o intentos.
 
 Pasa sobre un estado para ver cantidades, cobertura y modalidades. Pulsarlo abre
 el bot; no inicia ni cambia su selección. **Ver procedimientos de Manifiestos**
@@ -188,8 +199,9 @@ otra modalidad pendiente. El mes puede mostrar bots todavía sin descargas.
 La lectura se ejecuta en un hilo, sin bloquear la ventana ni importar motores.
 Se actualiza al entrar, con **Actualizar**, cada 30 segundos y con eventos de
 progreso agrupados a intervalos de 10 segundos. Usa únicamente SQLite/JSON
-existentes en modo lectura; no escribe una nueva bitácora ni realiza consultas
-a TICA. Así conserva el historial entre aperturas y refleja cambios o eliminaciones
+existentes en modo lectura; no modifica su progreso ni realiza consultas a TICA.
+Solo el cierre manual guarda metadatos separados en
+`runtime/workbench/monthly_overrides.json`. Así conserva el historial entre aperturas y refleja cambios o eliminaciones
 del catálogo. Las demostraciones no se presentan como descargas reales.
 
 Los cuatro bots DUA verifican sus días del calendario contra sus resultados
@@ -199,7 +211,8 @@ Lote listo hasta contar con días verificados. Tablas sin mes identificable no
 se asignan por su fecha de creación. BLs agrupa por el Mes original de cada trabajo,
 incluso en bases de varios meses; la cobertura procede de la base de Conocimientos.
 Manifiestos comprueba selección, resultado confirmado, finalización y ausencia de
-páginas parciales, y reúne rangos completos de una misma modalidad; filtros de
+páginas parciales en los trabajos que cuentan para el cierre. Conserva páginas de
+los omitidos para reintento y reúne rangos completos de una misma modalidad; filtros de
 IDs/límite/Courier no acreditan el mes entero.
 
 [Vista oscura con datos aislados](../docs/preview/bitacora-mensual.png) y
@@ -312,9 +325,10 @@ BLs y las consultas de Manifiestos.
 En el calendario diario de Detalles, Tránsito, Talón y XMovimientos, los pendientes
 tienen un presupuesto persistente de tres intentos automáticos. Cuando se agota,
 el día queda **Omitido**, continúa el siguiente y no se reactiva al reiniciar.
-El filtro **Omitidas del automático** permite localizarlos. Los días omitidos y
-los días sin base siguen pendientes en la bitácora mensual; no cuentan como
-completados. Detener una descarga no consume una oportunidad.
+El filtro **Omitidas del automático** permite localizarlos. En Detalles siguen
+impidiendo el cierre automático del mes. Los demás bots pueden completar el mes
+con esas excepciones fuera del resultado final; una base omitida se distingue de
+una base todavía pendiente. Detener una descarga no consume una oportunidad.
 
 **Reintentar mes** y **Reintentar día** solicitan expresamente hasta tres nuevos
 intentos por pendiente del período, saltando los resultados ya guardados y sin
@@ -350,6 +364,8 @@ Actualizar el entorno con `Instalar_Workbench.bat`. Pruebas independientes:
 
 ## Pendientes de empaquetado
 
-Integrar los otros cuatro motores, unificar servicios tras comprobar equivalencia,
-incorporar generadores de bases y preparar distribución ejecutable. El estado y
-la visión completa están en `docs/CONTEXTO_PROYECTO.md`.
+Los seis motores ya están integrados. Falta preparar y validar una distribución
+ejecutable en un equipo limpio, ampliar las variantes reales comprobadas y
+completar los generadores/separadores todavía externos. El calendario diario
+continuo de BLs es distinto de su inicio mensual ya disponible y sigue pendiente.
+El estado y la visión completa están en `docs/CONTEXTO_PROYECTO.md`.

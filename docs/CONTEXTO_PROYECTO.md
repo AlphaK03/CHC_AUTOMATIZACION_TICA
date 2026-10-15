@@ -1,5 +1,43 @@
 # Contexto de CHC Workbench para una nueva sesión
 
+## Estado vigente — 14 de octubre de 2026
+
+- Seis módulos operativos: Detalles, DUAs Tránsito, Talón, XMovimientos, BLs y
+  Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
+  Motores separados, SQLite/progreso conservados, actividad estable y revisión
+  visible en TICA sin cambiar el estado de una descarga.
+- Inicio mensual conjunto con selección de bots/procedimientos y trabajadores.
+  Los cuatro DUA tienen proveedor/calendario diario, tres intentos automáticos
+  persistentes y reintentos explícitos por día/mes. BLs conserva checkpoints por
+  página y validación antes de reanudar.
+- Bitácora: Detalles exige todos los DUAs guardados; los demás admiten omitidos
+  fuera del resultado final. **Al día** cubre hasta la última fecha consultable.
+  **Cierre manual…** es reversible, no altera SQLite y se invalida al cambiar
+  datos/intentos. No puede omitir DUAs pendientes en Detalles.
+- SharePoint opcional mediante OAuth2/PKCE y el registro CHC REPORTES existente.
+  Una carpeta madre local y una online; solo CSV públicos, nombres en mayúsculas
+  y subcarpetas por bot/procedimiento y mes. BLs separa mes/modo reales.
+  Subidas únicamente por acción explícita, para bots completos, al día o cerrados
+  manualmente. La navegación sitio → biblioteca → subcarpeta está corregida y
+  comprobada con la cuenta real; una carpeta sin subcarpetas también se puede elegir.
+- Git: el trabajo previo a SharePoint está en `main`/`origin/main` (`93ceb44`).
+  La integración y correcciones continúan en `feature/sharepoint-oauth2`;
+  la corrección del selector está en `bdf2bcd`. Mantener la rama separada hasta
+  que el usuario solicite integrar. Código, pruebas, instaladores y documentación
+  son versionables; tokens DPAPI, rutas elegidas, bases, resultados y runtime no.
+- Validación ya realizada: 19 pruebas cloud, dos de Qt/DPAPI, cuatro del contrato
+  de salidas, 17 de bitácora, una de bitácora Qt y 12 integraciones de exportación/
+  recuperación de los seis bots, además del smoke QML. Lectura/escritura real de
+  SharePoint comprobada con un archivo de prueba; no acredita actualización de Power BI.
+- Pendientes: distribución ejecutable/equipo limpio, más variantes reales,
+  calendario diario continuo de BLs y generadores/separadores todavía externos.
+
+Guías vigentes: `README.md`, `workbench/README.md` y `docs/SHAREPOINT.md`.
+Los apartados siguientes son el historial de las entregas y pueden describir
+reglas anteriores; este resumen y las guías vigentes tienen prioridad.
+
+## Historial de implementación
+
 Inicio mensual conjunto añadido el 13/10/2026. Vista general muestra **Iniciar bots
 por mes → Elegir bots…** con mes/año, casillas de los cuatro DUA, cinco procedimientos
 de Manifiestos y BLs, trabajadores independientes, modalidades y total. No hay

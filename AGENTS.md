@@ -121,8 +121,8 @@
 - Preferencia explícita del usuario: interfaz sencilla, similar a la clásica.
   Mostrar el flujo principal; evitar tarjetas, textos técnicos y opciones extra
   a la vista. Conservar funciones secundarias en menús, ventanas o secciones plegadas.
-- En Resultados mostrar únicamente el CSV, en una carpeta con el nombre elegido
-  de la tabla, sin subcarpetas de UUID. TXT/JSON y diagnósticos son internos en
+- En Resultados mostrar únicamente el CSV con el contrato común de bot/mes/modo,
+  sin subcarpetas de UUID. TXT/JSON y diagnósticos son internos en
   `bots/<id>/data/exports/<id>/`; mantener SQLite y recuperación intactos.
 - Ajustar la verificación al riesgo. En cambios visuales hacer una comprobación
   breve de carga/captura; no repetir suites completas ni consultas reales.
@@ -171,7 +171,8 @@
   para la señal de cierre: imports tardíos y lectores buffered bloquearon pruebas.
 - El diario conserva `daily_automatic_attempts` entre reinicios y limita a tres
   oportunidades por pendiente; cancelar devuelve la oportunidad. `omitted` no
-  se reabre automáticamente ni cuenta como completado. Solo `retry_month` o
+  se reabre automáticamente ni cambia a `completed` en el calendario. La bitácora
+  mensual sí admite omitidos para los bots distintos de Detalles. Solo `retry_month` o
   `retry_day` rearman los pendientes del rango explícito, conservando guardados,
   historial y configuración. El mes actual se limita a días anteriores a hoy.
 - SharePoint es opcional y exclusivo para copias CSV: leer `docs/SHAREPOINT.md`.

@@ -9,8 +9,18 @@ para BLs. Una segunda apertura activa la misma ventana de la plataforma.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.
-La cobertura parcial y los archivos terminados sin cobertura acreditada se distinguen
-de un mes completo. [Uso de la bitácora](workbench/README.md#bitácora-mensual).
+Detalles exige todos los DUAs descargados; los otros bots admiten omitidos fuera
+del resultado final. El mes actual puede aparecer **Al día** hasta la última
+fecha consultable. **Cierre manual…** permite cerrar un bot/procedimiento o volver
+a la comprobación automática, conservando pendientes para reintento.
+[Uso de la bitácora](workbench/README.md#bitácora-mensual).
+
+**Cuenta y SharePoint** conecta opcionalmente una cuenta CHC y permite elegir una
+carpeta madre local y una online para todos los bots. Los CSV públicos comparten
+nombres en mayúsculas y organización por bot, mes y modo cuando aplica.
+La subida se inicia solo mediante **Subir a SharePoint** o un reintento explícito.
+El selector recorre sitios, bibliotecas y subcarpetas; también permite elegir la
+raíz de una biblioteca o una carpeta sin subcarpetas. [Guía de SharePoint](docs/SHAREPOINT.md).
 
 Los paneles de actividad conservan el mensaje y la posición al leer el historial.
 Solo siguen automáticamente las novedades cuando el lector está al inicio.
@@ -156,10 +166,9 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 una carpeta madre online para todos los bots. La carpeta madre local es también
 común; los CSV se organizan por bot, mes y modo, con nombres en mayúsculas.
 **Subir a SharePoint** envía únicamente resultados de bots completos, al día o
-cerrados manualmente en la bitácora,
-cuando el usuario lo solicita. Exportar localmente no inicia subidas.
-La aplicación conserva su
-funcionamiento y resultados locales sin cuenta. Registro OAuth2 de escritorio
+cerrados manualmente en la bitácora, cuando el usuario lo solicita.
+Exportar localmente no inicia subidas. La aplicación conserva su funcionamiento
+y resultados locales sin cuenta. Registro OAuth2 de escritorio
 reutilizado de CHC REPORTES con `Sites.Read.All` y `Files.ReadWrite.All` delegados,
 para explorar sitios y guardar archivos según los permisos de la cuenta.
 Véase [configuración y uso](docs/SHAREPOINT.md).
