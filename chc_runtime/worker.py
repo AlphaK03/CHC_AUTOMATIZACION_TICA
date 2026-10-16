@@ -475,6 +475,14 @@ def main(module_id="detalles"):
             result = service.execute(request['command'], request)
             protocol.emit('result', requestId=request.get('requestId'), command=request['command'], **result)
         except Exception as error:
+            # Un lector de la lista puede coincidir con el COMMIT del motor.
+            # La próxima actualización lo reintenta; no falló la descarga.
+            code = getattr(error, 'sqlite_errorcode', 0)
+            if (not foreground and request.get('command') == 'view'
+                    and isinstance(error, sqlite3.OperationalError)
+                    and code & 0xff in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)):
+                protocol.emit('view_deferred', requestId=request.get('requestId'), command='view')
+                return
             logging.exception('Operación interrumpida: %s', error, extra={'technical_only': True})
             data = {}
             if foreground:

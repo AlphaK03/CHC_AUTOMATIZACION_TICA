@@ -49,6 +49,7 @@ class DetailsBridge(QObject):
         self._events = []
         self._activity_model = ActivityModel(parent=self)
         self._error = ''
+        self._error_command = ''
         self._ready = False
         self._busy = False
         self._running = False
@@ -187,6 +188,7 @@ class DetailsBridge(QObject):
         if command not in {'stop', 'shutdown'} and not readonly:
             self._busy = True
             self._error = ''
+            self._error_command = ''
             self._status = {'run': 'Consultando el portal…', 'import': 'Guardando tabla…', 'export': 'Exportando resultados…'}.get(command, self._status)
         if command in {'run', 'retry_empty'}:
             self._running = True
@@ -227,6 +229,8 @@ class DetailsBridge(QObject):
             if event.get('command') != 'view' or (request.get('tableId') == self.activeTable.get('id') and request_id >= self._last_view_sequence):
                 self._view = event['view']
                 self._last_view_sequence = request_id
+                if event.get('command') == 'view' and self._error_command == 'view':
+                    self._error = self._error_command = ''
         if kind == 'daily':
             self._daily_active = self._daily['active']
             processing = self._daily['phase'] == 'processing'
@@ -285,8 +289,13 @@ class DetailsBridge(QObject):
                 self._status = 'Resultados exportados'
                 self.toast.emit('CSV actualizado.')
         elif kind in {'error', 'fatal'}:
-            self._error = event['message']
-            self._status = 'No se pudo completar la operación'
+            command = event.get('command', '')
+            # Un lector tardío no debe ocultar un fallo real del motor.
+            if command != 'view' or not self._error or self._error_command == 'view':
+                self._error = event['message']
+                self._error_command = command
+            if command != 'view':
+                self._status = 'No se pudo completar la operación'
             if event.get('command') in {'run', 'retry_empty', 'daily_run','retry_month','retry_day'}:
                 self._running = False
                 self._daily_active = False

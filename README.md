@@ -12,6 +12,8 @@ intentos y reservas sin iniciar consultas.
 En Diario automático basta pulsar Iniciar para retomar el primer día pendiente.
 El rango visible avanza con el progreso, continúa con los días disponibles y
 espera hasta las 00:01 de Costa Rica cuando queda al día.
+Si una actualización de la lista coincide con un guardado y SQLite está ocupada,
+conserva la vista y vuelve a leerla sin marcar la descarga como fallida.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.

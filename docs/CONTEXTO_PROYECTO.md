@@ -6,6 +6,11 @@
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Contención en lecturas de la lista corregida el 16/10: un `view` en segundo
+  plano con SQLITE_BUSY/LOCKED se difiere al próximo refresco, sin declarar fallo
+  del motor. Qt conserva filas/offset, ejecución y estado; un error real del motor
+  no se borra al recargar la lista. La instancia activa se conservó; este ajuste
+  se carga en el próximo arranque. Cuatro pruebas nuevas offline pasaron.
 - Carga DUA tras cierre inesperado corregida: `chc_runtime/sqlite_recovery.py`
   recupera únicamente `SQLITE_READONLY_ROLLBACK` antes de las vistas de lectura.
   Exige lote libre y respaldo byte a byte; no rearma reservas ni migra esquemas.
@@ -46,6 +51,30 @@ Los apartados siguientes son el historial de las entregas y pueden describir
 reglas anteriores; este resumen y las guías vigentes tienen prioridad.
 
 ## Historial de implementación
+
+Revisión de «database is locked» en Detalles el 16/10, tras el cambio de continuidad.
+El traceback de las 13:00:29 corresponde a `view` → `catalog.read_rows` al leer
+`sqlite_master`; el lector superó su espera durante un guardado. No falló el
+comando de descarga: el registro y SQLite confirman 63 guardados posteriores y
+53.520 guardados totales en la comprobación de las 13:23, con cinco trabajos activos.
+La GUI convertía cualquier error de consulta de la lista en «No se pudo completar
+la operación» y mantenía el aviso incluso cuando la siguiente lectura funcionaba.
+
+`worker.py` emite `view_deferred` solo ante SQLITE_BUSY/LOCKED (incluidos códigos
+extendidos) en un `view` de segundo plano, y conserva `idle(readonly=True)` para
+liberar únicamente esa lectura. El refresco existente vuelve a solicitarla sin
+acumular lectores. No se cambiaron tiempos, modo de SQLite, commits ni reservas.
+`details_bridge.py` mantiene el estado operativo ante errores de `view`, limpia
+solo el error de lectura al aceptar una vista posterior y preserva fallos reales
+del motor frente a respuestas tardías o errores secundarios de lectura.
+
+Cuatro pruebas nuevas: dos ejercitan el protocolo real con bloqueo EXCLUSIVE en
+una SQLite aislada, lectura posterior del dato confirmado y fallos que deben
+seguir visibles; dos del puente cubren los cuatro perfiles, filas/offset,
+refresco, estado activo, limpieza del aviso y conservación del fallo de escritura.
+Sin consultas de prueba a TICA. Se mantuvo la instancia abierta y sus workers;
+la corrección queda en disco para el próximo arranque y los avisos de esa instancia
+pueden seguir visibles mientras conserva el código anterior en memoria.
 
 Continuidad diaria y rango visible ajustados el 16/10 por petición del usuario.
 `DailyCoordinator.snapshot` calcula `resumeDate`, `resumeEndDate` y `waitingForDay`

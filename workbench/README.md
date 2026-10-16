@@ -41,6 +41,12 @@ El [manual de integración](../docs/INTEGRACION_DETALLES.md) documenta cada func
 los respaldos, las rutas propias y el acceso temporal a la interfaz clásica.
 Consultar resultados guardados y exportarlos no realiza consultas a TICA.
 
+Mientras el motor guarda, una lectura de la lista puede encontrar la base ocupada.
+La actualización automática conserva las filas y su posición, y vuelve a intentar
+en el siguiente refresco. Ese bloqueo temporal de lectura no detiene las consultas
+ni se presenta como fallo del motor. Los errores reales de extracción o escritura
+siguen visibles. Un error de lectura se limpia cuando la lista vuelve a cargar.
+
 Tras un cierre inesperado, SQLite puede necesitar deshacer una transacción sin
 confirmar antes de permitir la lectura. Al cargar cualquiera de los cuatro bots
 DUA, el módulo recupera ese caso con el lote libre y un respaldo previo de la
