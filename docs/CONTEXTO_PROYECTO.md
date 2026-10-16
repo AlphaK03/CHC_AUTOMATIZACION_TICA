@@ -1,11 +1,16 @@
 # Contexto de CHC Workbench para una nueva sesión
 
-## Estado vigente — 14 de octubre de 2026
+## Estado vigente — 16 de octubre de 2026
 
 - Seis módulos operativos: Detalles, DUAs Tránsito, Talón, XMovimientos, BLs y
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Carga DUA tras cierre inesperado corregida: `chc_runtime/sqlite_recovery.py`
+  recupera únicamente `SQLITE_READONLY_ROLLBACK` antes de las vistas de lectura.
+  Exige lote libre y respaldo byte a byte; no rearma reservas ni migra esquemas.
+  Detalles real recuperado el 16/10 con 52.154 guardados y contenido confirmado
+  íntegro; nueve pruebas offline pasaron. Ver evidencia en el historial siguiente.
 - Inicio mensual conjunto con selección de bots/procedimientos y trabajadores.
   Los cuatro DUA tienen proveedor/calendario diario, tres intentos automáticos
   persistentes y reintentos explícitos por día/mes. BLs conserva checkpoints por
@@ -37,6 +42,32 @@ Los apartados siguientes son el historial de las entregas y pueden describir
 reglas anteriores; este resumen y las guías vigentes tienen prioridad.
 
 ## Historial de implementación
+
+Corrección del 16/10: Detalles no cargaba y mostraba «attempt to write a readonly
+database». El primer SELECT fallaba con `SQLITE_READONLY_ROLLBACK` (776), por un
+journal pendiente desde el 15/10 a las 16:27, no por atributos de solo lectura.
+Se reprodujo en copia física; la recuperación nativa SQLite dio `quick_check=ok`.
+El arranque común de los cuatro DUA comprueba las tablas registradas antes de
+las vistas `mode=ro`. Solo ante ese código específico adquiere `RunLock`, copia
+base y auxiliares a `data/queues/backups/rollback-*`, abre con `mode=rw` sin crear
+bases y permite el rollback nativo. No crea JobStore, cambia estados, reinicia
+intentos ni inicia descargas; las vistas y la bitácora siguen siendo de lectura.
+Errores de permisos reales y fallos de respaldo se propagan sin intentar reparar.
+
+Validación: seis pruebas nuevas, con procesos terminados abruptamente y journal
+real, respaldo idéntico, contenido SQL completo conservado, bloqueo de otro dueño,
+fallo de respaldo, base inexistente y arranque del worker Detalles aislado/offline.
+Tres pruebas de intentos/omitidos también pasaron; su fixture se adaptó al método
+`local_root` ya existente. Sin consultas nuevas a TICA. El usuario autorizó cerrar
+la ventana ociosa: cierre ordenado y una reapertura antes de documentar. El
+arranque recuperó octubre26, con respaldo local
+`bots/detalles/data/queues/backups/rollback-20261016-102903-jhaffvo5/`.
+La base real y la copia recuperada producen el mismo SHA-256 de todo `iterdump`:
+52.154 guardados, 4.630 pendientes, 37 reintentos y cinco reservas previas intactas.
+Estas reservas solo se rearman al iniciar consultas. Integridad correcta y panel
+sin error, captura local `runtime/diagnostics/detalles-recuperado-20261016.png`.
+El primer respaldo físico de diagnóstico está en
+`bots/detalles/data/queues/backups/readonly-20261016-102615/`.
 
 Inicio mensual conjunto añadido el 13/10/2026. Vista general muestra **Iniciar bots
 por mes → Elegir bots…** con mes/año, casillas de los cuatro DUA, cinco procedimientos

@@ -41,6 +41,14 @@ El [manual de integración](../docs/INTEGRACION_DETALLES.md) documenta cada func
 los respaldos, las rutas propias y el acceso temporal a la interfaz clásica.
 Consultar resultados guardados y exportarlos no realiza consultas a TICA.
 
+Tras un cierre inesperado, SQLite puede necesitar deshacer una transacción sin
+confirmar antes de permitir la lectura. Al cargar cualquiera de los cuatro bots
+DUA, el módulo recupera ese caso con el lote libre y un respaldo previo de la
+base y su journal en `bots/<id>/data/queues/backups/rollback-*`. No borrar el
+archivo `-journal`: contiene la información para recuperar los datos confirmados.
+El panel conserva éxitos, intentos y reservas; retomar las consultas sigue siendo
+una acción explícita. La recuperación queda registrada en Actividad y en el log.
+
 Esta rama añade **Diario automático** en Modo: indicar Desde, pulsar Iniciar
 automático y revisar Calendario. No requiere Excel y conserva Manual. En un
 equipo nuevo ejecutar `Instalar_Base_Diaria.bat`. [Uso y límites](../docs/PILOTO_DETALLES_DIARIO.md).

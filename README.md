@@ -6,6 +6,9 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
+Los cuatro bots DUA recuperan transacciones SQLite interrumpidas al arrancar,
+con respaldo previo y bloqueo exclusivo; abrir el panel conserva resultados,
+intentos y reservas sin iniciar consultas.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.

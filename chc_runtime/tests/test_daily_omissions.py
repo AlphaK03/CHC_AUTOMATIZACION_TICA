@@ -58,6 +58,7 @@ class OmissionsTests(unittest.TestCase):
             stop_event=QuickEvent(),protocol=SimpleNamespace(emit=lambda *a,**k:None))
         service.catalog=TableCatalog(self.root/'data/queues')
         service.snapshot=lambda:{}
+        service.local_root=lambda:self.root/'out'
         service.configure=lambda values:service.machine.update(values)
         service.select=lambda table_id:setattr(service,'active_id',table_id)
         service.read_database=lambda record:closing(sqlite3.connect(service.catalog.database(record)))

@@ -18,6 +18,7 @@ SHUTDOWN_GRACE_SECONDS = 30
 from .catalog import TableCatalog, table_name
 from .captcha import load_captcha_lookup
 from .job_store import JobStore, RunLock, active_revisions
+from .sqlite_recovery import recover_interrupted_database
 from .messages import pending_reason
 from .playwright_processor import PlaywrightDUAProcessor
 from .profiles import load_profile
@@ -65,6 +66,13 @@ class DetailsService:
         self.session = utils.load_session()
         self.catalog = TableCatalog(self.root / 'data' / 'queues', store_factory=self.Store)
         self.catalog.discover_legacy()
+        # Recuperar el journal de un cierre abrupto antes de las vistas mode=ro.
+        # No abrir JobStore ni rearmar trabajos al cargar el panel.
+        recovered = []
+        for table in self.catalog.list_tables():
+            backup = recover_interrupted_database(self.catalog.database(table))
+            if backup:
+                recovered.append((table['name'], backup))
         if getattr(self.Store, 'supports_empty', False):
             for table in self.catalog.list_tables():
                 path = self.catalog.database(table)
@@ -99,6 +107,8 @@ class DetailsService:
             self.active_id = ''
         utils.setup_logging(str(self.root / 'logs' / 'workbench.log'))
         logging.getLogger().addHandler(EventLog(protocol))
+        for name, backup in recovered:
+            logging.warning('Transacción interrumpida recuperada en «%s». Respaldo: %s', name, backup)
 
     @contextmanager
     def read_database(self, record):
