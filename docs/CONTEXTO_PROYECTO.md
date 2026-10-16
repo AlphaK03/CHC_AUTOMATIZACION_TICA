@@ -15,6 +15,10 @@
   Los cuatro DUA tienen proveedor/calendario diario, tres intentos automáticos
   persistentes y reintentos explícitos por día/mes. BLs conserva checkpoints por
   página y validación antes de reanudar.
+- Diario DUA continuo confirmado el 16/10: Iniciar retoma el primer día pendiente;
+  Desde/Hasta y Calendario avanzan sin cambiar el origen persistido. Continúa tras
+  el rango elegido hasta ayer y espera a las 00:01 de Costa Rica. La app no inicia
+  consultas al abrir. Inicio conjunto por mes y reintentos explícitos acotados.
 - Bitácora: Detalles exige todos los DUAs guardados; los demás admiten omitidos
   fuera del resultado final. **Al día** cubre hasta la última fecha consultable.
   **Cierre manual…** es reversible, no altera SQLite y se invalida al cambiar
@@ -42,6 +46,36 @@ Los apartados siguientes son el historial de las entregas y pueden describir
 reglas anteriores; este resumen y las guías vigentes tienen prioridad.
 
 ## Historial de implementación
+
+Continuidad diaria y rango visible ajustados el 16/10 por petición del usuario.
+`DailyCoordinator.snapshot` calcula `resumeDate`, `resumeEndDate` y `waitingForDay`
+desde el calendario; la fecha inicial guardada sigue siendo el límite inferior
+de búsqueda para no perder huecos. `DetallesPage.qml` sigue esas fechas y
+`DailyCalendar.qml` actualiza la selección mientras no haya una edición manual.
+Guardar trabajadores/configuración no persiste la vista móvil como un nuevo
+origen. Las ediciones del usuario conservan prioridad hasta guardar o iniciar.
+
+El diario normal sigue con los días disponibles después del rango elegido,
+omite completados/omitidos y espera al siguiente 00:01 local cuando está al día.
+Al reabrir no corre nada hasta Iniciar. `daily_run` admite `bounded=True` para
+el inicio conjunto por mes; `month_launcher.py` lo envía tras confirmar su
+configuración. Reintentar día/mes sigue acotado y conserva resultados e historial.
+No se cambiaron fuentes originales, parsers, salidas ni la política de intentos.
+
+Comprobaciones offline: seis de coordinador/intentos, dos QML (los cuatro
+perfiles, selección móvil, origen estable y edición manual), once de inicio
+mensual, reintento mensual Talón y ciclo local de los cuatro workers: dos días,
+continuidad más allá de Hasta, cierre/reapertura, espera y ausencia de redescarga.
+La prueba de reloj cubre 00:00/00:01 de Costa Rica y cambio de mes; el flujo mensual
+acotado no incorpora días ajenos. La carga simultánea de parsers nativos excedió
+el límite inicial del fixture; se verificaron los cuatro en secuencia aislada.
+
+Por autorización del usuario se registraron los cuatro diarios que estaban
+activos (Detalles, Tránsito, Talón y XMovimientos), se pidió Detener, se cerró
+ordenadamente y se reabrió una sola vez antes de documentar. Se pulsó Iniciar
+únicamente en esos cuatro. No se iniciaron consultas nuevas para probar; su
+reanudación real fue la solicitada por el usuario. El registro local está en
+`runtime/diagnostics/bots-activos-20261016.json` y `bots-reanudados-20261016.json`.
 
 Corrección del 16/10: Detalles no cargaba y mostraba «attempt to write a readonly
 database». El primer SELECT fallaba con `SQLITE_READONLY_ROLLBACK` (776), por un

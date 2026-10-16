@@ -298,7 +298,7 @@ class DetailsService:
             self.daily.month = month
             return {'daily': self.daily.snapshot()}
         if command == 'daily_run':
-            return self.daily.run()
+            return self.daily.run(bounded=request.get('bounded') is True)
         if command in {'retry_month','retry_day'}:
             from datetime import date
             import calendar

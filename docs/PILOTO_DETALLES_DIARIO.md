@@ -19,8 +19,9 @@ diaria real como prueba automática de esta entrega.
    También puede elegirse desde **Calendario**: pulsar el primer y último día
    (en cualquier orden) y **Usar rango**. Se permiten días anteriores a Desde
    y rangos entre meses usando las flechas. No se permiten fechas futuras.
-   **Hasta** limita la ejecución: se detiene al completar ese día. Dejar Hasta
-   vacío mantiene el ciclo continuo de las 00:01. Elegir un rango no inicia consultas.
+   El rango visible se actualiza al avanzar. Tras el rango elegido continúa con
+   los demás días disponibles y espera a las 00:01 de Costa Rica al ponerse al día.
+   Elegir un rango no inicia consultas; al reabrir basta pulsar Iniciar automático.
 3. Revisar Guardar en y Configuración. Pulsar **Iniciar automático**.
 4. Consultar **Calendario** y seleccionar un día para ver cantidades y errores.
 5. **Detener** o cerrar la app conserva bases, resultados y calendario.

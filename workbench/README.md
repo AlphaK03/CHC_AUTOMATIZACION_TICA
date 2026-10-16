@@ -54,6 +54,15 @@ automático y revisar Calendario. No requiere Excel y conserva Manual. En un
 equipo nuevo ejecutar `Instalar_Base_Diaria.bat`. [Uso y límites](../docs/PILOTO_DETALLES_DIARIO.md).
 `--daily` abre esa vista sin iniciar descargas.
 
+Al reabrir la app basta pulsar **Iniciar automático**: retoma el primer día por
+atender y omite los días completados o ya omitidos del automático. Desde, Hasta
+y la selección del Calendario muestran el rango que queda, sin perder el origen
+guardado ni los huecos intermedios. Un rango elegido sirve para retomar; al acabarlo
+continúa hasta el último día disponible y espera a las **00:01 de Costa Rica**.
+Cuando llega esa hora incorpora el nuevo día, incluso al cambiar de mes.
+La apertura de la app por sí sola no inicia consultas. Los reintentos explícitos
+de día/mes y el inicio conjunto por mes siguen limitados a su período.
+
 ## DUAs Tránsito operativo
 
 Seleccionar **DUAs Tránsito** en la barra lateral. Usa la misma interfaz, tablas,

@@ -82,8 +82,11 @@
   quedan pendientes. Regímenes vacíos confirmados no impiden formar la base;
   si todos están vacíos y confirmados, registrar el día igualmente.
 - El calendario permite elegir rangos pasados, incluso antes de Desde y entre
-  meses. Hasta vacío mantiene el ciclo continuo; un rango con Hasta se detiene
-  al completarse. No consultar pendientes de otros días de la tabla mensual:
+  meses. Por petición del 16/10, el diario normal continúa tras el rango elegido
+  hasta ponerse al día y espera a las 00:01 de Costa Rica; al reabrir basta Iniciar.
+  Mostrar el rango pendiente sin mover el origen persistido ni reabrir omitidos.
+  Solo el inicio conjunto por mes y los reintentos explícitos se mantienen acotados.
+  No consultar pendientes de otros días de la tabla mensual:
   conservar la selección diaria de DailyJobStore y el CSV mensual acumulado.
 - Aislar cada motor en su propio proceso: la GUI Qt no importa paquetes de bots.
   El backend de demo nunca realiza consultas reales. No anunciar demos como éxitos.

@@ -1,5 +1,12 @@
 # Bases propias y ejecución diaria de los bots
 
+Actualización del 16 de octubre: el diario normal de los cuatro bots DUA continúa
+después del rango elegido. Al reabrir basta Iniciar; Desde/Hasta y Calendario
+muestran el rango pendiente sin mover el origen persistente ni reabrir omitidos.
+Tras agotar los días disponibles espera a las 00:01 de Costa Rica e incorpora el
+nuevo día. El inicio conjunto por mes y los reintentos explícitos siguen acotados.
+Esta regla sustituye la parada por Hasta del piloto original.
+
 Actualización del 14 de octubre: los cuatro bots de DUA hacen hasta tres intentos
 automáticos por pendiente y mantienen ese límite al reiniciar. Después dejan el
 día **Omitido** y continúan; no lo reabren por sí solos. **Reintentar mes/día**

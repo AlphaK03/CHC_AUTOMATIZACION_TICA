@@ -22,8 +22,9 @@ base inicial mantienen sus SHA256. BLs es el único módulo que continúa en dem
 3. En Diario automático, elegir Desde y, opcionalmente, Hasta en Calendario.
    El propio bot obtiene la base, procesa cada día y acumula sus resultados en el mes.
 4. Elegir Guardar en, revisar Configuración y pulsar Iniciar. Los modos no arrancan
-   consultas al abrir la app. Un rango con Hasta termina; sin Hasta espera hasta
-   las 00:01 de Costa Rica cuando no quedan días pasados elegibles.
+   consultas al abrir la app. El rango avanza con el progreso: continúa después de
+   los días elegidos y espera hasta las 00:01 de Costa Rica cuando queda al día.
+   Al reabrir basta Iniciar; los días completados u omitidos no se repiten.
 5. Detener conserva los éxitos y pendientes. El visor de Base de datos permite
    seleccionar cada tributo o movimiento de un DUA, con su historial y evidencia.
 6. Resultados contiene solo el CSV final, dentro de la carpeta del nombre de tabla.

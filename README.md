@@ -9,6 +9,9 @@ para BLs. Una segunda apertura activa la misma ventana de la plataforma.
 Los cuatro bots DUA recuperan transacciones SQLite interrumpidas al arrancar,
 con respaldo previo y bloqueo exclusivo; abrir el panel conserva resultados,
 intentos y reservas sin iniciar consultas.
+En Diario automático basta pulsar Iniciar para retomar el primer día pendiente.
+El rango visible avanza con el progreso, continúa con los días disponibles y
+espera hasta las 00:01 de Costa Rica cuando queda al día.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.

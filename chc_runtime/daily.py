@@ -190,6 +190,7 @@ class DailyCoordinator:
         self.day = ''
         self.wake = ''
         self.month = now().strftime('%Y-%m')
+        self.bounded_end = None
 
     def start_date(self):
         return date.fromisoformat(self.service.machine.get('daily_start_date') or (self.now().date() - timedelta(days=1)).isoformat())
@@ -199,9 +200,18 @@ class DailyCoordinator:
         return date.fromisoformat(value) if value else None
 
     def snapshot(self):
+        now = self.now()
+        last = eligible_day(now)
+        if self.active and self.bounded_end:
+            last = min(last, self.bounded_end)
+        pending = self.ledger.next_day(self.start_date(), last)
+        # El rango mostrado avanza; el origen guardado sigue protegiendo huecos.
+        resume = pending or (self.bounded_end if self.active and self.bounded_end else max(self.start_date(), last + timedelta(days=1)))
         return {'active': self.active, 'phase': self.phase, 'day': self.day, 'wakeAt': self.wake,
                 'tableId': self.ledger.get(date.fromisoformat(self.day)).get('table_id', '') if self.day else '',
                 'startDate': self.start_date().isoformat(), 'endDate': self.service.machine.get('daily_end_date', ''), 'month': self.month,
+                'resumeDate': resume.isoformat(), 'resumeEndDate': max(resume, last).isoformat(),
+                'waitingForDay': pending is None and not self.bounded_end,
                 'monthLabel': f'{MONTHS[int(self.month[5:]) - 1].capitalize()} {self.month[:4]}',
                 'days': self.ledger.month(self.month, self.start_date(), self.now()),
                 'driverReady': (SOURCE / 'drivers' / 'msedgedriver.exe').is_file()}
@@ -401,9 +411,11 @@ class DailyCoordinator:
                   f'{day:%d/%m/%Y}: {confirmed} de {len(duas)} consultados.', refresh=True)
         return complete
 
-    def run(self, start=None, end=None, manual=False):
+    def run(self, start=None, end=None, manual=False, bounded=False):
         start = start or self.start_date()
-        end = end if manual else self.end_date()
+        # Diario normal continúa al ponerse al día. Mes y reintento explícitos
+        # conservan su alcance acotado y no inician días ajenos a esa acción.
+        end = end if manual else self.end_date() if bounded else None
         if start >= self.now().date():
             raise ValueError('La fecha inicial debe ser anterior a hoy.')
         if end and (end < start or end >= self.now().date()):
@@ -419,6 +431,7 @@ class DailyCoordinator:
             if not manual and (not self.service.machine.get('daily_start_date') or not self.service.machine.get('daily_mode')):
                 self.service.configure({'daily_start_date': start.isoformat(), 'daily_mode': True})
             self.active = True
+            self.bounded_end = end
             finished = False
             try:
                 while not self.service.stop_event.is_set():
@@ -449,6 +462,7 @@ class DailyCoordinator:
                 raise
             finally:
                 self.active = False
+                self.bounded_end = None
                 with self.ledger.connect(True) as db:
                     omitted=db.execute("SELECT count(*) FROM days WHERE state='omitted' AND day BETWEEN ? AND ?",(start.isoformat(),(end or eligible_day(self.now())).isoformat())).fetchone()[0]
                 self.emit('finished_with_pending' if finished and omitted else 'completed' if finished else 'stopped',

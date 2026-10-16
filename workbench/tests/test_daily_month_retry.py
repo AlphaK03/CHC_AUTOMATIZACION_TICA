@@ -46,7 +46,7 @@ class MonthRetryWorkerTests(unittest.TestCase):
                 bridge.connectModule();wait_until(lambda:bridge.ready and not bridge.busy)
                 call('configure',{'config':{'output_base_path':str(root/'out'),'cant_hilos':2,'timeout':5,'max_retries':1,
                                            'daily_mode':True,'daily_start_date':'2026-09-01','daily_end_date':'2026-09-02'}})
-                result=call('daily_run')
+                result=call('daily_run',{'bounded':True})
                 self.assertEqual(result['runStatus'],'pending')
                 before=jobs()
                 self.assertEqual([(r[0],r[1],r[2]) for r in before],[('001-2026-000001','succeeded',1),('001-2026-000002','succeeded',1),('001-2026-999997','retry',3)])
@@ -55,7 +55,7 @@ class MonthRetryWorkerTests(unittest.TestCase):
                 call('view',{'filter':'manual_pending'})
                 self.assertEqual([r['dua'] for r in bridge.rows],['001-2026-999997'])
                 self.assertTrue(bridge.rows[0]['autoOmitted'])
-                call('daily_run');self.assertEqual(jobs(),before)
+                call('daily_run',{'bounded':True});self.assertEqual(jobs(),before)
                 config=dict(bridge.config)
                 result=call('retry_month',{'month':'2026-09'})
                 self.assertEqual(result['runStatus'],'pending')
@@ -63,7 +63,7 @@ class MonthRetryWorkerTests(unittest.TestCase):
                 self.assertEqual(after[:2],before[:2])
                 self.assertEqual(after[-1][2],6)
                 self.assertEqual(bridge.config,config)
-                call('daily_run');self.assertEqual(jobs(),after)
+                call('daily_run',{'bounded':True});self.assertEqual(jobs(),after)
             finally:
                 bridge.shutdown();wait_until(lambda:bridge.isClosed,timeout=45000)
 

@@ -15,6 +15,8 @@ ScrollView {
     property string activeId: worker.activeTable.id || ""
     property bool configDirty: false
     property bool startAfterSave: false
+    property bool dailyStartEdited: false
+    property bool dailyEndEdited: false
     property bool dailyMode: worker.config.daily_mode === true
     property string confirmAction: ""
     property string confirmTable: ""
@@ -31,10 +33,16 @@ ScrollView {
     function toggleRow(key, checked) { let values = page.selectedIds.slice(); if(checked && values.indexOf(key)<0) values.push(key); if(!checked) values = values.filter(x => x !== key); page.selectedIds = values }
     function currentConfig() {
         let values = {cant_hilos:workerSpin.value, timeout:timeoutSpin.value, max_retries:retrySpin.value, headless:headlessToggle.checked, reuse_context:reuseToggle.checked, lightweight_details:lightToggle.checked, dark_mode:Theme.dark, daily_mode:page.dailyMode}
-        if(dailyStart.text.trim()) values.daily_start_date = dailyStart.text.trim()
-        values.daily_end_date = dailyEnd.text.trim()
+        const start = page.dailyStartEdited ? dailyStart.text.trim() : worker.config.daily_start_date || worker.daily.startDate || ""
+        if(start) values.daily_start_date = start
+        values.daily_end_date = page.dailyEndEdited ? dailyEnd.text.trim() : worker.config.daily_end_date || ""
         return values
     }
+    function syncDailyRange() {
+        if(!page.dailyStartEdited) dailyStart.text = worker.daily.resumeDate || worker.config.daily_start_date || worker.daily.startDate || ""
+        if(!page.dailyEndEdited) dailyEnd.text = worker.daily.resumeEndDate || worker.config.daily_end_date || ""
+    }
+    Component.onCompleted: page.syncDailyRange()
     function beginRun() { if(page.dailyMode) worker.startDaily(); else worker.startQueries() }
     function startQueries() { if(page.configDirty) { page.startAfterSave = true; worker.saveConfig(page.currentConfig()) } else page.beginRun() }
     function requestDelete(action) {
@@ -48,12 +56,13 @@ ScrollView {
     onActiveIdChanged: { page.selectedIds = []; rowSearch.text = ""; filterBox.currentIndex = 0 }
     Connections {
         target: worker
+        function onChanged() { page.syncDailyRange() }
         function onFilePrepared() { Qt.callLater(function() { importSheet.currentIndex = 0; importTableName.text = worker.fileInfo.sheets[0] || ""; importDialog.open() }) }
         function onImportPlanReady() { Qt.callLater(function() { importDialog.close(); importConfirm.open() }) }
         function onDetailReady() { Qt.callLater(function() { detailLine.currentIndex = 0; detailDialog.open() }) }
         function onEventReceived(event) {
             if(event.command === "configure" && event.event === "error") page.startAfterSave = false
-            if(event.command === "configure" && event.event === "result") page.configDirty = false
+            if(event.command === "configure" && event.event === "result") { page.configDirty = false; page.dailyStartEdited = false; page.dailyEndEdited = false; page.syncDailyRange() }
             if(event.event === "idle" && page.startAfterSave && !event.readonly) { page.startAfterSave = false; Qt.callLater(function() { page.beginRun() }) }
         }
     }
@@ -87,9 +96,9 @@ ScrollView {
                     RowLayout {
                         visible: page.dailyMode; Layout.fillWidth: true; spacing: 12
                         Text { text: "Desde:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; Layout.preferredWidth: 61 }
-                        Field { id: dailyStart; objectName: "detailsDailyStart"; Layout.preferredWidth: 170; text: worker.config.daily_start_date || worker.daily.startDate || ""; placeholderText: "AAAA-MM-DD"; enabled: worker.ready && !worker.busy; onTextEdited: page.configDirty = true }
+                        Field { id: dailyStart; objectName: "detailsDailyStart"; Layout.preferredWidth: 170; placeholderText: "AAAA-MM-DD"; enabled: worker.ready && !worker.busy; onTextEdited: { page.dailyStartEdited = true; page.configDirty = true } }
                         Text { text: "Hasta:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
-                        Field { id: dailyEnd; objectName: "detailsDailyEnd"; Layout.preferredWidth: 140; text: worker.config.daily_end_date || ""; placeholderText: "Continuo"; enabled: worker.ready && !worker.busy; onTextEdited: page.configDirty = true }
+                        Field { id: dailyEnd; objectName: "detailsDailyEnd"; Layout.preferredWidth: 140; placeholderText: "Continuo"; enabled: worker.ready && !worker.busy; onTextEdited: { page.dailyEndEdited = true; page.configDirty = true } }
                         Item { Layout.fillWidth: true }
                         ActionButton { objectName: "detailsCalendarButton"; text: "Calendario"; enabled: worker.ready; onClicked: { worker.loadCalendar(dailyStart.text.trim().slice(0,7) || worker.daily.month); calendarDialog.open() } }
                     }
@@ -163,7 +172,7 @@ ScrollView {
                     }
                 }
             }
-            Text { text: !worker.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? worker.dailyActive ? worker.status : dailyEnd.text.trim() ? "Se detiene al completar el rango elegido." : "Al terminar espera hasta las 00:01. Detener conserva el progreso." : !page.activeId ? "Elige un Excel o una tabla para empezar." : worker.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: worker.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
+            Text { text: !worker.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? worker.dailyActive ? worker.status : worker.daily.waitingForDay && !page.dailyStartEdited && !page.dailyEndEdited ? "Al día. Al iniciar esperará hasta las 00:01 de Costa Rica." : "Retoma los días pendientes y continúa cada día a las 00:01." : !page.activeId ? "Elige un Excel o una tabla para empezar." : worker.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: worker.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 ActionButton { text: "Resultados"; iconName: "folder"; enabled: worker.outputFolder !== ""; onClicked: worker.openOutput() }
@@ -326,7 +335,7 @@ ScrollView {
     DailyCalendar {
         id: calendarDialog; moduleBridge: page.worker; anchors.centerIn: parent; width: Math.min(530,page.width - 20)
         initialStart: dailyStart.text.trim(); initialEnd: dailyEnd.text.trim()
-        onRangeSelected: function(start, end) { dailyStart.text = start; dailyEnd.text = end; page.dailyMode = true; page.configDirty = true }
+        onRangeSelected: function(start, end) { page.dailyStartEdited = true; page.dailyEndEdited = true; dailyStart.text = start; dailyEnd.text = end; page.dailyMode = true; page.configDirty = true }
     }
 
     Dialog {

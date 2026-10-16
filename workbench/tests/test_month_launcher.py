@@ -83,6 +83,7 @@ class MonthLauncherTests(unittest.TestCase):
         APP.processEvents();self.assertEqual(len(details.requests),1)
         details.acknowledge();wait_until(lambda:len(details.requests)==2)
         self.assertEqual(details.requests[1]['command'],'daily_run')
+        self.assertTrue(details.requests[1]['bounded'])
         launcher.cancel()
 
     def test_busy_bot_keeps_configuration_and_failure_does_not_start_it(self):

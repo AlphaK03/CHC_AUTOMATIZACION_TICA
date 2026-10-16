@@ -18,11 +18,15 @@ Dialog {
     property string rangeStart: ""
     property string rangeEnd: ""
     property bool choosingEnd: false
+    property bool rangeEdited: false
+    onInitialStartChanged: { if(!rangeEdited) rangeStart = initialStart }
+    onInitialEndChanged: { if(!rangeEdited) rangeEnd = initialEnd }
     signal rangeSelected(string start, string end)
-    onOpened: { rangeStart = initialStart; rangeEnd = initialEnd; choosingEnd = false }
+    onOpened: { rangeStart = initialStart; rangeEnd = initialEnd; choosingEnd = false; rangeEdited = false }
     function chooseDay(item) {
         selectedDay = item
         if(worker.busy || !item.available) return
+        rangeEdited = true
         if(!choosingEnd) { rangeStart = item.date; rangeEnd = ""; choosingEnd = true }
         else {
             const first = rangeStart
@@ -50,6 +54,7 @@ Dialog {
     Connections {
         target: worker
         function onChanged() {
+            if(!calendarDialog.rangeEdited) { calendarDialog.rangeStart = calendarDialog.initialStart; calendarDialog.rangeEnd = calendarDialog.initialEnd }
             if(calendarDialog.selectedDay.date) {
                 for(let item of worker.daily.days) if(item.date === calendarDialog.selectedDay.date) { calendarDialog.selectedDay = item; break }
             }

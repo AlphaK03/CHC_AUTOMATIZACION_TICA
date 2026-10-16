@@ -12,7 +12,8 @@ estructura y experiencia de Detalles. Se utiliza exclusivamente el código de
    de tabla. La importación guarda DUAs en SQLite y no consulta el portal.
 3. En **Diario automático**, elegir Desde y, opcionalmente, Hasta en Calendario.
    Descarga solo TRANSITO del día, procesa sus DUAs y continúa por orden de fecha.
-   Un rango termina al completar Hasta; sin Hasta espera hasta las 00:01 de Costa Rica.
+   El rango avanza con el progreso; tras los días elegidos continúa con los
+   disponibles y espera hasta las 00:01 de Costa Rica al ponerse al día.
 4. Elegir la carpeta de resultados, revisar Configuración y pulsar Iniciar.
 5. Detener o cerrar conserva resultados, intentos, bases y calendario. Para
    continuar, abrir la tabla o iniciar de nuevo el ciclo diario.
