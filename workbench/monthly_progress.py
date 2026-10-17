@@ -326,8 +326,10 @@ class MonthlyReader:
         if status=='completed' and not manual and not calendar_complete:detail='Mes completo verificado para las modalidades seleccionadas.\n'+detail
         if status=='up_to_date':detail='Descargas terminadas hasta '+self.cutoff.isoformat()+'. El mes sigue abierto.\n'+detail
         label='Completado manual' if manual or (calendar_complete and status=='completed') else 'Al día (manual)' if calendar_complete else LABELS[status]
+        display_days=self.required_days(key) if manual else set.intersection(*groups.values()) if module=='manifiestos' and groups else accepted_days
         return dict(module=module,status=status,label=label,detail=detail,manual=manual,
-                    manualDays=len(manual_days),verifiedDays=len(accepted_days-manual_days),coveredDays=len(accepted_days))
+                    manualDays=len(manual_days),verifiedDays=len(accepted_days-manual_days),coveredDays=len(accepted_days),
+                    displayDays=len(display_days),displayDates=sorted(display_days))
 
     def fingerprint(self,key,target):
         module,_,flow=target.partition(':')
@@ -369,8 +371,10 @@ class MonthlyReader:
             current=sum(c['status'] in ('completed','up_to_date') for c in flows)
             status='completed' if completed==5 else 'up_to_date' if current==5 else 'running' if any(c['status']=='running' for c in flows) else 'partial' if any(c['status']!='missing' for c in flows) else 'missing'
             cells.append(dict(module='manifiestos',status=status,label=f'{completed}/5 completos' if completed else LABELS[status],
+                displayDays=len(set.intersection(*(set(c['displayDates']) for c in flows))),
                 detail='\n\n'.join(label+': '+cell['label']+'\n'+cell['detail'] for (_,label),cell in zip(FLOWS,flows))))
             year,month=map(int,key.split('-'))
             rows.append(dict(period=key,label=MONTHS[month-1].capitalize()+' '+str(year),cells=cells,
+                             daysInMonth=len(month_days(key)),
                              completed=sum(c['status']=='completed' for c in cells),upToDate=sum(c['status']=='up_to_date' for c in cells),procedures=flows))
         return dict(rows=rows,errors=len(self.errors))

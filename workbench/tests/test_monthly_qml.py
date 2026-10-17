@@ -62,6 +62,7 @@ class MonthlyQMLTests(unittest.TestCase):
                 wait_until(lambda:not monthly.busy and backend.monthlyRows[0]['cells'][0]['status']=='completed')
                 cell=backend.monthlyRows[0]['cells'][0]
                 self.assertEqual((cell['label'],cell['manualDays'],cell['coveredDays']),('Completado manual',1,30))
+                self.assertEqual(cell['displayDays'],30)
                 self.assertTrue(send.called)
                 self.assertTrue(all(call.args==('status',) for call in send.call_args_list))
                 backend.navigate('overview');APP.processEvents()
@@ -130,11 +131,25 @@ class MonthlyQMLTests(unittest.TestCase):
             reader.add('2026-09','talon','','septiembre26',1000,650,scope='650 / 1,000 DUAs confirmados')
             reader.add('2026-09','bls','','BLs septiembre',2500,1400,running=2,scope='1,400 / 2,500 BL confirmados')
             reader.add('2026-09','manifiestos','conocimientos','Conocimientos',500,500,days=month_days('2026-09'),scope='Marítimo · 500 / 500 confirmados')
-            reader.add('2026-10','detalles','','octubre26',350,350,scope='350 / 350 DUAs confirmados · 12 / 31 días verificados',status='partial')
+            reader.add('2026-10','detalles','','octubre26',350,350,days={f'2026-10-{day:02d}' for day in range(1,17)},scope='350 / 350 DUAs confirmados · 16 / 31 días verificados',status='partial')
             monthly.rows=reader.read()['rows'];monthly.changed.emit()
             log.setProperty('expandedMonth','2026-09')
             for width in (1000,1280):
                 window.setWidth(width);APP.processEvents()
+            # Repeater expone sus delegados por el árbol visual.
+            from PySide6.QtQml import QQmlExpression
+            engine.rootContext().setContextProperty('testLog',log)
+            expression=QQmlExpression(engine.rootContext(),log,'''
+                function find(item) {
+                    if(item.objectName === "monthlyDays_2026-10_detalles") return item;
+                    for(let child of (item.children || [])) { let found=find(child); if(found) return found; }
+                    return null;
+                }
+                const counter=find(testLog);
+                counter.text + "|" + counter.color + "|" + counter.font.pixelSize
+            ''')
+            self.assertEqual(expression.evaluate()[0],'16/31|#ffffff|22')
+            self.assertFalse(expression.hasError(),expression.error().toString())
             capture=os.environ.get('CHC_MONTHLY_CAPTURE')
             if capture:
                 path=Path(capture);path.parent.mkdir(parents=True,exist_ok=True)

@@ -6,6 +6,10 @@
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Vista general: cada bot de la bitácora muestra el conteo **16/31**, solo números,
+  blanco y negrita a 22 px, junto al nombre. Incluye aceptación manual; en
+  Manifiestos cuenta fechas comunes a los cinco procedimientos y sus modalidades.
+  El tema claro añade fondo oscuro al número para conservar el contraste.
 - Calendario de los cuatro DUA: **Marcar completado** / **Quitar marca manual**
   permite poner un día en verde bajo criterio del usuario, incluso con consultas
   activas. Persistencia por bot en `data/daily/manual_completed_days.json`,
@@ -62,6 +66,17 @@ Los apartados siguientes son el historial de las entregas y pueden describir
 reglas anteriores; este resumen y las guías vigentes tienen prioridad.
 
 ## Historial de implementación
+
+Conteo visible de días añadido el 17/10 por petición del usuario: solo números,
+medianos/grandes y blancos. `MonthlyLog.qml` muestra `displayDays/daysInMonth`
+junto al nombre de cada bot. `MonthlyReader` expone esos datos de presentación
+desde la cobertura ya calculada; para cierres mensuales manuales cuenta los días
+disponibles aceptados y para Manifiestos intersecta fechas entre modalidades y
+procedimientos. No cambia estados, recuperación, reintentos ni habilitación cloud.
+Dos comprobaciones Qt offline pasaron, con 16/31 y mes de 30 días, marca manual,
+actualización, dos anchos y temas claro/oscuro. Capturas aisladas verificadas antes
+de documentar en `runtime/diagnostics/bitacora-contador-dias-20261017*.png`.
+Se conservó la app abierta y sus consultas; disponible al próximo arranque.
 
 Aceptación manual global ampliada el 17/10 por instrucción expresa del usuario,
 que sustituye la limitación visual de `04c3c0d` y la restricción anterior de

@@ -49,14 +49,28 @@ ColumnLayout {
                         id: cell
                         required property var modelData
                         Layout.fillWidth: true
-                        implicitHeight: 64
+                        implicitHeight: 80
                         radius: 7
                         color: hover.hovered ? Theme.hover : Theme.surface
                         border.color: Theme.border
                         property color stateColor: ["completed","up_to_date"].indexOf(modelData.status)>=0 ? Theme.success : modelData.status === "missing" ? Theme.faint : Theme.accent
                         ColumnLayout {
                             anchors.fill: parent; anchors.margins: 10; spacing: 6
-                            Text { text: ({detalles:"Detalles",duas_transito:"Tránsito",talon:"Talón",xmovimientos:"XMovimientos",bls:"BLs",manifiestos:"Manifiestos"})[cell.modelData.module]; color: Theme.text; font.family: Theme.family; font.pixelSize: 11; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideRight }
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 4
+                                Text { text: ({detalles:"Detalles",duas_transito:"Tránsito",talon:"Talón",xmovimientos:"XMovimientos",bls:"BLs",manifiestos:"Manifiestos"})[cell.modelData.module]; color: Theme.text; font.family: Theme.family; font.pixelSize: 11; font.weight: Font.DemiBold; Layout.fillWidth: true; elide: Text.ElideRight }
+                                Rectangle {
+                                    implicitWidth: dayCount.implicitWidth + 8; implicitHeight: dayCount.implicitHeight + 4
+                                    radius: 4; color: Theme.dark ? "transparent" : "#334155"
+                                    Text {
+                                        id: dayCount
+                                        objectName: "monthlyDays_" + month.modelData.period + "_" + cell.modelData.module
+                                        anchors.centerIn: parent
+                                        text: (cell.modelData.displayDays || 0) + "/" + month.modelData.daysInMonth
+                                        color: "#ffffff"; font.family: Theme.family; font.pixelSize: 22; font.weight: Font.Bold
+                                    }
+                                }
+                            }
                             RowLayout {
                                 Rectangle { width: 5; height: 5; radius: 3; color: cell.stateColor }
                                 Text { text: cell.modelData.label; color: cell.stateColor; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }

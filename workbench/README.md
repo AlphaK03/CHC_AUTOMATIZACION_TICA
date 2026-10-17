@@ -198,7 +198,12 @@ y [vista clara](../docs/preview/inicio-mensual-claro.png).
 
 **Vista general → Bitácora de descargas** reúne los meses identificados en el
 historial real, del más reciente al más antiguo. Cada mes muestra Detalles,
-Tránsito, Talón, XMovimientos, BLs y Manifiestos. **Completado** acredita cobertura
+Tránsito, Talón, XMovimientos, BLs y Manifiestos. Junto al nombre de cada bot se
+muestra **16/31**, solo números, en blanco y negrita de tamaño mediano: días
+completos respecto a los días del mes, incluidos los aceptados manualmente.
+En Manifiestos se cuentan las fechas cubiertas por los cinco procedimientos y
+las modalidades de cada uno; no se suman rangos distintos como días comunes.
+**Completado** acredita cobertura
 mensual y resultados según la política de cada bot. En la comprobación automática,
 Detalles exige todos sus DUAs guardados. Los demás admiten omitidos fuera del resultado final; sus pendientes
 se conservan y pueden reintentarse. Vacíos verificados de XMovimientos cuentan aparte.

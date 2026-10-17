@@ -21,6 +21,7 @@ en Vista general para completar el mes y habilitar **Subir a SharePoint**, con
 conteos separados de días verificados y manuales; no modifica resultados.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
+Cada bot muestra el conteo de días como **16/31**, en blanco y negrita.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.
 La comprobación automática de Detalles exige todos los DUAs descargados; los otros
 bots admiten omitidos fuera del resultado final. Todos aceptan cierre manual con
