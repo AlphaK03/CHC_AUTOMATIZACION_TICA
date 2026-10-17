@@ -85,16 +85,18 @@ Dialog {
                 Button {
                     id: dayButton
                     required property var modelData
+                    property bool completed: modelData.state === "completed" || modelData.manualCompleted === true
+                    objectName: "calendarDay" + (modelData.date || "Blank")
                     Layout.fillWidth: true; Layout.preferredHeight: 43
                     enabled: !!modelData.day && modelData.available === true
                     opacity: !modelData.day || modelData.available === true ? 1 : .35
                     text: modelData.day ? String(modelData.day) : ""
                     background: Rectangle {
                         radius: 7
-                        color: !dayButton.modelData.day ? "transparent" : calendarDialog.inRange(dayButton.modelData.date) ? Theme.accentTint : dayButton.modelData.state === "completed" ? Qt.alpha(Theme.success,.18) : ["downloading", "processing", "omitted"].indexOf(dayButton.modelData.state) >= 0 ? Theme.accentTint : Theme.raised
-                        border.color: calendarDialog.inRange(dayButton.modelData.date) ? Theme.accent : dayButton.modelData.state === "completed" ? Theme.success : calendarDialog.selectedDay.date === dayButton.modelData.date ? Theme.accent : "transparent"
+                        color: !dayButton.modelData.day ? "transparent" : dayButton.completed ? Qt.alpha(Theme.success,.18) : calendarDialog.inRange(dayButton.modelData.date) ? Theme.accentTint : ["downloading", "processing", "omitted"].indexOf(dayButton.modelData.state) >= 0 ? Theme.accentTint : Theme.raised
+                        border.color: calendarDialog.inRange(dayButton.modelData.date) ? Theme.accent : dayButton.completed ? Theme.success : calendarDialog.selectedDay.date === dayButton.modelData.date ? Theme.accent : "transparent"
                     }
-                    contentItem: Text { text: dayButton.text; color: dayButton.modelData.state === "completed" ? Theme.success : Theme.text; font.family: Theme.family; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    contentItem: Text { text: dayButton.text; color: dayButton.completed ? Theme.success : Theme.text; font.family: Theme.family; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                     onClicked: calendarDialog.chooseDay(modelData)
                 }
             }
@@ -111,9 +113,18 @@ Dialog {
             ActionButton { objectName:"retryCalendarDay"; text:"Reintentar día"; enabled:worker.ready && !worker.busy && !!calendarDialog.selectedDay.date && calendarDialog.selectedDay.available; onClicked:worker.retryDay(calendarDialog.selectedDay.date) }
             ActionButton { objectName:"retryCalendarMonth"; text:"Reintentar mes"; enabled:worker.ready && !worker.busy; onClicked:worker.retryMonth(worker.daily.month) }
         }
+        ActionButton {
+            objectName: "markCalendarDay"
+            text: calendarDialog.selectedDay.manualCompleted ? "Quitar marca manual" : "Marcar completado"
+            enabled: worker.enabled && worker.ready && !worker.closing && !!calendarDialog.selectedDay.date && calendarDialog.selectedDay.available === true
+            onClicked: worker.markCalendarDay(calendarDialog.selectedDay.date, !calendarDialog.selectedDay.manualCompleted)
+            ToolTip.visible: hovered
+            ToolTip.text: "Solo cambia el calendario. Los pendientes se conservan para reintento."
+        }
         Text {
+            objectName: "calendarDaySummary"
             Layout.fillWidth: true; wrapMode: Text.WordWrap
-            text: calendarDialog.selectedDay.date ? calendarDialog.selectedDay.date + " · " + ({completed:"Completado",downloading:"Descargando base",processing:"Procesando",pending:"Pendiente",omitted:"Omitido: pendientes para revisión manual",future:"Todavía no disponible",outside:"Sin ejecutar"})[calendarDialog.selectedDay.state] + (calendarDialog.selectedDay.total ? " · " + calendarDialog.selectedDay.succeeded + " / " + calendarDialog.selectedDay.total + " guardados" + (calendarDialog.selectedDay.empty ? " · " + calendarDialog.selectedDay.empty + " vacíos" : "") : "") + (calendarDialog.selectedDay.error ? "\n" + calendarDialog.selectedDay.error : "") : "Elige el primer y último día del rango."
+            text: calendarDialog.selectedDay.date ? calendarDialog.selectedDay.date + " · " + (calendarDialog.selectedDay.manualCompleted ? "Completado manual · Estado del bot: " : "") + ({completed:"Completado",downloading:"Descargando base",processing:"Procesando",pending:"Pendiente",omitted:"Omitido: pendientes para revisión manual",future:"Todavía no disponible",outside:"Sin ejecutar"})[calendarDialog.selectedDay.state] + (calendarDialog.selectedDay.total ? " · " + calendarDialog.selectedDay.succeeded + " / " + calendarDialog.selectedDay.total + " guardados" + (calendarDialog.selectedDay.empty ? " · " + calendarDialog.selectedDay.empty + " vacíos" : "") : "") + (calendarDialog.selectedDay.error ? "\n" + calendarDialog.selectedDay.error : "") : "Elige el primer y último día del rango."
             color: Theme.muted; font.family: Theme.family; font.pixelSize: 11
         }
     }

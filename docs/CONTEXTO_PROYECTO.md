@@ -1,11 +1,18 @@
 # Contexto de CHC Workbench para una nueva sesión
 
-## Estado vigente — 16 de octubre de 2026
+## Estado vigente — 17 de octubre de 2026
 
 - Seis módulos operativos: Detalles, DUAs Tránsito, Talón, XMovimientos, BLs y
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Calendario de los cuatro DUA: **Marcar completado** / **Quitar marca manual**
+  permite poner un día en verde bajo criterio del usuario, incluso con consultas
+  activas. Persistencia visual por bot en `data/daily/manual_completed_days.json`,
+  independiente de SQLite y del estado real. Los pendientes siguen entrando en
+  **Reintentar mes/día** aunque el día esté verde; avance diario, bitácora mensual
+  y habilitación de SharePoint conservan sus reglas. La app activa se mantuvo
+  abierta; este cambio se carga en el próximo arranque.
 - Contención en lecturas de la lista corregida el 16/10: un `view` en segundo
   plano con SQLITE_BUSY/LOCKED se difiere al próximo refresco, sin declarar fallo
   del motor. Qt conserva filas/offset, ejecución y estado; un error real del motor
@@ -51,6 +58,27 @@ Los apartados siguientes son el historial de las entregas y pueden describir
 reglas anteriores; este resumen y las guías vigentes tienen prioridad.
 
 ## Historial de implementación
+
+Marca manual diaria añadida el 17/10 por petición del usuario tras revisar Talón:
+solo el 04/10 tenía todos sus DUAs guardados; los demás días atendidos conservaban
+pendientes sin filas de tributos o con timeout. El usuario pidió poder marcar
+un día en verde sin impedir que Reintentar mes consulte esos pendientes.
+
+`workbench/daily_marks.py` guarda las decisiones visuales por bot con reemplazo
+atómico. `DetailsBridge.daily` agrega `manualCompleted` sin modificar la respuesta
+del worker, sus contadores ni sus órdenes; el botón no requiere detener consultas.
+`DailyCalendar.qml` muestra el verde y «Completado manual» conservando estado real,
+cantidades y error; permite quitar la marca. No se cambiaron coordinador, motores,
+esquemas SQLite, CSV, cobertura, bitácora mensual ni fuentes copiadas.
+
+Siete pruebas offline pasaron: cuatro nuevas de persistencia, separación por bot,
+fallos de escritura/lectura, marca durante ejecución y acciones QML; dos existentes
+de rangos/configuración QML; y el ciclo real del worker Talón con fixture local,
+ampliado para marcar un omitido, reintentar el mes y reabrir. Los guardados y sus
+intentos permanecen idénticos; solo los pendientes reciben nuevas oportunidades.
+Captura aislada `runtime/diagnostics/calendario-completado-manual-20261017.png`.
+Se verificó QML antes de documentar y se conservaron los mismos procesos activos
+de la app y Talón, sin reinicios ni consultas nuevas a TICA como prueba.
 
 Revisión de «database is locked» en Detalles el 16/10, tras el cambio de continuidad.
 El traceback de las 13:00:29 corresponde a `view` → `catalog.read_rows` al leer

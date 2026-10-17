@@ -360,6 +360,20 @@ tabla seleccionada; el del calendario usa el mes mostrado. El mes actual llega
 hasta ayer. Esta política aplica al modo diario; la configuración de rondas del
 modo Manual permanece independiente.
 
+Para dar un día por revisado bajo tu criterio, seleccionarlo en **Calendario** y
+pulsar **Marcar completado**. Aparece en verde como **Completado manual**, junto
+al estado del bot y las cantidades reales. **Quitar marca manual** devuelve su
+color automático. Disponible para Detalles, Tránsito, Talón y XMovimientos,
+incluso mientras otro día se está procesando; cada bot conserva sus propias marcas.
+
+La marca persiste al reabrir y después de los reintentos. Es únicamente visual:
+no cambia los pendientes, resultados, intentos, bases ni la selección del diario.
+**Reintentar mes/día** vuelve a consultar los pendientes aunque el día esté verde;
+el diario normal conserva su avance y la bitácora mensual conserva sus reglas.
+Las marcas se guardan en `bots/<id>/data/daily/manual_completed_days.json`, mediante
+reemplazo atómico, fuera de las bases SQLite del motor. No representan cobertura
+confirmada ni habilitan subidas a SharePoint.
+
 ## Cuenta y SharePoint
 
 La barra lateral ofrece **Cuenta y SharePoint**: conexión opcional con CHC,

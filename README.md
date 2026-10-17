@@ -14,6 +14,10 @@ El rango visible avanza con el progreso, continúa con los días disponibles y
 espera hasta las 00:01 de Costa Rica cuando queda al día.
 Si una actualización de la lista coincide con un guardado y SQLite está ocupada,
 conserva la vista y vuelve a leerla sin marcar la descarga como fallida.
+En el calendario de los cuatro bots DUA, **Marcar completado** pone un día en
+verde como **Completado manual**. La marca es reversible y se conserva al reabrir;
+**Reintentar día/mes** sigue consultando sus pendientes. Solo cambia el calendario,
+sin modificar resultados ni la comprobación de la bitácora mensual.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.

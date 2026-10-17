@@ -9,6 +9,7 @@ from remaining_time import RemainingTime
 from process_guard import ProcessTreeGuard
 from activity_model import ActivityModel
 from manual_review import ManualReview
+from daily_marks import DailyMarks
 
 ROOT = Path(__file__).resolve().parents[1]
 BOT = ROOT / 'bots' / 'detalles'
@@ -35,6 +36,7 @@ class DetailsBridge(QObject):
         self._bot = ROOT / 'bots' / module_id
         self._enabled = enabled
         self._storage_root = str(storage_root or self._bot)
+        self._day_marks = DailyMarks(self._storage_root)
         self._offline_fixture = offline_fixture
         self._review = ManualReview(module_id, self._storage_root, offline_fixture, self)
         self._review.toast.connect(self.toast.emit)
@@ -104,7 +106,10 @@ class DetailsBridge(QObject):
     @Property(bool, notify=changed)
     def dailyActive(self): return self._daily_active
     @Property('QVariantMap', notify=changed)
-    def daily(self): return self._daily
+    def daily(self):
+        return {**self._daily, 'days': [
+            {**day, 'manualCompleted': day.get('date') in self._day_marks.values}
+            for day in self._daily['days']]}
     @Property(str, notify=remainingTimeChanged)
     def remainingTime(self): return self._remaining_text
     @Property(bool, notify=changed)
@@ -395,6 +400,21 @@ class DetailsBridge(QObject):
     def retryMonth(self, month): self._send('retry_month', {'month':month})
     @Slot(str)
     def retryDay(self, day): self._send('retry_day', {'day':day})
+    @Slot(str, bool)
+    def markCalendarDay(self, day, completed):
+        if not self._enabled or not self._ready or self._closing:
+            return
+        selected = next((item for item in self._daily['days'] if item.get('date') == day), {})
+        if not selected.get('available'):
+            self.toast.emit('Elige un día disponible del calendario.')
+            return
+        try:
+            self._day_marks.set_completed(day, completed)
+        except (OSError, ValueError) as error:
+            self.toast.emit(f'No se pudo guardar la marca del día: {error}')
+            return
+        self.changed.emit()
+        self.toast.emit('Día marcado como completado manual.' if completed else 'Marca manual quitada.')
     @Slot(str)
     def loadCalendar(self, month): self._send('daily_calendar', {'month': month})
     @Slot()
