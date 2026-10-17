@@ -143,6 +143,10 @@ class SharePointBridge(QObject):
     @Slot()
     def refresh(self): self.send('status')
     @Slot()
+    def refreshMonthlyStatus(self):
+        if self.connected and not self.busy and not self._closing:
+            self.refresh()
+    @Slot()
     def connectAccount(self): self.send('connect')
     @Slot()
     def disconnectAccount(self): self.send('disconnect')

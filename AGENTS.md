@@ -104,12 +104,17 @@
 - Bitácora de Vista general: `workbench/monthly_progress.py` lee únicamente
   catálogos, calendarios y lotes existentes; `monthly_bridge.py` lo ejecuta fuera
   de Qt. No importar motores, iniciar descargas ni escribir en el progreso.
-  Detalles requiere todos los DUAs confirmados. Los demás admiten omitidos fuera
+  La comprobación automática de Detalles requiere todos los DUAs confirmados. Los demás admiten omitidos fuera
   del resultado final sin borrar sus pendientes; días omitidos/base omitida y
   excepciones de lotes finalizados cuentan aparte. Mes actual puede estar «Al día»
   hasta la última fecha consultable (00:01 Costa Rica). Cierre manual por bot/
   procedimiento en metadatos separados; reversible, invalida al cambiar datos o
-  intentos y nunca permite saltar DUAs pendientes en Detalles. La comprobación
+  intentos. Por petición del 17/10, todos los bots, incluido Detalles, admiten
+  cierre manual con pendientes conservados para reintento. Las marcas de día en
+  `data/daily/manual_completed_days.json` cuentan para cobertura mensual y SharePoint;
+  distinguir días verificados de manuales y conservar las marcas tras reintentos.
+  No cambiar estados del motor ni sus selecciones; BLs/Manifiestos usan cierre mensual.
+  La comprobación
   automática sigue exigiendo cobertura del período disponible;
   el nombre mensual de un archivo no prueba cobertura. Separar meses de BLs por
   payload y modalidades de Manifiestos; no sumar rangos entre modalidades.

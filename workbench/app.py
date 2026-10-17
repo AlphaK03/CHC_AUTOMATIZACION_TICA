@@ -77,6 +77,7 @@ def main():
                             if not (args.demo or args.smoke_test) else {})
     backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls, monthly)
     cloud = SharePointBridge(enabled=not (args.demo or args.smoke_test or args.capture))
+    monthly.changed.connect(lambda: cloud.refreshMonthlyStatus() if not monthly.busy else None)
     cloud.toast.connect(backend.toast.emit)
     if cloud.storage.joinpath('destinations.json').exists() and cloud.enabled:
         cloud.refresh()

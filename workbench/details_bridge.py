@@ -18,6 +18,7 @@ EMPTY = {key: 0 for key in ('pending', 'running', 'retry', 'succeeded', 'invalid
 
 class DetailsBridge(QObject):
     changed = Signal()
+    calendarMarksChanged = Signal()
     remainingTimeChanged = Signal()
     toast = Signal(str)
     filePrepared = Signal()
@@ -414,6 +415,7 @@ class DetailsBridge(QObject):
             self.toast.emit(f'No se pudo guardar la marca del día: {error}')
             return
         self.changed.emit()
+        self.calendarMarksChanged.emit()
         self.toast.emit('Día marcado como completado manual.' if completed else 'Marca manual quitada.')
     @Slot(str)
     def loadCalendar(self, month): self._send('daily_calendar', {'month': month})

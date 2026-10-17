@@ -8,10 +8,11 @@
   visible en TICA sin cambiar el estado de una descarga.
 - Calendario de los cuatro DUA: **Marcar completado** / **Quitar marca manual**
   permite poner un día en verde bajo criterio del usuario, incluso con consultas
-  activas. Persistencia visual por bot en `data/daily/manual_completed_days.json`,
-  independiente de SQLite y del estado real. Los pendientes siguen entrando en
-  **Reintentar mes/día** aunque el día esté verde; avance diario, bitácora mensual
-  y habilitación de SharePoint conservan sus reglas. La app activa se mantuvo
+  activas. Persistencia por bot en `data/daily/manual_completed_days.json`,
+  independiente de SQLite y del estado real. Las marcas cuentan para completar
+  el mes en Vista general y habilitar SharePoint, con días verificados y manuales
+  separados. Los pendientes siguen entrando en **Reintentar mes/día** aunque el
+  día esté verde; las marcas se conservan al reintentar. La app activa se mantuvo
   abierta; este cambio se carga en el próximo arranque.
 - Contención en lecturas de la lista corregida el 16/10: un `view` en segundo
   plano con SQLITE_BUSY/LOCKED se difiere al próximo refresco, sin declarar fallo
@@ -31,10 +32,13 @@
   Desde/Hasta y Calendario avanzan sin cambiar el origen persistido. Continúa tras
   el rango elegido hasta ayer y espera a las 00:01 de Costa Rica. La app no inicia
   consultas al abrir. Inicio conjunto por mes y reintentos explícitos acotados.
-- Bitácora: Detalles exige todos los DUAs guardados; los demás admiten omitidos
+- Bitácora: la comprobación automática de Detalles exige todos los DUAs guardados; los demás admiten omitidos
   fuera del resultado final. **Al día** cubre hasta la última fecha consultable.
   **Cierre manual…** es reversible, no altera SQLite y se invalida al cambiar
-  datos/intentos. No puede omitir DUAs pendientes en Detalles.
+  datos/intentos. Por petición del 17/10, el cierre manual acepta pendientes en
+  todos los bots, incluido Detalles. BLs y los cinco procedimientos de Manifiestos
+  usan este cierre mensual; los cuatro DUA también aceptan las marcas diarias.
+  Estas últimas no caducan con nuevos intentos y no modifican el motor.
 - SharePoint opcional mediante OAuth2/PKCE y el registro CHC REPORTES existente.
   Una carpeta madre local y una online; solo CSV públicos, nombres en mayúsculas
   y subcarpetas por bot/procedimiento y mes. BLs separa mes/modo reales.
@@ -58,6 +62,35 @@ Los apartados siguientes son el historial de las entregas y pueden describir
 reglas anteriores; este resumen y las guías vigentes tienen prioridad.
 
 ## Historial de implementación
+
+Aceptación manual global ampliada el 17/10 por instrucción expresa del usuario,
+que sustituye la limitación visual de `04c3c0d` y la restricción anterior de
+Detalles para cierres manuales. Marcar un día en el calendario ahora cuenta para
+completar el mes del bot en Vista general y habilitar su CSV para SharePoint,
+conservando sus pendientes y el comportamiento del reintento explícito.
+
+`MonthlyReader` lee las marcas de los cuatro DUA sin importar motores ni escribir
+SQLite. Cuenta las excepciones solo en los días aceptados y distingue cobertura
+verificada/manual; también reconoce días aceptados sin base, sin crear resultados.
+Un mes pasado cubierto aparece «Completado manual»; el actual, «Al día (manual)»
+hasta la fecha consultable. Quitar una marca revierte la aceptación de ese día.
+Un trabajo activo o una fuente de resultados ilegible siguen bloqueando la subida.
+El cierre mensual explícito admite pendientes en los seis bots y los cinco
+procedimientos de Manifiestos; conserva su huella e invalidación al cambiar datos.
+Las marcas individuales del calendario persisten al reintentar.
+
+La señal `calendarMarksChanged` refresca la bitácora al guardar/quitar una marca.
+Tras su lectura, la cuenta SharePoint conectada refresca la lista local de meses
+subibles. Los envíos siguen exigiendo **Subir a SharePoint** o reintento explícito.
+No se cambiaron motores, fuentes, calendario operativo, resultados ni CSV.
+La app abierta se conservó; la actualización se carga en el próximo arranque.
+Pruebas offline: 24 de cobertura/cierre/aceptación global (incluidas siete nuevas
+con Graph simulado), 19 cloud, ocho de Qt/calendario/configuración y el worker
+Talón ampliado: su día verde sigue completo en bitácora tras reintentar únicamente
+el pendiente. SQLite permanece idéntica al marcar/quitar, y el CSV simulado se envía
+byte a byte solo por acción explícita en los diez destinos bot/procedimiento.
+Captura aislada `runtime/diagnostics/mes-completado-manual-20261017.png`, verificada
+antes de documentar; sin consultas de prueba a TICA ni envíos reales a SharePoint.
 
 Marca manual diaria añadida el 17/10 por petición del usuario tras revisar Talón:
 solo el 04/10 tenía todos sus DUAs guardados; los demás días atendidos conservaban

@@ -224,11 +224,15 @@ class MonthlyTests(unittest.TestCase):
         with write(path) as db:db.execute("INSERT INTO jobs VALUES ('nuevo','pending',NULL)")
         self.assertFalse(self.cell(MonthlyReader({'talon':self.root},self.today).read(),'talon')['manual'])
 
-    def test_details_manual_close_cannot_bypass_unsaved_duas(self):
-        self.dua_table(done=False);self.ledger()
+    def test_details_explicit_manual_close_accepts_pending_without_changing_them(self):
+        path=self.dua_table(done=False);self.ledger()
         reader=self.reader();reader.read()
-        with self.assertRaisesRegex(ValueError,'todos los DUAs'):reader.mark_complete('2026-09','detalles',True)
-        self.assertFalse(reader.overrides_file.exists())
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+        reader.mark_complete('2026-09','detalles',True)
+        cell=self.cell(self.reader().read())
+        self.assertEqual(cell['status'],'completed')
+        self.assertEqual(cell['label'],'Completado manual')
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),digest)
 
     def test_manifest_exclusions_and_exhausted_attempts_close_only_finalized_runs(self):
         path=self.manifest('full',pending=True)

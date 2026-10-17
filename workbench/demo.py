@@ -60,7 +60,10 @@ class DemoBackend(QObject):
         for bridge in self._bridges.values():
             if bridge and bridge.enabled:
                 bridge.changed.connect(self.changed.emit)
-                if monthly:bridge.changed.connect(monthly.schedule)
+                if monthly:
+                    bridge.changed.connect(monthly.schedule)
+                    if hasattr(bridge,'calendarMarksChanged'):
+                        bridge.calendarMarksChanged.connect(monthly.refresh)
         self._timer = QTimer(self)
         self._timer.setInterval(350)
         self._timer.timeout.connect(self._tick)

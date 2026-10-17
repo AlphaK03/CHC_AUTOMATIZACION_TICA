@@ -1,4 +1,4 @@
-"""Marcas visuales del calendario, independientes del progreso de los motores."""
+"""Aceptación manual de días para calendario y bitácora, sin cambiar los motores."""
 from datetime import datetime, timezone
 import json
 import os

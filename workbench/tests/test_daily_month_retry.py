@@ -1,5 +1,6 @@
 """El worker real deja un día omitido, avanza y vuelve a intentar su mes explícitamente."""
 from contextlib import closing
+from datetime import date
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -9,6 +10,7 @@ import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from test_details_bridge import DetailsBridge, wait_until
+from monthly_progress import MonthlyReader
 
 ROOT=Path(__file__).resolve().parents[2]
 SEED='''
@@ -62,6 +64,8 @@ class MonthRetryWorkerTests(unittest.TestCase):
                 self.assertEqual(marked['state'],'omitted')
                 self.assertEqual(calendar_path.read_bytes(),calendar_before)
                 self.assertEqual(jobs(),before)
+                reader=MonthlyReader({'talon':root},date(2026,10,17));reader.read()
+                self.assertEqual(reader.cell('2026-09','talon')['label'],'Completado manual')
                 call('view',{'filter':'manual_pending'})
                 self.assertEqual([r['dua'] for r in bridge.rows],['001-2026-999997'])
                 self.assertTrue(bridge.rows[0]['autoOmitted'])
@@ -72,6 +76,8 @@ class MonthRetryWorkerTests(unittest.TestCase):
                 after=jobs()
                 self.assertEqual(after[:2],before[:2])
                 self.assertEqual(after[-1][2],6)
+                reader=MonthlyReader({'talon':root},date(2026,10,17));reader.read()
+                self.assertEqual(reader.cell('2026-09','talon')['status'],'completed')
                 self.assertEqual(bridge.config,config)
                 self.assertTrue(next(day for day in bridge.daily['days'] if day['date']=='2026-09-01')['manualCompleted'])
                 call('daily_run',{'bounded':True});self.assertEqual(jobs(),after)

@@ -48,19 +48,33 @@ Microsoft del navegador ni cambia la configuración del registro reutilizado.
    Solo entran bots/procedimientos completos, al día hasta la última fecha
    consultable, o cerrados manualmente en la bitácora mensual.
 
-**Completo no significa 100 % guardados en todos los bots.** Detalles exige todos
-sus DUAs confirmados, incluso para cierre manual. Tránsito, Talón y XMovimientos
+**Completo no significa 100 % guardados en todos los bots.** La comprobación
+automática de Detalles exige todos sus DUAs confirmados. Tránsito, Talón y XMovimientos
 pueden completar con días omitidos y pendientes excluidos del resultado final.
 Manifiestos admite exclusiones y pendientes con tres intentos agotados al finalizar
 la ejecución; BLs admite intentos agotados en ejecuciones terminadas, nunca una
 interrupción como cierre. Vacíos verificados de XMovimientos cuentan aparte.
 Los pendientes y páginas parciales omitidas se conservan para reintentos.
 
+Por petición del 17/10/2026, todos los bots admiten aceptación manual aunque
+conserven pendientes, incluido Detalles. En los cuatro DUA, **Calendario → Marcar
+completado** aporta ese día al cierre mensual y a los contadores de Vista general;
+se distinguen días verificados y manuales. Cuando cubren el mes aparece
+**Completado manual** y sus CSV quedan habilitados para **Subir a SharePoint**.
+En el mes actual la cobertura hasta la fecha consultable aparece **Al día (manual)**.
+BLs y los cinco procedimientos de Manifiestos usan el cierre manual mensual.
+La marca de día persiste tras **Reintentar día/mes**, que sigue consultando solo
+los pendientes. Quitarla vuelve a comprobar la cobertura y la elegibilidad del CSV.
+Marcar, actualizar o cerrar manualmente nunca inicia una subida.
+
 Para el mes actual, **Al día** exige cobertura hasta el último día consultable,
 respetando las 00:01 de Costa Rica. Al aparecer un nuevo día vuelve a comprobarse.
 En Vista general, **Cierre manual…** permite marcar completo un bot/procedimiento
 o volver a la comprobación automática. Se guarda separado del progreso; no cambia
 estados ni inventa filas. Nuevos datos o intentos invalidan la marca anterior.
+Esto último corresponde al cierre del mes; las marcas individuales del calendario
+se conservan hasta retirarlas expresamente. La lista de meses subibles se actualiza
+al refrescar la bitácora si la cuenta está conectada, sin enviar archivos.
 
 La carpeta local predeterminada es `RESULTADOS/`, configurable desde esta pantalla.
 El destino online replica los mismos nombres y subcarpetas, todos en mayúsculas:

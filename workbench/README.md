@@ -199,8 +199,8 @@ y [vista clara](../docs/preview/inicio-mensual-claro.png).
 **Vista general → Bitácora de descargas** reúne los meses identificados en el
 historial real, del más reciente al más antiguo. Cada mes muestra Detalles,
 Tránsito, Talón, XMovimientos, BLs y Manifiestos. **Completado** acredita cobertura
-mensual y resultados según la política de cada bot. Detalles exige todos sus DUAs
-guardados. Los demás admiten omitidos fuera del resultado final; sus pendientes
+mensual y resultados según la política de cada bot. En la comprobación automática,
+Detalles exige todos sus DUAs guardados. Los demás admiten omitidos fuera del resultado final; sus pendientes
 se conservan y pueden reintentarse. Vacíos verificados de XMovimientos cuentan aparte.
 **En curso**, **Parcial**, **Pendiente** y **Sin iniciar** permiten ver qué falta.
 **Lote listo** significa que terminó la selección, pero no se acredita todo el mes.
@@ -210,8 +210,17 @@ Una fuente ilegible queda **Sin verificar**.
 
 **Cierre manual…** permite elegir bot/procedimiento y **Marcar completo**, o
 **Usar comprobación automática** para retirar esa marca. No modifica resultados
-ni borra pendientes. En Detalles no permite saltar DUAs sin guardar. La marca
-aparece como **Completado manual** y se invalida al cambiar datos o intentos.
+ni borra pendientes. Aplica a todos los bots, incluido Detalles, y a los cinco
+procedimientos de Manifiestos. La marca aparece como **Completado manual**, permite
+**Subir a SharePoint** y se invalida al cambiar datos o intentos.
+
+Los días aceptados mediante **Calendario → Marcar completado** cuentan también
+en la bitácora: el detalle muestra días completos, verificados y manuales por
+separado. Cuando todos los días del mes están cubiertos, el bot aparece como
+**Completado manual**; en el mes actual, **Al día (manual)** hasta la última fecha
+consultable. Los días todavía no disponibles no se dan por completos. Estas
+marcas persisten durante los reintentos; se retiran con **Quitar marca manual**
+en el calendario. Quitar un cierre mensual conserva las marcas de los días.
 
 Pasa sobre un estado para ver cantidades, cobertura y modalidades. Pulsarlo abre
 el bot; no inicia ni cambia su selección. **Ver procedimientos de Manifiestos**
@@ -366,13 +375,17 @@ al estado del bot y las cantidades reales. **Quitar marca manual** devuelve su
 color automático. Disponible para Detalles, Tránsito, Talón y XMovimientos,
 incluso mientras otro día se está procesando; cada bot conserva sus propias marcas.
 
-La marca persiste al reabrir y después de los reintentos. Es únicamente visual:
-no cambia los pendientes, resultados, intentos, bases ni la selección del diario.
+La marca persiste al reabrir y después de los reintentos. Cuenta para completar
+el mes en Vista general y habilitar su subida a SharePoint. No cambia los
+pendientes, resultados, intentos, bases ni la selección del diario.
 **Reintentar mes/día** vuelve a consultar los pendientes aunque el día esté verde;
-el diario normal conserva su avance y la bitácora mensual conserva sus reglas.
+el diario normal conserva su avance. Las consultas en curso siguen apareciendo
+**En curso**; la aceptación manual no simula filas guardadas ni vacíos verificados.
 Las marcas se guardan en `bots/<id>/data/daily/manual_completed_days.json`, mediante
-reemplazo atómico, fuera de las bases SQLite del motor. No representan cobertura
-confirmada ni habilitan subidas a SharePoint.
+reemplazo atómico, fuera de las bases SQLite del motor. La bitácora las distingue
+de la cobertura verificada automáticamente y se actualiza al cambiar la marca.
+BLs y Manifiestos usan **Vista general → Cierre manual…** por bot/procedimiento,
+pues sus motores no disponen del calendario diario DUA.
 
 ## Cuenta y SharePoint
 
@@ -381,8 +394,9 @@ una carpeta madre local y una carpeta madre online para todos los bots. El selec
 recorre sitios, bibliotecas y carpetas. Cada bot organiza sus CSV por mes; los
 nombres públicos están en mayúsculas e incluyen modo donde corresponde.
 **Subir a SharePoint** envía solamente CSV de bots con ese mes completo, al día
-o cerrado manualmente, mediante una acción explícita. Detalles exige todos sus
-DUAs; los otros bots admiten omitidos fuera del resultado final. **Cierre manual…**
+o cerrado manualmente, mediante una acción explícita. Los días aceptados por el
+usuario cuentan para ese cierre en los cuatro bots DUA, incluido Detalles;
+BLs y Manifiestos también admiten el cierre manual del mes. **Cierre manual…**
 en la bitácora permite cerrar/reabrir la comprobación, sin alterar progreso ni
 borrar pendientes. Guardar o exportar no inicia subidas. Los bots
 y sus archivos locales siguen funcionando sin sesión o red. **Reintentar envíos**

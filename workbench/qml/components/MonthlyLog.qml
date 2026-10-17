@@ -22,7 +22,7 @@ ColumnLayout {
         Item { Layout.fillWidth: true }
         ActionButton { objectName: "refreshMonthly"; text: demo.monthlyBusy ? "Actualizando…" : "Actualizar"; enabled: !demo.monthlyBusy; onClicked: demo.refreshMonthly() }
     }
-    Text { text: "Detalles exige todos los DUAs. Los demás admiten omitidos. Al día indica que terminó hasta la última fecha disponible."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+    Text { text: "Los días marcados manualmente cuentan para completar el mes en todos los bots. Al día cubre hasta la última fecha disponible."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
     Text { visible: !demo.monthlyRows.length; text: demo.monthlyBusy ? "Leyendo descargas guardadas…" : demo.monthlyMessage; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
     Repeater {
         model: demo.monthlyRows
@@ -98,7 +98,7 @@ ColumnLayout {
         contentItem:ColumnLayout {
             spacing:16
             ComboBox { id:closeTarget; objectName:"manualCloseTarget"; Layout.fillWidth:true; model:manualClose.options; textRole:"label" }
-            Text { text:"Marca como completo lo ya descargado. Los pendientes se conservan para reintento. Detalles exige que todos sus DUAs estén guardados."; color:Theme.muted; font.family:Theme.family; font.pixelSize:12; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+            Text { text:"Acepta el mes como completo y habilita su subida a SharePoint. Aplica a todos los bots; los pendientes se conservan para reintento."; color:Theme.muted; font.family:Theme.family; font.pixelSize:12; wrapMode:Text.WordWrap; Layout.fillWidth:true }
             Text { visible:closeTarget.currentIndex>=0 && !!manualClose.options[closeTarget.currentIndex].manual; text:"Este cierre se marcó manualmente. Puedes volver a la comprobación automática."; color:Theme.success; font.pixelSize:12; wrapMode:Text.WordWrap; Layout.fillWidth:true }
             RowLayout {
                 Layout.fillWidth:true

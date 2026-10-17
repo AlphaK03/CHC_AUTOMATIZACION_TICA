@@ -119,7 +119,7 @@ Dialog {
             enabled: worker.enabled && worker.ready && !worker.closing && !!calendarDialog.selectedDay.date && calendarDialog.selectedDay.available === true
             onClicked: worker.markCalendarDay(calendarDialog.selectedDay.date, !calendarDialog.selectedDay.manualCompleted)
             ToolTip.visible: hovered
-            ToolTip.text: "Solo cambia el calendario. Los pendientes se conservan para reintento."
+            ToolTip.text: "Cuenta para completar el mes y habilitar su subida a SharePoint. Los pendientes se conservan para reintento."
         }
         Text {
             objectName: "calendarDaySummary"

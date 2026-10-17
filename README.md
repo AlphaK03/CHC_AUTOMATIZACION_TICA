@@ -16,13 +16,15 @@ Si una actualización de la lista coincide con un guardado y SQLite está ocupad
 conserva la vista y vuelve a leerla sin marcar la descarga como fallida.
 En el calendario de los cuatro bots DUA, **Marcar completado** pone un día en
 verde como **Completado manual**. La marca es reversible y se conserva al reabrir;
-**Reintentar día/mes** sigue consultando sus pendientes. Solo cambia el calendario,
-sin modificar resultados ni la comprobación de la bitácora mensual.
+**Reintentar día/mes** sigue consultando sus pendientes. Los días aceptados cuentan
+en Vista general para completar el mes y habilitar **Subir a SharePoint**, con
+conteos separados de días verificados y manuales; no modifica resultados.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.
-Detalles exige todos los DUAs descargados; los otros bots admiten omitidos fuera
-del resultado final. El mes actual puede aparecer **Al día** hasta la última
+La comprobación automática de Detalles exige todos los DUAs descargados; los otros
+bots admiten omitidos fuera del resultado final. Todos aceptan cierre manual con
+pendientes conservados. El mes actual puede aparecer **Al día** hasta la última
 fecha consultable. **Cierre manual…** permite cerrar un bot/procedimiento o volver
 a la comprobación automática, conservando pendientes para reintento.
 [Uso de la bitácora](workbench/README.md#bitácora-mensual).
