@@ -77,6 +77,34 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.portal.offsets,[])
         self.assertEqual(self.counts(second['database']),(('Guardado',2,7),7))
 
+    async def test_growing_knowledge_keeps_legacy_pages_and_signature_for_pending_bl(self):
+        from core.inputs import batch_scope
+        from chc_runtime.bls_incremental import family
+        first=await self.run_bot()
+        with closing(sqlite3.connect(first['database'])) as db:
+            metadata=dict(db.execute('SELECT key,value FROM metadata'))
+        data=pd.concat([frame(),frame()],ignore_index=True)
+        data.loc[1,['Secuencia Tica','BL original']]=['2','0000002']
+        self.portal.sequences={'0000002':'2'}
+        self.portal.fail_offset=None;self.portal.offsets.clear()
+        scope=json.loads(metadata['scope'])
+        signature,_=batch_scope(data,self.config)
+        backups=tempfile.TemporaryDirectory();self.addCleanup(backups.cleanup)
+        self.config['workbench_bls_accumulation']=dict(signature=metadata['signature'],scope=scope,
+            input_signature=signature,backups=backups.name,
+            family=family({'inputMode':'knowledge','knowledgePeriods':['2026-09|maritimo']},scope))
+        second=await self.run_bot(data)
+        self.assertEqual(second['database'],first['database'])
+        self.assertEqual(self.portal.offsets,[0,4,6,0,2,4,6])
+        self.assertEqual((second['saved'],second['result_rows']),(2,14))
+        with closing(sqlite3.connect(second['database'])) as db:
+            self.assertEqual(db.execute('SELECT ordinal,attempts FROM jobs ORDER BY ordinal').fetchall(),[(1,2),(2,1)])
+            self.assertEqual(db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0],metadata['signature'])
+        self.portal.offsets.clear()
+        await self.run_bot(data)
+        self.assertEqual(self.portal.offsets,[])
+        self.assertEqual(self.counts(second['database']),(('Guardado',2,7),14))
+
     async def test_changed_anchor_keeps_partial_pages_and_never_confirms(self):
         first=await self.run_bot()
         self.portal.fail_offset=None

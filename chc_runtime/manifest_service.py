@@ -288,9 +288,20 @@ class BatchService:
                 if [r[1] for r in db.execute('PRAGMA table_info(BLS)')]!=BLS_COLUMNS or db.execute('SELECT 1 FROM BLS LIMIT 1').fetchone():
                     raise ValueError('La base no acredita una selección sin BLs.')
             self.index['config'].update({k:v for k,v in config.items() if k in self.index['config']})
-            self.index['active']=''
-            self._jobs={}
-            self.message='Conocimientos completos; no hay BLs Courier N para esta selección.'
+            from config_manager import DEFAULTS
+            from .bls_incremental import family,find_record
+            scope={'version':1,'sheet':config.get('sheet','BLS'),'dates_from_input':True,'target_url':DEFAULTS.get('target_url','')}
+            previous=find_record(self.index['history'],family(self.index['config'],scope),self.index['active'])
+            if previous:
+                self.index['active']=previous['id']
+                previous['config']=dict(self.index['config'])
+                previous['spec']={'input':config['input'],'sheet':config.get('sheet','BLS')}
+                self.inspect()
+                self.message='No hay BLs Courier N en la nueva selección; resultados anteriores conservados.'
+            else:
+                self.index['active']=''
+                self._jobs={}
+                self.message='Conocimientos completos; no hay BLs Courier N para esta selección.'
             self.save()
         elif command == 'split':
             # Función original usa diálogos Tk: la adaptación conserva el streaming sin GUI.
@@ -351,6 +362,7 @@ class BatchService:
 
     def prepare(self):
         c = self.index['config']
+        selected_family=family_record=None
         if self.flow == 'bls':
             from .bls_identifiers import install_input_support
             install_input_support()
@@ -361,7 +373,10 @@ class BatchService:
             from config_manager import DEFAULTS
             frame = load_input_file(c['input'], c['sheet'])
             settings = {**DEFAULTS, 'sheet_name':c['sheet'], 'dates_from_input':True}
-            key, _ = batch_scope(frame, settings)
+            key, settings_scope = batch_scope(frame, settings)
+            from .bls_incremental import family,find_record
+            selected_family=family(c,settings_scope)
+            family_record=find_record(self.index['history'],selected_family,self.index['active'])
             spec = {'input':c['input'], 'sheet':c['sheet']}
         else:
             spec = manifest_scope(self.flow, c)
@@ -374,13 +389,14 @@ class BatchService:
         default_name=manifest_name(spec) if self.flow!='bls' else LABELS[self.flow]
         output_root=Path(c['outputRoot']).resolve()
         identity_for=lambda name:hashlib.sha256((key+'|'+name+'|'+str(output_root)).encode()).hexdigest()[:24]
-        if self.flow=='bls' and c.get('inputMode')=='knowledge' and c.get('knowledgePeriods') and not c['name']:
+        if self.flow=='bls' and c.get('inputMode')=='knowledge' and c.get('knowledgePeriods') and not c['name'] and family_record is None:
             periods=sorted(set(k.split('|')[0] for k in c['knowledgePeriods']))
             modes=sorted(set(k.split('|')[1] for k in c['knowledgePeriods']))
             mode_label='Marítimo y Aéreo' if len(modes)>1 else 'Marítimo' if modes[0]=='maritimo' else 'Aéreo'
             default_name='BLs '+(' y '.join(periods) if len(periods)<=3 else periods[0]+' a '+periods[-1])+' '+mode_label
             # Reutilizar incluso un lote manual previo de la misma entrada, conservando sus BLs.
-            previous=next((r for r in self.index['history'] if r['id']==identity_for(r['name'])),None)
+            previous=next((r for r in self.index['history'] if r['id']==identity_for(r['name']) and
+                not r.get('knowledgeFamily') and family(r.get('config',{}),settings_scope) is None),None)
             if previous:
                 default_name=previous['name']
             else:
@@ -390,10 +406,13 @@ class BatchService:
                 while default_name in used:
                     default_name=base+f' ({version})'
                     version+=1
-        name = name_checked(c['name'] or default_name) if self.flow=='bls' else name_checked(default_name)
+        if family_record:
+            name=family_record['name']
+        else:
+            name=name_checked(c['name'] or default_name) if self.flow=='bls' else name_checked(default_name)
         # El nombre y destino distinguen lotes publicados, sin duplicar reservas por cambiar hilos.
         identity = identity_for(name)
-        record = next((item for item in self.index['history'] if item['id']==identity), None)
+        record = family_record or next((item for item in self.index['history'] if item['id']==identity), None)
         if self.flow!='bls':
             # Recuperar también lotes anteriores con nombre manual, sin mover sus datos.
             candidates = [item for item in self.index['history']
@@ -416,9 +435,17 @@ class BatchService:
         if self.flow!='bls' and cumulative_family(spec):
             record['cumulative']=True
             record['spec']=spec
+        if selected_family:
+            from .bls_incremental import anchor
+            previous_family=record.get('knowledgeFamily') or family(record.get('config',{}),settings_scope)
+            if previous_family is not None and previous_family!=selected_family:
+                raise ValueError('El lote corresponde a otra selección de meses/modalidades. Elige otro nombre.')
+            signature,scope=anchor(self.root,record,key,settings_scope)
+            record.update(knowledgeFamily=selected_family,knowledgeAnchor=signature,knowledgeScope=scope,spec=spec)
+            if c['name']:c['name']=record['name']
         record['config'] = dict(c)
         if self.flow=='bls':
-            public_specs={}
+            public_specs={s['filename']:s for s in record.get('publicSpecs',[])} if selected_family else {}
             from datetime import datetime
             for value in frame['IDManifiesto']:
                 try:
@@ -546,24 +573,29 @@ class BatchService:
             'timeout':float(c['timeout']), 'headless':bool(c['headless']), 'event_callback':self.progress}
         if retry_empty:
             import pandas as pd
-            from core.inputs import batch_scope
             from .bls_empty_retry import load_input
+            from .bls_incremental import verify_input
             path,scope,records,_ = load_input(self.root,record)
             frame = pd.DataFrame(records)
             config.update(target_url=scope['target_url'],dates_from_input=scope['dates_from_input'],
-                          sheet_name=scope['sheet'],batch_revision=scope.get('revision',''))
+                          sheet_name=scope['sheet'])
             for field in ('fecha_inicio','fecha_fin'):
                 if field in scope:config[field]=scope[field]
-            signature,_ = batch_scope(frame,config)
-            if config['batch_revision']:
-                signature=hashlib.sha256((signature+config['batch_revision']).encode()).hexdigest()
             with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as db:
+                verify_input(db,records,scope)
                 expected=db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]
-            if signature != expected or path != (Path(record['work'])/config['sheet_name']/signature[:16]/'SQLite/bls.sqlite3').resolve():
+            if path != (Path(record['work'])/config['sheet_name']/expected[:16]/'SQLite/bls.sqlite3').resolve():
                 raise ValueError('La entrada persistida no coincide con la firma del lote; progreso conservado.')
+            config['workbench_bls_accumulation']={'signature':expected,'scope':scope,'append':False}
             config['workbench_empty_retry'] = {'database':str(path),'backups':str(self.root/'data/backups/bls_empty')}
         else:
             frame = load_input_file(c['input'],c['sheet'])
+            if record.get('knowledgeFamily'):
+                from core.inputs import batch_scope
+                signature,_=batch_scope(frame,config)
+                config['workbench_bls_accumulation']={'signature':record['knowledgeAnchor'],
+                    'scope':record['knowledgeScope'],'input_signature':signature,'family':record['knowledgeFamily'],
+                    'backups':str(self.root/'data/backups/bls_incremental')}
         factory = None
         if self.fixture:
             from chc_runtime.bls_fixture import Session

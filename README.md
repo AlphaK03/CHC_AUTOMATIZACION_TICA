@@ -81,6 +81,9 @@ separados por modalidad; los filtros de Courier, IDs o límite permanecen aislad
 [Uso, contratos y límites comprobados](docs/INTEGRACION_MANIFIESTOS.md).
 BLs permite elegir directamente meses y modalidades con descargas completas de
 Conocimientos; genera su base Courier=N e inicia su motor sin elegir archivos.
+Al repetir la misma selección de meses y modalidades, amplía el lote existente
+con los BLs nuevos y retoma sus pendientes sin repetir los guardados. Conserva
+sus páginas, historial y CSV acumulados; otra selección de mes/modo queda separada.
 Su lista muestra la fila, manifiesto y BL originales; conserva los contadores
 durante la preparación y permite continuar únicamente los pendientes.
 También muestra página y filas acumuladas por BL. Las páginas verificadas se

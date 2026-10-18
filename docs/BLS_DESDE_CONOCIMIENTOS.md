@@ -45,8 +45,9 @@ sin repetir los Guardado; el proveedor BLs toma todos los resultados confirmados
 y la unión exacta de rangos, conservando los huecos. El último intervalo elegido
 en la pantalla no sustituye la prueba de cobertura mensual. Los respaldos de
 migración se guardan fuera de los directorios de fuentes y no aparecen como bases.
-Esto no modifica la firma del motor BLs ni convierte entradas diferentes en un
-mismo lote de BLs: su recuperación y checkpoints conservan el contrato original.
+Desde el 18/10, BLs amplía el lote de la misma selección de meses/modalidades
+cuando cambia su contenido. Conserva la firma original y sus checkpoints;
+las selecciones de otro mes o modo mantienen lotes separados.
 
 Solo se utilizan los archivos propios del Workbench: descargas/importaciones en
 `bots/manifiestos/data/jobs/conocimientos/` y SQLite de la copia clásica en
@@ -165,8 +166,10 @@ Esto aplica al avance guardado desde esta incorporación. La copia anterior solo
 persistía el BL completo y rechazaba detalles paginados; no es posible reconstruir
 una página antigua que nunca se guardó. Los confirmados antiguos siguen intactos
 y muestran «—» en Página cuando no tienen ese historial. La recuperación requiere
-la misma selección y lote; cambiar los datos mantiene la política original de
-crear otra identidad. No se modificaron fuentes originales ni el ejecutable clásico.
+el mismo lote: ampliar su entrada desde Conocimientos con los mismos meses y
+modalidades conserva esa identidad y las páginas anteriores. Las entradas por
+archivo externo mantienen su contrato original. No se modificaron fuentes
+originales ni el ejecutable clásico.
 La aplicación no inicia consultas por sí sola al abrir.
 
 Verificación: nueve pruebas con navegador y portal HTTP locales cubren fallo
@@ -179,13 +182,51 @@ advertencias: [vista de prueba](preview/bls-paginas.png). No se hicieron consult
 reales nuevas a TICA; quedan por contrastar más variantes reales del portal.
 
 Se conserva una base privada verificada por hash para cada versión de los datos.
-La misma selección sin cambios reutiliza la preparación y la identidad original
-del lote; BLs retoma pendientes y no repite guardados. Se conserva también un lote
-manual previo si su entrada normalizada, destino e identidad son equivalentes.
-Si los datos cambian, el motor mantiene su regla original de crear otro lote.
-Con nombre automático se usan carpetas legibles por meses/modalidades, con sufijo
-numérico si hace falta conservar otra versión. Un nombre escrito por el usuario
-mantiene las protecciones existentes contra sobrescribir otro lote.
+La misma selección de meses y modalidades reutiliza la identidad original del lote,
+también si llegan BLs nuevos: no crea otra versión del lote por ese crecimiento.
+BLs retoma pendientes presentes en la nueva base y no repite guardados. Se conserva
+también un lote manual previo si su entrada normalizada, destino e identidad son
+equivalentes. El nombre y los CSV acumulados del lote se mantienen; los nombres
+nuevos siguen siendo legibles por meses/modalidades y conservan las protecciones
+contra sobrescribir otro lote.
+
+## Actualización de Conocimientos — 18/10/2026
+
+La continuidad exige el mismo conjunto exacto de claves `AAAA-MM|modalidad`
+y configuración de búsqueda. El orden de selección no importa. Octubre Marítimo,
+octubre Aéreo y octubre Marítimo+Aéreo son selecciones distintas; noviembre
+tampoco hereda los trabajos de octubre. Una nueva instantánea de la misma selección
+añade únicamente trabajos que no existían. Los anteriores conservan identidad,
+ordinal, payload, estado, intentos, resultados, páginas y generación de reconsulta.
+Un Guardado con 0 filas requiere la acción explícita de reconsulta de vacíos.
+
+Una instantánea menor o sin BLs no borra resultados anteriores. Los pendientes que
+no aparecen en la instantánea actual se conservan sin consultarlos en esa ronda.
+Si un mismo manifiesto/secuencia aparece con otro BL, o algún registro pertenece
+a otro mes/modo, se rechaza la ampliación para revisión antes de insertar trabajos.
+El proveedor sigue exigiendo Conocimientos terminados y Courier N verificado.
+
+`bls_incremental.py` adapta la firma usada por el motor en el proceso BLs,
+manteniendo el ancla original y las rutas de SQLite y páginas. No modifica
+`bots/bls/src/`. Al adoptar un lote antiguo guarda primero una copia consistente
+en `bots/bls/data/backups/bls_incremental/`, fuera del árbol de jobs. La ampliación
+de inputs/jobs y sus metadatos se realiza en una transacción; se verifica además
+el hash de la entrada acumulada antes de ampliar o reconsultar vacíos.
+`workbench_bls_queries` y `workbench_bls_query_jobs` registran cada solicitud y
+sus miembros. La cola de todas las rondas queda limitada a esos miembros;
+los CSV mantienen sus destinos y separación por mes/modalidad.
+
+Los duplicados históricos no se fusionan ni eliminan automáticamente: se elige
+el lote activo compatible o el de mayor avance. Las entradas externas conservan
+su comportamiento anterior, sin ampliar lotes por coincidencias parciales.
+
+Verificación: 35 pruebas offline en datos temporales, sin consultar TICA ni tocar
+bases reales. Cubren actualización y repetición, adopción de lote anterior,
+selección menor/vacía, aislamiento de mes/modo, conflictos, fallo de respaldo,
+rollback, páginas parciales conservadas y reconsulta de vacíos tras ampliar.
+Pruebas nuevas en `chc_runtime/tests/test_bls_incremental.py`,
+`workbench/tests/test_bls_incremental.py` y `chc_runtime/tests/test_bls_pages.py`.
+La app activa se conservó; la mejora se carga al próximo arranque.
 
 **Detener** sirve tanto al preparar la base como durante las consultas. Un resultado
 de preparación que llegue después de detener o cerrar no puede iniciar BLs.

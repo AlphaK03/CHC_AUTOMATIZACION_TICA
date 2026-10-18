@@ -226,6 +226,16 @@ al generar bases manualmente o abrir SQLite/Excel externos. Se conservan letra,
 ceros, BL y secuencia exactos. Los formatos desconocidos siguen requiriendo
 revisión; no se omiten automáticamente conocimientos inválidos o contradictorios.
 No hay que elegir un archivo intermedio. Los rangos indican sus días disponibles.
+Al volver a iniciar con **los mismos meses y modalidades**, BLs actualiza el lote
+existente: si Conocimientos pasa de 250 a 251 BLs, agrega el nuevo y conserva los
+250 anteriores. Consulta los nuevos y los pendientes presentes en la selección
+actual; los Guardado, incluso con 0 filas, no se repiten. Las páginas parciales,
+intentos y CSV acumulados permanecen en el mismo lote. Si la nueva base tiene
+menos BLs o ninguno, los resultados anteriores se conservan.
+Cambiar el mes o elegir solo Marítimo en lugar de Marítimo y Aéreo mantiene lotes
+separados; no se trasladan resultados entre esas selecciones. Los lotes duplicados
+creados antes de esta mejora se conservan: se retoma el activo compatible o,
+en su defecto, el de mayor avance. No se fusionan ni eliminan automáticamente.
 [Uso, disponibilidad y recuperación](../docs/BLS_DESDE_CONOCIMIENTOS.md).
 
 La lista BLs muestra **Fila** y **Manifiesto / BL original**, incluidos sus ceros,

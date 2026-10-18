@@ -12,6 +12,8 @@ from core.tica import TicaSession
 
 from .bls_pages import PageStore, parse_page, next_form, validate_lines
 from .bls_search import select_detail
+from .bls_incremental import install_engine_scope
+install_engine_scope()
 
 
 class PagedTicaSession(TicaSession):
@@ -136,8 +138,20 @@ class WorkbenchBLSProcessor(BLSProcessor):
         super().__init__(config,stop_event)
         self.page_store = None
         self._empty_retry_started = False
+        self._accumulation_started = False
+        self._incoming_frame = None
 
     def emit(self, kind='summary', **extra):
+        accumulation=self.config.get('workbench_bls_accumulation')
+        if accumulation and accumulation.get('append',True) and extra.get('phase')=='prepare' and not self._accumulation_started:
+            from .bls_incremental import append
+            self._accumulation_query=append(self.store,self._incoming_frame,accumulation)
+            self._accumulation_started=True
+        if self._accumulation_started and extra.get('phase')=='finished':
+            from datetime import datetime,timezone
+            with self.store.db:
+                self.store.db.execute('UPDATE workbench_bls_queries SET finished=? WHERE id=?',
+                    (datetime.now(timezone.utc).isoformat(),self._accumulation_query))
         request = self.config.get('workbench_empty_retry')
         if request and extra.get('phase') == 'prepare' and not self._empty_retry_started:
             from .bls_empty_retry import begin
@@ -146,6 +160,7 @@ class WorkbenchBLSProcessor(BLSProcessor):
         super().emit(kind,**extra)
 
     async def run_async(self, df, session_factory=None):
+        self._incoming_frame=df
         try:
             return await super().run_async(df,session_factory=session_factory)
         finally:

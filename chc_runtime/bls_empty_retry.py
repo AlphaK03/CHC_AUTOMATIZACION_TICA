@@ -69,12 +69,20 @@ def begin(store, request):
         db.execute("""UPDATE jobs SET state='Pendiente',error='',error_code='empty_requery',token=NULL,updated=?
             WHERE id IN (SELECT job FROM workbench_empty_requery_jobs WHERE request=?)""", (timestamp,operation))
 
+    scope_pending_queue(store,'workbench_empty_requery_jobs',operation)
+    return count
+
+
+def scope_pending_queue(store, table, operation):
+    if table not in {'workbench_empty_requery_jobs','workbench_bls_query_jobs'}:
+        raise ValueError('Selección de pendientes inválida.')
+    db=store.db
     original_queue = store.pending_queue
     def pending_queue(transient_only=False):
         original_queue(transient_only)
         store.close_pending_queue()
-        db.execute('''DELETE FROM temp.pending_queue WHERE id NOT IN
-            (SELECT job FROM workbench_empty_requery_jobs WHERE request=?)''', (operation,))
+        db.execute('DELETE FROM temp.pending_queue WHERE id NOT IN '
+                   '(SELECT job FROM '+table+' WHERE request=?)', (operation,))
         db.commit()
         count = db.execute('SELECT count(*) FROM temp.pending_queue').fetchone()[0]
         cursor = db.execute('''SELECT j.id,q.ordinal,j.payload FROM temp.pending_queue q
@@ -82,4 +90,3 @@ def begin(store, request):
         store._pending_cursor = cursor
         return count, ((key,ordinal,json.loads(payload)) for key,ordinal,payload in cursor)
     store.pending_queue = pending_queue
-    return count

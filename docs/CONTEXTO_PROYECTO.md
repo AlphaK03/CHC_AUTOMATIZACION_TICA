@@ -2,6 +2,28 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- BLs acumula desde Conocimientos dentro de la **misma selección exacta de meses
+  y modalidades** y configuración de búsqueda. Pasar de 250 a 251 conserva el
+  lote/SQLite/CSV existentes: añade solo nuevos, consulta pendientes presentes
+  en la instantánea actual y omite Guardado, incluidos vacíos. Una selección menor
+  o vacía conserva resultados; otro mes/modo queda separado. No fusionar lotes
+  históricos duplicados: elegir activo compatible o mayor avance.
+  `chc_runtime/bls_incremental.py` fija la firma/ruta originales del motor y sus
+  páginas, conserva ordinales, payloads, intentos y generaciones de reconsulta.
+  Valida mes/modalidad e identidad manifiesto/secuencia/BL contra lo persistido;
+  contradicciones detienen la ampliación. Adopción de lote antiguo con respaldo
+  en `data/backups/bls_incremental/`, fuera de jobs; inserción transaccional,
+  prueba hash de entrada acumulada y solicitudes/miembros auditados en SQLite.
+  `bls_session.py` conecta el adaptador bajo la reserva original;
+  `manifest_service.py` conserva identidad/publicSpecs y reconsulta explícita
+  de vacíos. El alcance de cola compartido con `bls_empty_retry.py` mantiene
+  todas las rondas dentro de la solicitud. Las fuentes copiadas siguen intactas.
+  Pasaron 35 pruebas offline (24 runtime y 11 puente/proveedor/QML), incluidas
+  adopción antigua, crecimiento/reordenación, separación de mes/modo, menor/vacía,
+  conflicto, rollback, respaldo fallido y paginación/reconsulta tras ampliar.
+  App activa conservada antes de documentar, sin consultas reales ni cambios
+  de bases del usuario. La mejora se carga al próximo arranque.
+
 - Espera visual de bases en los seis bots: `components/LoadingOverlay.qml`
   presenta logo, indicador animado, módulos pendientes, fondo atenuado y
   entrada/salida suave. `Main.qml` agrega los estados `loading`, bloquea controles
