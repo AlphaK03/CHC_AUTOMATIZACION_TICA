@@ -28,12 +28,15 @@ def main(module='manifiestos'):
     # NumPy en Windows puede bloquear su inicialización desde el trabajador.
     import pandas
     if module == 'bls':
+        from .bls_identifiers import install_input_support
+        install_input_support()
         from core.engine import BLSProcessor
         from input_files import load_input_file
     else:
         from manifest_scraper import ManifestScraper
         if flow in ('bases','bls_source'):
-            import bls_base
+            from .bls_identifiers import install_base_support
+            install_base_support()
     from chc_runtime.manifest_service import BatchService
     lock = threading.Lock()
     def emit(event, **data):

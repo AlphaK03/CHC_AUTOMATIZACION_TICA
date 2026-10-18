@@ -209,6 +209,10 @@ las consultas empiezan al pulsar Iniciar. También se admiten entradas externas.
 
 En **BLs → Desde Conocimientos**, **Elegir meses…** ofrece solamente descargas
 terminadas de Marítimo/Aéreo. **Iniciar consulta** genera la base y ejecuta BLs.
+Se admiten números de manifiesto con una letra final, como `2601287L`, también
+al generar bases manualmente o abrir SQLite/Excel externos. Se conservan letra,
+ceros, BL y secuencia exactos. Los formatos desconocidos siguen requiriendo
+revisión; no se omiten automáticamente conocimientos inválidos o contradictorios.
 No hay que elegir un archivo intermedio. Los rangos indican sus días disponibles.
 [Uso, disponibilidad y recuperación](../docs/BLS_DESDE_CONOCIMIENTOS.md).
 

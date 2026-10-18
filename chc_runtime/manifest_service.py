@@ -338,6 +338,8 @@ class BatchService:
     def prepare(self):
         c = self.index['config']
         if self.flow == 'bls':
+            from .bls_identifiers import install_input_support
+            install_input_support()
             if not Path(c['input']).is_file():
                 raise ValueError('Seleccione una base de BLs Excel o SQLite.')
             from input_files import load_input_file
@@ -719,6 +721,8 @@ class BatchService:
         return {'reviewFolder':str(root)}
 
     def load_base(self, request):
+        from .bls_identifiers import install_base_support
+        install_base_support()
         from bls_base import catalog_sources, choose_candidates, inspect_sources, NotKnowledgeSource
         self.sources = []
         self.base_scope = None
@@ -755,6 +759,8 @@ class BatchService:
         return {'snapshot':self.snapshot()}
 
     def build_base(self, request):
+        from .bls_identifiers import install_base_support
+        install_base_support()
         from bls_base import build_base
         if not self.sources or self.base_scope is None:
             raise ValueError('Cargue los datos elegidos antes de generar la base.')

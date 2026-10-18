@@ -2,6 +2,25 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- BLs acepta números de manifiesto con una letra ASCII final (`2601287L`),
+  además de los numéricos. La consulta manual solicitada confirmó en TICA
+  `4-1-2601287L-P001-13/10/26`, con 22 conocimientos (20 Courier N y 2 S).
+  El rechazo anterior provenía del generador y de `core.inputs`, ambos numéricos.
+  `chc_runtime/bls_identifiers.py` adapta sus validaciones solo en los procesos
+  correspondientes, sin modificar fuentes copiadas. Una copia numérica se usa
+  exclusivamente para validar el resto de los campos y ordenar la exportación;
+  consultas, filas, auditoría, claves y payloads conservan el texto original.
+  Se habilita en proveedor, generador manual y entrada BLs (SQLite/XLSX).
+  Números anteriores mantienen claves/firmas; letras distintas no se fusionan.
+  No aceptar otros patrones desconocidos ni saltar Courier N, conflictos,
+  fechas, secuencia, identidad, checkpoints o reservas. No migrar trabajos
+  antiguos ni reconstruir éxitos desde la auditoría de una preparación rechazada.
+  26 pruebas offline pasaron: generador automático/manual, ceros, firmas,
+  conflictos y formatos rechazados, portal local con paginación/reanudación,
+  BLs–Conocimientos/QML y repetición sin reconsultar Guardado. Datos temporales,
+  sin consultas TICA nuevas como pruebas. App activa conservada; cambio completo
+  al próximo arranque (Reconectar solo refresca, no recarga procesos).
+
 - Corrección de bitácora para DUAs por manifiesto: reconocer el estado real
   `Finalizada con exclusiones`, además de `Finalizada`. Las exclusiones por
   frmAmbiente cuentan como omitidas fuera del CSV y permiten Al día/Completado

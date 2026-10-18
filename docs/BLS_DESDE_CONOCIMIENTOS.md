@@ -68,6 +68,30 @@ cada IDManifiesto; el motor BLs mantiene sus fechas y validaciones por entrada.
 Si aparecen inválidos o conflictos, este recorrido automático no inicia consultas
 y conserva su auditoría para revisión.
 
+Desde el 18/10, la adaptación del Workbench admite un número de manifiesto
+numérico con una letra ASCII final, como `2601287L`. Ese caso se confirmó en la
+consulta manual de TICA solicitada por el usuario: manifiesto Aéreo
+`4-1-2601287L-P001-13/10/26`, con 20 conocimientos Courier N y 2 S. No corresponde
+a una letra del BL ni debe eliminarse del identificador. Otros formatos no
+reconocidos siguen siendo rechazados para revisión.
+
+El soporte está en `chc_runtime/bls_identifiers.py`, tanto para preparación
+automática/generador manual como para entrada SQLite/XLSX del motor. Las fuentes
+copiadas permanecen intactas. El adaptador reutiliza la validación original con
+una copia numérica solo para verificar los demás campos; mantiene el manifiesto
+completo para claves, firma, SQLite, consulta, identidad de respuesta y CSV.
+El entero de ordenación usa el prefijo numérico y desempata por el ID completo.
+Las entradas numéricas conservan exactamente sus claves y firmas anteriores.
+No se alteran BL/secuencia, reglas Courier, duplicados/conflictos ni checkpoints.
+
+Comprobación: 26 pruebas offline de generación, entrada, búsqueda y páginas,
+recuperación, puente Conocimientos–BLs y QML. Incluyen sufijos con ceros, número
+sin sufijo como identidad distinta, conflictos y formatos desconocidos rechazados,
+reanudación de páginas verificadas y segundo inicio sin repetir Guardado.
+Sin consultar TICA ni modificar fuentes reales durante las pruebas. Para cargar
+el cambio en procesos ya abiertos, volver a abrir la app cuando terminen las
+consultas activas; **Reconectar** únicamente actualiza la información.
+
 Una descarga completa sin conocimientos, o sin ningún BL Courier N, se informa
 como selección sin BLs. No se confunde con un fallo ni se inicia el navegador de
 BLs. La auditoría registra `completed_empty`; no se simulan consultas exitosas.

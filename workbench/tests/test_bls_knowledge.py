@@ -31,6 +31,43 @@ def sources(root, empty=False):
 
 
 class KnowledgeConnection(unittest.TestCase):
+    def test_suffix_base_pipeline_and_retry_preserve_original_ids_without_repeating_saved(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            manifests = root/'manifiestos'
+            code = ("import sys; from pathlib import Path; "
+                    "sys.path.insert(0,str(Path('bots/manifiestos/src').resolve())); "
+                    "from chc_runtime.knowledge_fixture import create; root=Path(sys.argv[1]); "
+                    "create(root,'mar'); create(root,'aire',mode='aereo',number='0002601287'); "
+                    "create(root,'letra',mode='aereo',number='0002601287L')")
+            subprocess.run([str(ROOT/'bots/manifiestos/.venv/Scripts/python.exe'), '-c', code, str(manifests)],
+                           cwd=ROOT, check=True)
+            hashes = {p:hashlib.sha256(p.read_bytes()).hexdigest() for p in manifests.glob('data/jobs/**/*.sqlite3')}
+            bridge = BatchBridge(module_id='bls',storage_root=root/'bls',knowledge_root=manifests,offline_fixture=True)
+            config = {'inputMode':'knowledge','knowledgePeriods':['2026-09|maritimo','2026-09|aereo'],
+                      'workers':1,'headless':True,'timeout':5,'max_retries':1,'name':''}
+            try:
+                bridge.connectModule()
+                wait_until(lambda:bridge.ready and not bridge.busy)
+                for _ in range(2):
+                    self.assertTrue(bridge.command('run',{'config':config}))
+                    wait_until(lambda:not bridge.busy,timeout=20000)
+                    self.assertFalse(bridge.error,bridge.error)
+                    self.assertEqual(bridge.summary['succeeded'],3)
+                databases = list((root/'bls/data/jobs/bls').glob('**/SQLite/bls.sqlite3'))
+                self.assertEqual(len(databases),1)
+                with closing(sqlite3.connect(databases[0])) as db:
+                    rows = db.execute('SELECT payload,state,attempts FROM jobs ORDER BY ordinal').fetchall()
+                    payloads = [json.loads(r[0]) for r in rows]
+                    self.assertTrue(all(r[1:] == ('Guardado',1) for r in rows))
+                    self.assertEqual({p['ID3'] for p in payloads}, {'20260001','0002601287','0002601287L'})
+                    self.assertTrue(all(p['BL original']=='00001234567890123456789' for p in payloads))
+                    results = [json.loads(r[0]) for r in db.execute('SELECT data FROM results')]
+                    self.assertTrue(any(row[-2]=='4-0-0002601287L-P027-01/09/26' for row in results))
+                self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in hashes},hashes)
+            finally:
+                bridge.shutdown(); wait_until(lambda:bridge.isClosed)
+
     def test_available_periods_pipeline_and_resume(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)

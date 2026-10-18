@@ -2,6 +2,9 @@
 import asyncio
 from urllib.parse import urljoin, urlparse
 
+from .bls_identifiers import install_input_support
+install_input_support()
+
 from core.engine import BLSProcessor
 from core.inputs import input_job
 from core.tables import InvalidResponse

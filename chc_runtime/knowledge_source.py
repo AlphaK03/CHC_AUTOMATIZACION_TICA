@@ -76,6 +76,8 @@ def merge_ranges(ranges):
 
 class KnowledgeSource:
     def __init__(self, root, stop, emit):
+        from .bls_identifiers import install_base_support
+        install_base_support()
         self.root,self.stop,self.emit = Path(root).resolve(),stop,emit
 
     def check_stop(self):

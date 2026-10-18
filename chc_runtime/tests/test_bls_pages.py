@@ -114,6 +114,31 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         with closing(sqlite3.connect(Path(result['database']).with_name('bls_pages.sqlite3'))) as db:
             self.assertEqual(db.execute('SELECT count(*),sum(count),max(eof) FROM pages').fetchone(),(3,6,1))
 
+    async def test_suffix_manifest_resumes_verified_pages_and_preserves_full_identity(self):
+        mid = '4-1-0002601287L-P001-13/10/26'
+        self.portal.manifest = mid
+        self.portal.search_get = True
+        data = frame()
+        data.loc[0, ['IDManifiesto', 'Fecha Manifiesto', 'Mes']] = [mid, '13/10/2026', '2026-10']
+        first = await self.run_bot(data)
+        self.assertEqual(self.counts(first['database']), (('Pendiente',1,0),0))
+        self.portal.fail_offset = None
+        self.portal.offsets.clear()
+        second = await self.run_bot(data)
+        self.assertEqual(first['database'], second['database'])
+        self.assertEqual(self.portal.offsets, [0,4,6])
+        self.assertEqual(self.counts(second['database']), (('Guardado',2,7),7))
+        with closing(sqlite3.connect(second['database'])) as db:
+            payload = json.loads(db.execute('SELECT payload FROM jobs').fetchone()[0])
+            rows = [json.loads(r[0]) for r in db.execute('SELECT data FROM results')]
+        self.assertEqual(payload['ID3'], '0002601287L')
+        self.assertEqual(payload['IDManifiesto'], mid)
+        self.assertTrue(all(row[-2:] == [mid, data.iloc[0]['BL original']] for row in rows))
+        self.portal.offsets.clear()
+        await self.run_bot(data)
+        self.assertEqual(self.portal.offsets, [])
+        self.assertEqual(self.counts(second['database']), (('Guardado',2,7),7))
+
     async def test_empty_bl_is_confirmed_with_one_verified_page(self):
         self.portal.fail_offset=None
         self.portal.empty=True
