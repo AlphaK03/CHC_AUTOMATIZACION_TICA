@@ -6,6 +6,21 @@
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Borrado seguro disponible en los seis bots. Los cuatro DUA exigen **BORRAR**
+  para quitar filas, limpiar completados o eliminar tabla, validado por el worker.
+  Manifiestos (sus cinco procedimientos) y BLs añaden **Más → Eliminar base de
+  datos…** sobre la ejecución elegida, también con **BORRAR** exacto. Conservar
+  bases de entrada y CSV públicos; archivar solo el trabajo interno propio en
+  `data/deleted/<flow>/<operación>/`, fuera de las fuentes/bitácora. Validar ID,
+  nombre, procedimiento, ruta y bloqueos del motor. Traslado reversible con
+  diario y recibo `deletedBatches` en session.json: revertir cierres antes del
+  commit sin resucitar borrados confirmados al recrear el mismo ID. Recuperación
+  de un borrado confirmado manual, sin botón Restaurar. La app activa se conserva;
+  estos cambios se cargan al próximo arranque.
+  Validación: 20 pruebas offline (8 de borrado/recuperación, 9 de integración
+  Manifiestos/BLs/Detalles/QML y 3 de Tránsito/Talón/XMovimientos). Las pruebas
+  antiguas de rango diario ahora envían `bounded=True`; el modo normal conserva
+  su ejecución continua. No se borraron bases reales ni se consultó TICA.
 - Manifiestos acumula los cinco procedimientos por mes/Courier sin IDs/límite.
   Repetir, ampliar fechas o cambiar modalidades reutiliza la ejecución y agrega
   manifiestos nuevos, conservando Guardado/intentos/checkpoints. Los CSV siguen

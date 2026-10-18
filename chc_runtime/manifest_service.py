@@ -64,6 +64,8 @@ class BatchService:
                 self.index['config']['inputMode']='file'
             self.index['config'].update(saved.get('config', {}))
             self.index.update({k:v for k,v in saved.items() if k != 'config'})
+        from .batch_deletion import recover
+        recover(self.root, flow, self.index)
         self.sources = []
         self.base_scope = None
         self._last_event = 0
@@ -95,7 +97,7 @@ class BatchService:
         jobs = list(self._jobs.values())
         jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,item['ordinal']))
         return {'config':{**self.index['config'],'outputRoot':str(self.public_root())}, 'history':[
-            {'id':item['id'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
+            {'id':item['id'], 'name':item['name'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
             'summary':{key:summary.get(key,0) for key in ('total','succeeded','pending','running','excluded','rows','invalid')},
             'jobs':jobs[:200], 'activeJobs':[j for j in jobs if j['state']=='Descargando'] if self.processing else [], 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
@@ -161,7 +163,13 @@ class BatchService:
                 logging.exception('No se pudo actualizar el historial de %s; SQLite conserva el progreso.', self.flow)
 
     def execute(self, command, request):
-        if command == 'configure':
+        if command == 'delete':
+            if self.flow not in LABELS:
+                raise ValueError('Seleccione una ejecución de Manifiestos o BLs.')
+            from .batch_deletion import delete_batch
+            result = delete_batch(self, request)
+            return {**result, 'snapshot': self.snapshot()}
+        elif command == 'configure':
             if request.get('config',{}).get('outputRoot'):
                 output_layout.set_local_root(request['config']['outputRoot'],self.root)
             self.index['config'].update({k:v for k,v in request.get('config',{}).items() if k in self.index['config']})

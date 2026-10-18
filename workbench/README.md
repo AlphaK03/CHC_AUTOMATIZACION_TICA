@@ -29,6 +29,38 @@ La conexión opcional a SharePoint usa MSAL, msal-extensions y requests en este
 mismo entorno. El panel no usa WebEngine ni un servidor web. Las dependencias del motor de
 Detalles se instalan por separado en `bots/detalles/.venv/`.
 
+## Eliminación de bases
+
+En Detalles, Tránsito, Talón y XMovimientos, abrir **Base de datos**, seleccionar
+la tabla y elegir **Eliminar tabla**. Eliminar filas o limpiar completados usa
+la misma confirmación. Escribir exactamente **BORRAR**, en mayúsculas y sin
+espacios; el botón permanece deshabilitado con cualquier otro texto. El diálogo
+siempre muestra la tabla elegida y limpia el campo al volver a abrirlo.
+
+En Manifiestos, elegir primero el procedimiento y su ejecución guardada; en BLs,
+elegir la ejecución. Abrir **Más → Eliminar base de datos…**. Retira esa ejecución
+con todas sus modalidades, pendientes, resultados internos y checkpoints. Conserva
+los CSV exportados, las bases de entrada, las instantáneas preparadas para BLs y
+las copias online. No elimina otro procedimiento ni hace consultas a TICA.
+
+No se permite borrar durante una consulta ni mientras una revisión visible está
+usando el lote BLs/Manifiestos. Si cambió la selección, hay un bloqueo de otro
+escritor o la ruta no es una carpeta propia del lote, la operación se rechaza.
+La palabra también se valida en el worker, no solo en el botón.
+
+Los cuatro DUA conservan sus respaldos SQLite en `data/queues/backups/`.
+Manifiestos y BLs trasladan los archivos internos a
+`bots/<bot>/data/deleted/<procedimiento>/<operación>/files/`, acompañados por
+`deletion.json` con el registro original. La ruta aparece en el estado y el log.
+Los archivos `.lock` permanecen en su ubicación. El respaldo no se ofrece como
+fuente para BLs ni cuenta como progreso mensual. Si el traslado falla o la app
+se cierra antes de confirmar el catálogo, se revierte; un recibo por operación
+evita restaurar un borrado confirmado aunque se recree la misma ejecución.
+
+La recuperación de un borrado confirmado es manual; todavía no hay botón
+Restaurar. Volver a iniciar una ejecución eliminada crea progreso nuevo y mantiene
+las protecciones existentes frente a conflictos con CSV anteriores.
+
 ## Detalles operativo
 
 Seleccionar **Detalles** en el panel lateral. Permite importar Excel, conservar

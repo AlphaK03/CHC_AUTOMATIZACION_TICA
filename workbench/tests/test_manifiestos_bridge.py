@@ -105,6 +105,37 @@ class ManifestIntegration(unittest.TestCase):
                 finally:
                     imported.shutdown()
                     wait_until(lambda:imported.isClosed)
+                # Borrado real del worker, limitado a cada ejecución, con fuentes/CSV intactos.
+                for target,flows in ((bls,('bls',)),(bridge,('tabla','conocimientos','duas','movimientos','contenedores'))):
+                    for flow in flows:
+                        target.setFlow(flow)
+                        channel=target.channels[flow]
+                        wait_until(lambda:not channel.busy)
+                        selected=next(item for item in target.history if item['id']==target.activeId)
+                        files={p:p.read_bytes() for p in (channel.root/'data/jobs'/flow).rglob('*.sqlite3')}
+                        csvs={p:p.read_bytes() for p in Path(channel.snapshot['outputFolder']).rglob('*.CSV')}
+                        self.assertTrue(files,flow)
+                        self.assertFalse(target.deleteDatabase('other',selected['id'],selected['name'],'BORRAR'))
+                        self.assertTrue(target.deleteDatabase(flow,selected['id'],selected['name'],'borrar'))
+                        wait_until(lambda:not channel.busy)
+                        self.assertIn('BORRAR',channel.error)
+                        self.assertEqual(target.activeId,selected['id'])
+                        self.assertTrue(target.deleteDatabase(flow,selected['id'],selected['name'],'BORRAR'))
+                        wait_until(lambda:not channel.busy)
+                        self.assertFalse(channel.error,channel.error)
+                        self.assertFalse(target.activeId)
+                        self.assertFalse(target.history)
+                        self.assertFalse(list((channel.root/'data/jobs'/flow).rglob('*.sqlite3')))
+                        archives=list((channel.root/'data/deleted'/flow).rglob('*.sqlite3'))
+                        self.assertEqual(len(archives),len(files))
+                        for path,content in files.items():
+                            self.assertTrue(any(p.read_bytes()==content for p in archives),path)
+                        for path,content in csvs.items():self.assertEqual(path.read_bytes(),content)
+                        self.assertTrue(destination.is_file())
+                # Volver a iniciar usa una base nueva, sin rescatar archivos del respaldo.
+                call('tabla','run')
+                self.assertEqual(bridge.summary['succeeded'],1)
+                self.assertEqual(bridge.summary['rows'],3)
             finally:
                 bridge.shutdown(); bls.shutdown()
                 wait_until(lambda:bridge.isClosed and bls.isClosed)

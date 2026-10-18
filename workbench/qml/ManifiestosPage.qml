@@ -16,6 +16,10 @@ ScrollView {
     property var navWidths: [116,160,88,134,148]
     property bool optionsVisible: false
     property int rowOffset: 0
+    property string deleteId: ""
+    property string deleteName: ""
+    property string deleteFlow: ""
+    property string deleteLabel: ""
     property var selectedKnowledge:[]
     property var availableKnowledge:moduleBridge.knowledgeCatalog.periods || []
     property bool knowledgeSelectionReady:selectedKnowledge.length>0 && selectedKnowledge.every(k=>availableKnowledge.some(p=>p.key===k))
@@ -34,6 +38,15 @@ ScrollView {
         return chosen.length===1 ? chosen[0].label : chosen.length ? chosen.length+" períodos seleccionados" : "Seleccione los meses y modalidades descargados"
     }
     function localPath(url) { return decodeURIComponent(url.toString().replace(/^file:\/\/\//,"")) }
+    function requestDelete() {
+        const selected = moduleBridge.history.find(item => item.id === moduleBridge.activeId)
+        if (!selected) return
+        page.deleteId = selected.id
+        page.deleteName = selected.name
+        page.deleteLabel = selected.label
+        page.deleteFlow = moduleBridge.flow
+        deleteDialog.open()
+    }
     function automaticName() {
         let modes = []
         if (maritime.checked) modes.push("maritimo")
@@ -89,7 +102,7 @@ ScrollView {
         target: moduleBridge
         function onEventReceived(event) {
             if(event.flow === moduleBridge.flow && (event.event === "ready" ||
-               (event.event === "result" && ["configure","refresh","select","import_progress","run","knowledge_empty"].indexOf(event.command) >= 0))) loadConfig()
+               (event.event === "result" && ["configure","refresh","select","import_progress","run","knowledge_empty","delete"].indexOf(event.command) >= 0))) loadConfig()
         }
     }
     ColumnLayout {
@@ -107,6 +120,7 @@ ScrollView {
                 MenuItem { text:"Pendientes y exclusiones"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("review",{}) }
                 MenuItem { text:"Importar progreso SQLite…"; visible:!page.isBls && ["conocimientos","duas","movimientos"].indexOf(moduleBridge.flow)>=0; enabled:!moduleBridge.busy; onTriggered:progressFile.open() }
                 MenuItem { text:"Dividir CSV para Excel"; enabled:!moduleBridge.busy; onTriggered:splitFile.open() }
+                MenuItem { objectName:"batchDeleteDatabase"; text:"Eliminar base de datos…"; enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running && moduleBridge.activeId!==""; onTriggered:page.requestDelete() }
                 MenuItem { text:"Reconectar"; enabled:!moduleBridge.busy; onTriggered:moduleBridge.connectModule() }
             } }
         }
@@ -328,6 +342,15 @@ ScrollView {
         ReviewStatus { Layout.fillWidth:true; inspector:moduleBridge.manualReview }
     }
     FileDialog { id:inputFile; title:"Base de BLs"; nameFilters:["Bases BLs (*.xlsx *.sqlite3 *.sqlite *.db)"]; onAccepted:input.text=page.localPath(selectedFile) }
+    DeleteConfirmation {
+        id: deleteDialog; objectName: "batchDeleteDialog"
+        anchors.centerIn: parent; width: Math.min(560,page.width - 30)
+        details: "¿Eliminar la base de «" + page.deleteLabel + "»?\n\n" +
+            "Se retirará esta ejecución con sus modalidades, resultados internos y pendientes. Los CSV exportados y las bases de entrada se conservan."
+        allowed: moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
+            page.deleteFlow === moduleBridge.flow && page.deleteId === moduleBridge.activeId
+        onConfirmed: function(confirmation) { moduleBridge.deleteDatabase(page.deleteFlow,page.deleteId,page.deleteName,confirmation) }
+    }
     FileDialog { id:splitFile; title:"Dividir un CSV para Excel"; nameFilters:["CSV (*.csv)"]; onAccepted:moduleBridge.command("split",{source:page.localPath(selectedFile)}) }
     FileDialog { id:progressFile; title:"Importar una copia del progreso original"; nameFilters:["Progreso SQLite (*.sqlite3 *.sqlite *.db)"]; onAccepted:moduleBridge.command("import_progress",{source:page.localPath(selectedFile)}) }
     FolderDialog { id:outputFolder; title:"Carpeta madre común a todos los bots"; onAccepted:output.text=page.localPath(selectedFolder) }

@@ -437,12 +437,12 @@ class DetailsBridge(QObject):
             self._review.open({'tableId': self.activeTable['id'], 'jobId': job_id})
     @Slot(str)
     def renameTable(self, name): self._send('rename', {'name': name})
-    @Slot('QVariantList', str)
-    def removeRows(self, ids, table_id): self._send('remove_rows', {'ids': ids, 'confirmTableId': table_id})
-    @Slot(str)
-    def cleanCompleted(self, table_id): self._send('clean', {'confirmTableId': table_id})
-    @Slot(str)
-    def deleteTable(self, table_id): self._send('delete', {'confirmTableId': table_id})
+    @Slot('QVariantList', str, str)
+    def removeRows(self, ids, table_id, confirmation): self._send('remove_rows', {'ids': ids, 'confirmTableId': table_id, 'confirmation': confirmation})
+    @Slot(str, str)
+    def cleanCompleted(self, table_id, confirmation): self._send('clean', {'confirmTableId': table_id, 'confirmation': confirmation})
+    @Slot(str, str)
+    def deleteTable(self, table_id, confirmation): self._send('delete', {'confirmTableId': table_id, 'confirmation': confirmation})
     @Slot()
     def clearActivity(self):
         self._events = []

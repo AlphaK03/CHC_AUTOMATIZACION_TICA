@@ -172,6 +172,12 @@
 - Preservar identificadores como texto, ceros iniciales, formatos de salida y
   resultados confirmados. No convertir índices de sesión en prueba de éxito.
 - No borrar bases, progreso, entradas ni resultados durante reorganizaciones.
+- Borrado explícito por el usuario: exigir `BORRAR` exacto en interfaz y worker
+  para todas las eliminaciones/limpiezas DUA y para ejecuciones Manifiestos/BLs.
+  `chc_runtime/batch_deletion.py` archiva solo el work propio en `data/deleted/`,
+  fuera de fuentes y bitácora; preservar entradas, CSV públicos y checkpoints
+  en el respaldo. Mantener bloqueos compatibles, diario recuperable y recibo por
+  operación `deletedBatches`: recrear un ID no debe resucitar un borrado confirmado.
 - La entrega inicial conserva las fuentes copiadas byte a byte. Una modificación
   futura del motor debe documentarse: el manifiesto registra la línea base inicial.
 - Leer las instrucciones internas de cada módulo antes de cambiar su motor.

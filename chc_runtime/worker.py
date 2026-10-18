@@ -353,6 +353,8 @@ class DetailsService:
         elif command in {'remove_rows', 'clean', 'delete'}:
             if request.get('confirmTableId') != self.active_id or not self.active_id:
                 raise ValueError('La tabla seleccionada cambió. Confirma de nuevo la operación.')
+            if request.get('confirmation') != 'BORRAR':
+                raise ValueError('Escribe exactamente BORRAR para confirmar.')
             if command == 'delete':
                 backup = self.catalog.delete_table(self.active_id)
                 self.active_id = ''

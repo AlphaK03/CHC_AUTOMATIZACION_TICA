@@ -6,6 +6,11 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
+Los seis bots permiten eliminar sus tablas/ejecuciones guardadas con respaldo y
+confirmación escrita **BORRAR**. En Manifiestos y BLs: seleccionar una ejecución
+y abrir **Más → Eliminar base de datos…**; conserva entradas originales y CSV.
+En los cuatro DUA se encuentra en **Base de datos**; limpiar o quitar filas
+también exige **BORRAR**. Las operaciones quedan bloqueadas mientras trabajan.
 Los cuatro bots DUA recuperan transacciones SQLite interrumpidas al arrancar,
 con respaldo previo y bloqueo exclusivo; abrir el panel conserva resultados,
 intentos y reservas sin iniciar consultas.

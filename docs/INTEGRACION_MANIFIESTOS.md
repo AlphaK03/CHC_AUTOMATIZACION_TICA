@@ -40,6 +40,23 @@ conservan selecciones aisladas, nombres con sufijo y su lista fija original.
 BLs conserva su política de identidad de entrada, firmas y checkpoints.
 No se sobrescriben CSV externos: ante un conflicto se pide otra carpeta de resultados.
 
+## Eliminar una ejecución guardada
+
+Seleccionar el procedimiento y la ejecución, después **Más → Eliminar base de
+datos…** y escribir **BORRAR** exacto. La misma acción está disponible en BLs.
+Se retiran todas las modalidades y archivos internos de ese lote, conservando
+CSV públicos, entradas originales y bases ya preparadas para otros procesos.
+No se actúa mientras está ocupado o durante una revisión visible.
+
+`chc_runtime/batch_deletion.py` valida rutas internas sin enlaces, identidad y
+nombre capturados; adquiere los `.lock` compatibles con ambos motores y archiva
+los archivos, incluidos SQLite, WAL y checkpoints, fuera de `data/jobs/`.
+`data/deleted/<flow>/<uuid>/deletion.json` conserva el registro y el diario del
+traslado. Ante fallo se revierte; al cargar se recuperan operaciones inconclusas.
+El recibo `deletedBatches` en el índice distingue un commit de un traslado parcial,
+incluso si se recreó después el mismo ID. Los originales copiados no cambian.
+No existe todavía una acción de restauración para borrados ya confirmados.
+
 ## Actualización acumulativa por mes
 
 Los cinco procedimientos vuelven a obtener un listado confirmado en cada inicio.

@@ -275,6 +275,8 @@ class BatchBridge(QObject):
 
     @Slot(str, 'QVariantMap', result=bool)
     def command(self, name, data):
+        if name == 'delete' and (self.busy or self._closing or self._review.running):
+            return False
         if self.isBls and name=='run' and self.enabled:
             config=dict(data.get('config',self.config))
             if 'inputMode' not in config and config.get('input'):
@@ -293,6 +295,13 @@ class BatchBridge(QObject):
                 return accepted
             self._knowledge_error=self._knowledge_status=''
         return self.current().send(name,data) if self.enabled else False
+
+    @Slot(str, str, str, str, result=bool)
+    def deleteDatabase(self, flow, table_id, table_name, confirmation):
+        if flow != self._flow:
+            return False
+        return self.command('delete', {'confirmTableId': table_id,
+            'confirmTableName': table_name, 'confirmation': confirmation})
 
     @Slot()
     def refreshKnowledge(self):

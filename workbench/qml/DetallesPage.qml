@@ -381,19 +381,16 @@ ScrollView {
             ActionButton { text: "Guardar nombre"; primary: true; onClicked: { worker.renameTable(renameInput.text); renameDialog.close() } }
         }
     }
-    Dialog {
-        id: deleteDialog
-        title: "Confirmar eliminación"; anchors.centerIn: parent; width: Math.min(540,page.width - 30); modal: true; padding: 24
-        palette.windowText: Theme.text; background: Panel {}
-        contentItem: ColumnLayout {
-            spacing: 14
-            Text { text: page.confirmText; color: Theme.text; font.family: Theme.family; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-            Text { text: "Se creará un respaldo SQLite antes de cambiar la tabla."; color: Theme.accent; font.family: Theme.family; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-        }
-        footer: RowLayout {
-            ActionButton { text: "Cancelar"; onClicked: deleteDialog.close() }
-            Item { Layout.fillWidth: true }
-            ActionButton { text: "Confirmar eliminación"; primary: true; enabled: !worker.busy; onClicked: { if(page.confirmAction === "rows") worker.removeRows(page.confirmIds,page.confirmTable); if(page.confirmAction === "clean") worker.cleanCompleted(page.confirmTable); if(page.confirmAction === "table") worker.deleteTable(page.confirmTable); page.selectedIds = []; deleteDialog.close() } }
+    DeleteConfirmation {
+        id: deleteDialog; objectName: "detailsDeleteDialog"
+        anchors.centerIn: parent; width: Math.min(540,page.width - 30)
+        details: page.confirmText
+        allowed: worker.ready && !worker.busy && !worker.closing && page.confirmTable === page.activeId
+        onConfirmed: function(confirmation) {
+            if(page.confirmAction === "rows") worker.removeRows(page.confirmIds,page.confirmTable,confirmation)
+            if(page.confirmAction === "clean") worker.cleanCompleted(page.confirmTable,confirmation)
+            if(page.confirmAction === "table") worker.deleteTable(page.confirmTable,confirmation)
+            page.selectedIds = []
         }
     }
     Dialog {
