@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs as Native
 import "components"
 
-Dialog {
+AppDialog {
     id: dialog
     property var service: null
     property bool picking: false
@@ -92,9 +92,13 @@ Dialog {
             currentIndex:dialog.picking ? 1 : 0
             Layout.fillWidth:true; Layout.fillHeight:true
             ScrollView {
+                id:cloudScroll
                 clip:true
+                contentWidth:availableWidth
+                ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+                ScrollBar.vertical.active:true
                 ColumnLayout {
-                    width:dialog.availableWidth; spacing:16
+                    width:cloudScroll.availableWidth; spacing:16
                     Panel {
                         Layout.fillWidth:true; implicitHeight:112
                         ColumnLayout {
@@ -177,13 +181,14 @@ Dialog {
                                 model:dialog.selectedSite ? service && service.browse.drives ? service.browse.drives : [] : dialog.sites
                                 ScrollBar.vertical:ScrollBar {}
                                 delegate: Button {
+                                    id:locationButton
                                     required property var modelData
                                     objectName:dialog.selectedSite ? "sharePointLibrary" : "sharePointKnownSite"
-                                    width:sitesList.width; height:52; hoverEnabled:true
+                                    width:sitesList.width; height:Math.max(52,locationText.implicitHeight+16); hoverEnabled:true
                                     text:modelData.name
                                     enabled:!!service && !service.busy
                                     background:Rectangle { radius:7; color:parent.hovered ? Theme.hover : "transparent" }
-                                    contentItem:Text { text:parent.text; color:Theme.text; font.pixelSize:12; wrapMode:Text.WordWrap; verticalAlignment:Text.AlignVCenter }
+                                    contentItem:Text { id:locationText; text:locationButton.text; color:Theme.text; font.pixelSize:12; wrapMode:Text.Wrap; verticalAlignment:Text.AlignVCenter }
                                     onClicked:dialog.chooseLocation(!!dialog.selectedSite,modelData.id || "",modelData.name,modelData.url || "")
                                 }
                             }

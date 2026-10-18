@@ -6,6 +6,21 @@
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Ajuste visual global, 17/10: la captura real confirmó 250 filas Marítimo,
+  1833 Aéreo y 2083 totales; la tabla de 90 px dejaba oculta una de las dos filas.
+  Manifiestos/BLs reservan altura para 2–5 filas, con filas de 42/66 px para
+  acomodar TICA. DUA adapta la altura de listas cortas. Cabecera/márgenes compactos,
+  navegación lateral desplazable y procedimientos en dos filas al reducir ancho.
+  Barras visibles cuando se necesita desplazar. `components/AppDialog.qml` centra
+  ventanas en Overlay, comparte tema y Cerrar; calendario con contenido desplazable
+  y pie fijo. Se conservaron las funciones, fuentes, motores y almacenamiento.
+  Pruebas: 13 tests locales pasaron; `test_platform_layout.py` genera 229 capturas
+  de páginas/diálogos, tres tamaños (1280×774, 1000×680, 1000×600), temas y demo,
+  sin controles fuera del ancho, verificando ambas filas y sus botones completos,
+  acceso al final del contenido y cierre real de diálogos. Capturas en
+  `runtime/diagnostics/layout/` al fijar `CHC_LAYOUT_CAPTURES`; fixture solo memoria/
+  temporales, sin red ni motores. La app inicial se conservó mientras estuvo abierta;
+  al comprobar que ya estaba cerrada se abrió la versión ajustada sin iniciar consultas.
 - Observación de Manifiestos por modalidad: columna y resumen para Marítimo,
   Aéreo y Terrestre, filtro del historial y paginación conjunta sin perder filas.
   La clave interna de observación es `(base SQLite, jobId)`; no usar solo el ID:

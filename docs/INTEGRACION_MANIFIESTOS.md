@@ -33,6 +33,13 @@ en Tabla, cada modalidad tiene su propio `listado`, con filas e intentos propios
 Antes la clave visual `listado` podía reemplazar una modalidad por la otra;
 el problema afectaba la observación, con SQLite y CSV separados.
 
+La tabla también reserva altura para dos filas simultáneas y hasta cinco de
+vista inicial, con botones completos dentro de cada fila. Una altura anterior
+de 90 px permitía ver solo una de las modalidades aunque ambas existieran en el
+modelo. En ventanas bajas la página ofrece desplazamiento vertical visible.
+Esta distribución se comparte con BLs. Los procedimientos se acomodan en dos
+filas al reducir el ancho, conservando etiquetas y ayudas.
+
 El progreso agrega contadores por base y captura su modalidad en el callback.
 Al reabrir se reconstruyen desde SQLite; no se consulta TICA. La paginación de
 200 se aplica después de combinar las bases, con los activos visibles aparte

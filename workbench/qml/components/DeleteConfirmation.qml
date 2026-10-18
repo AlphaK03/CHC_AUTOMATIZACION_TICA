@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Dialog {
+AppDialog {
     id: dialog
+    parent:Overlay.overlay
     property string details: ""
     property bool allowed: true
     signal confirmed(string confirmation)

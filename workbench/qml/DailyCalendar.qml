@@ -3,8 +3,10 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "components"
 
-Dialog {
+AppDialog {
     id: calendarDialog
+    parent:Overlay.overlay
+    height:Math.min(700,parent.height-32)
     property var moduleBridge: null
     property var worker: moduleBridge || details
     objectName: "detailsDailyCalendar"
@@ -66,7 +68,13 @@ Dialog {
         worker.loadCalendar(date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2,"0"))
         selectedDay = ({})
     }
-    contentItem: ColumnLayout {
+    contentItem: ScrollView {
+        id:calendarScroll; objectName:"calendarScroll"
+        clip:true; contentWidth:availableWidth
+        ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+        ScrollBar.vertical.active:true
+    ColumnLayout {
+        width:calendarScroll.availableWidth
         spacing: 14
         RowLayout {
             Layout.fillWidth: true
@@ -127,5 +135,6 @@ Dialog {
             text: calendarDialog.selectedDay.date ? calendarDialog.selectedDay.date + " · " + (calendarDialog.selectedDay.manualCompleted ? "Completado manual · Estado del bot: " : "") + ({completed:"Completado",downloading:"Descargando base",processing:"Procesando",pending:"Pendiente",omitted:"Omitido: pendientes para revisión manual",future:"Todavía no disponible",outside:"Sin ejecutar"})[calendarDialog.selectedDay.state] + (calendarDialog.selectedDay.total ? " · " + calendarDialog.selectedDay.succeeded + " / " + calendarDialog.selectedDay.total + " guardados" + (calendarDialog.selectedDay.empty ? " · " + calendarDialog.selectedDay.empty + " vacíos" : "") : "") + (calendarDialog.selectedDay.error ? "\n" + calendarDialog.selectedDay.error : "") : "Elige el primer y último día del rango."
             color: Theme.muted; font.family: Theme.family; font.pixelSize: 11
         }
+    }
     }
 }

@@ -29,6 +29,30 @@ La conexión opcional a SharePoint usa MSAL, msal-extensions y requests en este
 mismo entorno. El panel no usa WebEngine ni un servidor web. Las dependencias del motor de
 Detalles se instalan por separado en `bots/detalles/.venv/`.
 
+## Pantalla y desplazamiento
+
+Las tablas de Manifiestos y BLs reservan espacio para mostrar juntas dos filas,
+y hasta cinco al haber más resultados. Los botones TICA caben dentro de su fila.
+En los cuatro bots DUA, una tabla pequeña evita dejar el espacio vacío de una
+lista de cientos de entradas. Las listas grandes conservan su desplazamiento.
+
+Al reducir la ventana, la cabecera usa menos espacio y la navegación de los
+procedimientos de Manifiestos se distribuye en dos filas. Las barras de
+desplazamiento quedan visibles cuando hay contenido fuera del área de lectura;
+permiten llegar a tablas, botones y opciones inferiores sin salir de la ventana.
+La barra lateral también puede desplazarse en pantallas bajas. Ctrl+B conserva
+la opción de contraerla.
+
+Los diálogos se centran en la ventana completa. Base de datos, resultado,
+calendario, generador BLs y selector de Conocimientos se ajustan a su altura.
+El calendario permite desplazar detalles largos y conserva abajo Usar rango y
+Cerrar. Los diálogos comparten colores de tema y el botón Cerrar en español.
+Los nombres largos de sitios y bibliotecas de SharePoint usan varias líneas.
+
+Verificación aislada en 1280×774, 1000×680 y 1000×600: páginas, configuración,
+ventanas y modos de demostración, además de tema claro y oscuro. No modifica
+la selección, los motores, las consultas ni los resultados guardados.
+
 ## Eliminación de bases
 
 En Detalles, Tránsito, Talón y XMovimientos, abrir **Base de datos**, seleccionar

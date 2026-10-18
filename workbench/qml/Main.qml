@@ -14,6 +14,7 @@ ApplicationWindow {
     title: details.enabled ? "CHC Workbench" : "CHC Workbench · Demostración"
     color: Theme.background
     property bool sidebarExpanded: true
+    property bool compact: width < 1120
     property bool initialDark: true
     property QtObject demoBackend: demo
     property string toastMessage: ""
@@ -66,15 +67,21 @@ ApplicationWindow {
         Rectangle {
             id: sidebar
             objectName: "sidebar"
-            Layout.preferredWidth: window.sidebarExpanded ? 244 : 80
+            Layout.preferredWidth: window.sidebarExpanded ? (window.compact ? 220 : 244) : 80
             Layout.fillHeight: true
             color: Theme.sidebar
             clip: true
             Behavior on Layout.preferredWidth { NumberAnimation { duration: 200; easing.type: Easing.InOutCubic } }
             Rectangle { width: 1; anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.right: parent.right; color: Theme.border }
+            ScrollView {
+                id:navigationScroll; objectName:"navigationScroll"
+                anchors.fill:parent; anchors.margins:15
+                contentWidth:availableWidth; clip:true
+                ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+                ScrollBar.vertical.active:true
             ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 15
+                width:navigationScroll.availableWidth
+                height:Math.max(navigationScroll.availableHeight,implicitHeight)
                 spacing: 6
                 Item {
                     Layout.fillWidth: true; implicitHeight: 68
@@ -127,23 +134,24 @@ ApplicationWindow {
                     }
                 }
             }
+            }
         }
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 0
             Rectangle {
-                Layout.fillWidth: true; implicitHeight: 73; color: Theme.background
+                Layout.fillWidth: true; implicitHeight: window.height < 740 ? 56 : 73; color: Theme.background
                 RowLayout {
-                    anchors.fill: parent; anchors.leftMargin: 32; anchors.rightMargin: 32; spacing: 18
+                    anchors.fill: parent; anchors.leftMargin: window.compact ? 20 : 32; anchors.rightMargin: window.compact ? 20 : 32; spacing: window.compact ? 12 : 18
                     RowLayout {
                         Layout.fillWidth: true; spacing: 10
                         Text { text: "Workbench"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 12 }
                         Icon { name: "chevron"; width: 12; height: 12; tint: Theme.faint }
-                        Text { text: window.pageTitle; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        Text { text: window.pageTitle; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; font.weight: Font.DemiBold; Layout.fillWidth:true; Layout.minimumWidth:0; elide:Text.ElideRight }
                     }
                     Rectangle {
-                        Layout.preferredWidth: 240; height: 35; radius: 7; color: Theme.surface; border.color: searchInput.activeFocus ? Theme.accent : Theme.border
+                        Layout.preferredWidth: window.compact ? 180 : 240; height: 35; radius: 7; color: Theme.surface; border.color: searchInput.activeFocus ? Theme.accent : Theme.border
                         Icon { x: 11; anchors.verticalCenter: parent.verticalCenter; name: "search"; width: 16; height: 16; tint: Theme.faint }
                         TextField {
                             id: searchInput
@@ -178,7 +186,7 @@ ApplicationWindow {
                 Layout.fillWidth: true; Layout.fillHeight: true
                 Loader {
                     id: pageLoader
-                    anchors.fill: parent; anchors.margins: 32; anchors.bottomMargin: 20
+                    anchors.fill: parent; anchors.margins: window.compact ? 20 : 32; anchors.bottomMargin: 20
                     sourceComponent: demo.route === "overview" ? dashboardComponent : demo.route === "detalles" && details.enabled ? detailsComponent : demo.route === "duas_transito" && window.transitBridge && window.transitBridge.enabled ? transitComponent : demo.route === "talon" && window.talonBridge && window.talonBridge.enabled ? talonComponent : demo.route === "xmovimientos" && window.movementsBridge && window.movementsBridge.enabled ? movementsComponent : demo.route === "manifiestos" && window.manifestsBridge && window.manifestsBridge.enabled ? manifestsComponent : demo.route === "bls" && window.blsBridge && window.blsBridge.enabled ? blsComponent : demoComponent
                     Component { id: dashboardComponent; Dashboard {} }
                     Component { id: detailsComponent; DetallesPage { moduleBridge: details } }
@@ -206,8 +214,9 @@ ApplicationWindow {
 
     SharePointDialog { id:sharePointDialog; objectName:"sharePointDialog"; service:window.cloudBridge }
 
-    Dialog {
+    AppDialog {
         id: aboutDialog
+        objectName:"aboutDialog"
         title: "Acerca de CHC Workbench"
         anchors.centerIn: parent
         width: 460
@@ -225,8 +234,9 @@ ApplicationWindow {
             Text { text: "Versión 0.2 · Integración modular\nCtrl+K: buscar  ·  Ctrl+B: contraer navegación"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
         }
     }
-    Dialog {
+    AppDialog {
         id: roadmapDialog
+        objectName:"roadmapDialog"
         title: "Bases e integraciones"
         anchors.centerIn: parent
         width: 460

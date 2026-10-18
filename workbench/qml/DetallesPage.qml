@@ -27,6 +27,7 @@ ScrollView {
     contentWidth: availableWidth
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical.active: true
     function selectedIndex() { for(let i=0;i<worker.tables.length;i++) if(worker.tables[i].id === page.activeId) return i; return -1 }
     function filterName() { return (worker.moduleId === "xmovimientos" ? ["all", "pending", "succeeded", "retry", "empty", "unverified_empty", "manual_pending"] : ["all", "pending", "succeeded", "retry", "manual_pending"])[filterBox.currentIndex] || "all" }
     function refreshRows(offset) { worker.searchRows(filterName(), rowSearch.text.trim(), offset); page.selectedIds = [] }
@@ -237,15 +238,18 @@ ScrollView {
         MenuItem { text: "Abrir registros"; onTriggered: worker.openLogs() }
         MenuItem { text: "Interfaz clásica"; visible: worker.supportsClassic; enabled: worker.ready && !worker.busy; onTriggered: worker.openClassic() }
     }
-    Dialog {
+    AppDialog {
         id: databaseDialog; objectName: "detailsDatabaseDialog"
+        parent:Overlay.overlay
         title: "Base de datos"; modal: true; anchors.centerIn: parent
-        width: Math.min(940, page.width - 20); height: Math.min(690, page.height - 20)
+        width: Math.min(940, parent.width - 32); height: Math.min(690, parent.height - 32)
         padding: 16; standardButtons: Dialog.Close
         palette.windowText: Theme.text; palette.buttonText: Theme.text; palette.button: Theme.raised
         background: Panel {}
         contentItem: ScrollView {
             id: databaseScroll; contentWidth: availableWidth; clip: true
+            ScrollBar.vertical.active:true
+            ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
             Panel {
                 width: databaseScroll.availableWidth
             implicitHeight: databaseColumn.implicitHeight + 44
@@ -281,7 +285,7 @@ ScrollView {
                 ListView {
                     id: jobList
                     objectName: "detailsJobList"
-                    Layout.fillWidth: true; implicitHeight: 350; clip: true; model: worker.rows
+                    Layout.fillWidth: true; implicitHeight: Math.min(350,Math.max(112,worker.rows.length*56)); clip: true; model: worker.rows
                     ScrollBar.vertical: ScrollBar {}
                     delegate: Rectangle {
                         id: rowDelegate
@@ -338,8 +342,9 @@ ScrollView {
         onRangeSelected: function(start, end) { page.dailyStartEdited = true; page.dailyEndEdited = true; dailyStart.text = start; dailyEnd.text = end; page.dailyMode = true; page.configDirty = true }
     }
 
-    Dialog {
+    AppDialog {
         id: importDialog
+        parent:Overlay.overlay; objectName:"detailsImportDialog"
         title: "Guardar tabla"; anchors.centerIn: parent; width: Math.min(560, page.width - 30); modal: true; padding: 24
         palette.windowText: Theme.text; palette.buttonText: Theme.text; background: Panel {}
         contentItem: ColumnLayout {
@@ -358,8 +363,9 @@ ScrollView {
             ActionButton { text: "Continuar"; primary: true; enabled: !worker.busy && importTableName.text.trim() !== ""; onClicked: worker.prepareImport(importSheet.currentText, importTableName.text) }
         }
     }
-    Dialog {
+    AppDialog {
         id: importConfirm
+        parent:Overlay.overlay; objectName:"detailsImportConfirm"
         implicitHeight: 270
         title: "Guardar tabla"; anchors.centerIn: parent; width: Math.min(520,page.width - 30); modal: true; padding: 24
         palette.windowText: Theme.text; background: Panel {}
@@ -370,8 +376,9 @@ ScrollView {
             ActionButton { text: worker.importPlan.appended ? "Agregar DUAs" : "Crear tabla"; primary: true; enabled: !worker.busy; onClicked: { worker.confirmImport(); importConfirm.close() } }
         }
     }
-    Dialog {
+    AppDialog {
         id: renameDialog
+        parent:Overlay.overlay; objectName:"detailsRenameDialog"
         title: "Renombrar tabla"; anchors.centerIn: parent; width: Math.min(450,page.width - 30); modal: true; padding: 24
         palette.windowText: Theme.text; background: Panel {}
         contentItem: Field { id: renameInput; placeholderText: "Nombre de la tabla" }
@@ -393,15 +400,18 @@ ScrollView {
             page.selectedIds = []
         }
     }
-    Dialog {
+    AppDialog {
         id: detailDialog
+        parent:Overlay.overlay; objectName:"detailsResultDialog"
         title: "DUA · " + (worker.jobDetail.dua || worker.jobDetail.original || "Entrada inválida")
-        anchors.centerIn: parent; width: Math.min(840,page.width - 20); height: Math.min(700,page.height - 30); modal: true; padding: 22
+        anchors.centerIn: parent; width: Math.min(840,parent.width - 32); height: Math.min(700,parent.height - 32); modal: true; padding: 22
         palette.windowText: Theme.text; palette.buttonText: Theme.text; palette.button: Theme.raised
         standardButtons: Dialog.Close; background: Panel {}
         contentItem: ScrollView {
             id: detailScroll
             contentWidth: availableWidth; clip: true
+            ScrollBar.vertical.active:true
+            ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
             ColumnLayout {
                 width: detailScroll.availableWidth; spacing: 14
                 Text { text: worker.jobDetail.status === "empty" ? "Vacío: sin movimientos por ahora" : "Resultado"; color: Theme.text; font.family: Theme.family; font.pixelSize: 14; font.weight: Font.DemiBold }

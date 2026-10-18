@@ -32,6 +32,7 @@ ScrollView {
     contentHeight: contentColumn.height
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical.active: true
     function knowledgeLabel() {
         if(availableKnowledge.length===0) return moduleBridge.knowledgeBusy ? "Buscando descargas completas…" : "Aún no hay descargas completas de Conocimientos"
         let chosen=availableKnowledge.filter(p=>selectedKnowledge.indexOf(p.key)>=0)
@@ -39,6 +40,12 @@ ScrollView {
     }
     function localPath(url) { return decodeURIComponent(url.toString().replace(/^file:\/\/\//,"")) }
     function modeLabel(mode) { return ({maritimo:"Marítimo",aereo:"Aéreo",terrestre:"Terrestre"})[mode] || "Sin modalidad" }
+    function historyPreviewHeight() {
+        const rows = moduleBridge.jobs.slice(0, 5)
+        let height = Math.max(0, rows.length - 1) * 2
+        for (let row of rows) height += row.error ? 66 : 42
+        return Math.max(86, height)
+    }
     function refreshRows() {
         page.rowOffset = 0
         moduleBridge.command("view",{search:search.text,offset:0,mode:page.isBls ? "" : ["","maritimo","aereo","terrestre"][modeFilter.currentIndex]})
@@ -139,12 +146,14 @@ ScrollView {
         Rectangle {
             visible: !page.isBls
             Layout.fillWidth: true
-            implicitHeight: 62
+            implicitHeight: procedureNavigation.implicitHeight + 16
             radius: 10
             color: Theme.sidebar
             border.color: Theme.border
-            RowLayout {
-                anchors.fill: parent; anchors.margins: 8; spacing: 4
+            GridLayout {
+                id: procedureNavigation
+                anchors.fill: parent; anchors.margins: 8; columnSpacing: 4; rowSpacing: 4
+                columns: page.width < 800 ? 3 : 5
                 Repeater {
                     model: page.flows
                     delegate: NavItem {
@@ -319,10 +328,14 @@ ScrollView {
         }
         Panel {
             visible: !page.optionsVisible
-            Layout.fillWidth:true; Layout.fillHeight:true; Layout.minimumHeight:90; clip:true
+            objectName:"batchHistoryPanel"
+            Layout.fillWidth:true; Layout.fillHeight:true
+            Layout.minimumHeight:jobsHeader.implicitHeight + page.historyPreviewHeight() + 32
+            clip:true
             ColumnLayout {
                 anchors.fill:parent; anchors.margins:12; spacing:8
                 RowLayout {
+                    id:jobsHeader
                     Layout.fillWidth:true
                     Text { visible:page.isBls; text:"Fila"; color:Theme.faint; Layout.preferredWidth:40 }
                     Text { visible:!page.isBls; text:"Modalidad"; color:Theme.faint; Layout.preferredWidth:85 }
@@ -336,12 +349,13 @@ ScrollView {
                 ListView {
                     id:jobsList
                     objectName:"manifestJobs"
-                    Layout.fillWidth:true; Layout.fillHeight:true; clip:true; spacing:2
+                    Layout.fillWidth:true; Layout.fillHeight:true; Layout.minimumHeight:page.historyPreviewHeight(); clip:true; spacing:2
                     model:moduleBridge.jobs
                     ScrollBar.vertical:ScrollBar {}
                     delegate:Item {
                         required property var modelData
-                        width:jobsList.width; height:modelData.error ? 58 : 34
+                        objectName:"batchJobRow"
+                        width:jobsList.width; height:modelData.error ? 66 : 42
                         ColumnLayout {
                             anchors.fill:parent; spacing:2
                             RowLayout {

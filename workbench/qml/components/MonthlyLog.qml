@@ -99,7 +99,7 @@ ColumnLayout {
         }
     }
     Text { visible: demo.monthlyRows.length > 0; text: demo.monthlyMessage; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-    Dialog {
+    AppDialog {
         id:manualClose; objectName:"manualMonthClose"
         parent:Overlay.overlay; anchors.centerIn:parent
         modal:true; width:Math.min(520,parent ? parent.width-40 : 520)

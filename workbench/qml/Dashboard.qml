@@ -9,6 +9,7 @@ ScrollView {
     clip: true
     contentWidth: availableWidth
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical.active: true
     ColumnLayout {
         width: dashboard.availableWidth; spacing: 18
         MonthStart { Layout.fillWidth: true }

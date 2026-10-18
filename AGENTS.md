@@ -148,6 +148,11 @@
 - Ajustar la verificación al riesgo. En cambios visuales hacer una comprobación
   breve de carga/captura; no repetir suites completas ni consultas reales.
   Reservar pruebas amplias para cambios sensibles de motor, datos o recuperación.
+- Para ajustes globales de interfaz usar `workbench/tests/test_platform_layout.py`
+  con datos temporales/en memoria y `CHC_LAYOUT_CAPTURES` para evidencia. Comprobar
+  geometría y acceso con desplazamiento en 1280×774, 1000×680 y 1000×600, no solo
+  existencia de nodos: dos filas y sus botones deben caber en la tabla. Reutilizar
+  `components/AppDialog.qml` y centrar en Overlay para no limitar diálogos a la página.
 - Al terminar cambios de código, abrir la app antes de documentar, por petición
   explícita del usuario. Mantener este orden en futuras sesiones.
 - Si el usuario está ejecutando consultas, conservar su instancia abierta.
