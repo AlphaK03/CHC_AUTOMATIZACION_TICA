@@ -225,6 +225,14 @@ class BatchBridge(QObject):
     @Property('QVariantMap', notify=changed)
     def summary(self): return self.current().snapshot['summary']
     @Property('QVariantList', notify=changed)
+    def modeSummaries(self): return self.current().snapshot.get('modeSummaries',[])
+    @Property(str, notify=changed)
+    def viewMode(self): return self.current().snapshot.get('viewMode','')
+    @Property(str, notify=changed)
+    def viewSearch(self): return self.current().snapshot.get('viewSearch','')
+    @Property(int, notify=changed)
+    def viewOffset(self): return self.current().snapshot.get('viewOffset',0)
+    @Property('QVariantList', notify=changed)
     def jobs(self): return self.current().snapshot['jobs']
     @Property('QVariantList', notify=changed)
     def activeJobs(self): return self.current().snapshot.get('activeJobs',[]) if self.current().busy else []
@@ -352,9 +360,12 @@ class BatchBridge(QObject):
     def openResults(self): self.openPath(self.current().snapshot.get('outputFolder',''))
 
     @Slot(str, int)
-    def openInTica(self, job_id, ordinal):
+    @Slot(str, int, str)
+    def openInTica(self, job_id, ordinal, database=''):
         if self.enabled and not self.closing and self.activeId:
-            self._review.open({'flow':self.flow, 'recordId':self.activeId, 'jobId':job_id, 'ordinal':ordinal})
+            request = {'flow':self.flow, 'recordId':self.activeId, 'jobId':job_id, 'ordinal':ordinal}
+            if database:request['database'] = database
+            self._review.open(request)
 
     @Slot(str)
     def useBase(self, path):

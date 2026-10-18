@@ -19,6 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
 LABELS = {'tabla':'Manifiestos', 'conocimientos':'Conocimientos', 'duas':'DUAs por manifiesto',
           'movimientos':'Movimientos de manifiesto', 'contenedores':'Contenedores', 'bls':'BLs'}
+MODES = {'maritimo':'Marítimo', 'aereo':'Aéreo', 'terrestre':'Terrestre'}
+MODE_ORDER = {mode:ordinal for ordinal,mode in enumerate(MODES)}
+COUNT_KEYS = ('total','succeeded','pending','running','excluded','rows','invalid')
+
+
+def manifest_job_key(database, identifier):
+    # El llamador normaliza la ruta una vez por base/evento, no una vez por fila.
+    return (str(database) if database else '', identifier)
 
 
 def write_json(path, value):
@@ -72,6 +80,10 @@ class BatchService:
         self._last_save = 0
         self._jobs = {}
         self._result_counts = {}
+        self._database_summaries = {}
+        self._view_mode = ''
+        self._view_search = ''
+        self._view_offset = 0
         self.message = ''
         self.base_info = {}
         self._fixture_portals = {}
@@ -95,21 +107,56 @@ class BatchService:
         active = self.active() or {}
         summary = active.get('summary', {})
         jobs = list(self._jobs.values())
-        jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,item['ordinal']))
+        jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,
+            MODE_ORDER.get(item.get('mode'),3),
+            item['ordinal'],item.get('database','')))
+        active_jobs = [j for j in jobs if j['state']=='Descargando'] if self.processing else []
+        if self.flow != 'bls':
+            jobs = [j for j in jobs if (not self._view_mode or j.get('mode') == self._view_mode)
+                    and self._view_search.casefold() in j['id'].casefold()]
+            # Los activos siempre quedan primero, incluso tras cambiar de página.
+            running = [j for j in jobs if j['state']=='Descargando']
+            history = [j for j in jobs if j['state']!='Descargando']
+            offset = max(0,self._view_offset-len(running))
+            jobs = running + history[offset:offset+max(0,200-len(running))]
         return {'config':{**self.index['config'],'outputRoot':str(self.public_root())}, 'history':[
             {'id':item['id'], 'name':item['name'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
-            'summary':{key:summary.get(key,0) for key in ('total','succeeded','pending','running','excluded','rows','invalid')},
-            'jobs':jobs[:200], 'activeJobs':[j for j in jobs if j['state']=='Descargando'] if self.processing else [], 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
+            'summary':{key:summary.get(key,0) for key in COUNT_KEYS},
+            'modeSummaries':active.get('modeSummaries',[]) if self.flow!='bls' else [],
+            'viewMode':self._view_mode, 'viewSearch':self._view_search, 'viewOffset':self._view_offset,
+            'jobs':jobs[:200], 'activeJobs':active_jobs, 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
             'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info,
             'knowledgeCatalog':self.knowledge_catalog}
+
+    def update_manifest_summary(self, record):
+        grouped = {}
+        for stats in self._database_summaries.values():
+            mode = stats.get('mode','')
+            target = grouped.setdefault(mode,dict(mode=mode,label=MODES.get(mode,'Sin modalidad'),
+                                                   **{key:0 for key in COUNT_KEYS}))
+            for key in COUNT_KEYS:
+                target[key] += stats.get(key,0)
+        record['modeSummaries'] = sorted(grouped.values(), key=lambda item:
+            MODE_ORDER.get(item['mode'],3))
+        record['summary'] = {key:sum(item[key] for item in grouped.values()) for key in COUNT_KEYS}
 
     def progress(self, payload):
         record = self.active()
         if record is None:
             return
         p = payload.get('progress', payload)
-        if 'selected' in p:
+        database = str(Path(payload['database']).resolve()) if payload.get('database') else ''
+        if self.flow != 'bls' and database:
+            previous = self._database_summaries.get(database,{})
+            mode = payload.get('mode',previous.get('mode',''))
+            summary = dict(previous)
+            if 'selected' in p:
+                summary.update(total=p['selected'], succeeded=p.get('saved',0), pending=p.get('pending',0),
+                               running=p.get('active',0), excluded=p.get('excluded',0))
+            summary.setdefault('rows',0)
+            summary['mode'] = mode
+        elif 'selected' in p:
             summary = dict(total=p['selected'], succeeded=p.get('saved',0), pending=p.get('pending',0),
                            running=p.get('active',0), excluded=p.get('excluded',0), rows=record.get('summary',{}).get('rows',0))
         elif 'total' in p:
@@ -118,7 +165,8 @@ class BatchService:
         else:
             # Preparar el navegador/base no significa reiniciar el avance guardado.
             summary = dict(record.get('summary',{}))
-        record['summary'] = summary
+        if self.flow == 'bls':
+            record['summary'] = summary
         if payload.get('message'):
             self.message = payload['message']
         jobs = payload.get('jobs', payload.get('rows', []))
@@ -140,13 +188,18 @@ class BatchService:
                 self._jobs[ordinal] = row
                 continue
             identifier = item.get('id') or (item.get('manifest','') + ' / ' + item.get('bl',''))
-            self._jobs[identifier] = {'id':identifier, 'ordinal':item.get('ordinal',0),
+            key = manifest_job_key(database,identifier)
+            self._jobs[key] = {'id':identifier, 'ordinal':item.get('ordinal',0),
+                'database':database, 'mode':payload.get('mode',summary.get('mode','')),
                 'state':item.get('state',''), 'attempts':item.get('attempts',0),
                 'rows':item.get('kept', item.get('result_count',0)), 'error':item.get('error','')}
             if 'selected' in p:
-                count = self._jobs[identifier]['rows'] if item.get('state')=='Guardado' else 0
-                summary['rows'] += count-self._result_counts.get(identifier,0)
-                self._result_counts[identifier] = count
+                count = self._jobs[key]['rows'] if item.get('state')=='Guardado' else 0
+                summary['rows'] += count-self._result_counts.get(key,0)
+                self._result_counts[key] = count
+        if self.flow != 'bls' and database:
+            self._database_summaries[database] = summary
+            self.update_manifest_summary(record)
         record['databases'] = list(dict.fromkeys(record.get('databases',[]) + ([payload['database']] if payload.get('database') else [])))
         terminal = bool(payload.get('job'))
         if time.monotonic() - self._last_event > .15 or payload.get('phase') == 'finished' or terminal:
@@ -187,10 +240,12 @@ class BatchService:
                 selected.setdefault('inputMode','file')
                 selected.setdefault('knowledgePeriods',[])
             self.index['config'].update(selected)
+            self._view_offset = 0
+            self._view_search = ''
             self.inspect()
             self.save()
         elif command == 'view':
-            self.inspect(request.get('search',''), int(request.get('offset',0)))
+            self.inspect(request.get('search',''), int(request.get('offset',0)),request.get('mode',''))
         elif command == 'export':
             self.export()
         elif command == 'review':
@@ -359,6 +414,8 @@ class BatchService:
             record['publicSpecs']=list(public_specs.values())
         self.index['active'] = record['id']
         self._jobs = {}
+        self._view_offset = 0
+        self._view_search = ''
         self.inspect()
         self.save()
         return record
@@ -436,6 +493,10 @@ class BatchService:
                 for mode in spec['modes']:
                     paths = output_paths(config,self.flow,mode,spec['month'],spec['year'])
                     record['databases'] = list(dict.fromkeys(record['databases']+[str(paths.database)]))
+                    callback = lambda payload, selected_mode=mode, database=str(paths.database): self.progress(
+                        {**payload,'mode':selected_mode,'database':database})
+                    config['conocimientos_progress_callback'] = callback
+                    config[self.flow+'_progress_callback'] = callback
                     scraper = WorkbenchManifestScraper(dict(config),browser,request_factory=pw.request)
                     if self.fixture:
                         from chc_runtime.manifest_fixture import configure_scraper
@@ -479,14 +540,22 @@ class BatchService:
         if result.get('export_error'):
             raise OSError(result['export_error'])
 
-    def inspect(self, search='', offset=0):
+    def inspect(self, search=None, offset=None, mode=None):
+        if mode is not None:
+            if mode not in ('',*MODES):
+                raise ValueError('Modalidad inválida para la vista.')
+            self._view_mode = mode
+        if search is not None:self._view_search = search
+        if offset is not None:self._view_offset = max(0,offset)
+        search, offset = self._view_search, self._view_offset
         record = self.active()
         if not record:
             return
         self._jobs = {}
         summary = dict(total=0,succeeded=0,pending=0,running=0,excluded=0,rows=0,invalid=0)
         self._result_counts = {}
-        databases = record.get('databases',[])
+        self._database_summaries = {}
+        databases = list(dict.fromkeys(str(Path(p).resolve()) for p in record.get('databases',[])))
         if self.flow == 'bls':
             databases = [str(p) for p in Path(record['work']).glob('**/SQLite/bls.sqlite3')]
             record['databases'] = databases
@@ -502,9 +571,21 @@ class BatchService:
                 summary['total'] += sum(counts.values())
                 for key, state in [('succeeded','Guardado'),('pending','Pendiente'),('running','Descargando'),('excluded','Excluido'),('invalid','Inválido')]:
                     summary[key] += counts.get(state,0)
-                summary['rows'] += db.execute('SELECT count(*) FROM '+('results' if self.flow=='bls' else 'rows')).fetchone()[0]
+                result_rows = db.execute('SELECT count(*) FROM '+('results' if self.flow=='bls' else 'rows')).fetchone()[0]
+                summary['rows'] += result_rows
                 if self.flow!='bls':
-                    self._result_counts.update(db.execute("SELECT id,kept_count FROM jobs WHERE state='Guardado'"))
+                    scope = json.loads(db.execute('SELECT scope FROM metadata').fetchone()[0])
+                    mode = scope.get('mode','')
+                    stats = dict(mode=mode,total=sum(counts.values()),succeeded=counts.get('Guardado',0),
+                        pending=counts.get('Pendiente',0),running=counts.get('Descargando',0),
+                        excluded=counts.get('Excluido',0),invalid=counts.get('Inválido',0),
+                        rows=result_rows)
+                    if not self.processing:
+                        stats['pending'] += stats['running']
+                        stats['running'] = 0
+                    self._database_summaries[str(path)] = stats
+                    self._result_counts.update((manifest_job_key(path,identifier),kept)
+                        for identifier,kept in db.execute("SELECT id,kept_count FROM jobs WHERE state='Guardado'"))
                 if self.flow=='bls':
                     progress = {}
                     checkpoint = path.with_name('bls_pages.sqlite3')
@@ -528,10 +609,16 @@ class BatchService:
                         self._jobs[ordinal] = row
                 else:
                     records = db.execute('''SELECT id,ordinal,state,attempts,kept_count,error FROM jobs
-                        WHERE id LIKE ? ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''', ('%'+search+'%',max(0,offset)))
-                    for identifier,ordinal,state,attempts,rows,error in records:
-                        self._jobs[identifier] = dict(id=identifier,ordinal=ordinal,state=state,attempts=attempts,rows=rows,error=error)
+                        WHERE id LIKE ? ORDER BY ordinal LIMIT ?''', ('%'+search+'%',offset+200)).fetchall()
+                    # Zona activa independiente del filtro, de la búsqueda y de la página.
+                    active = db.execute('''SELECT id,ordinal,state,attempts,kept_count,error FROM jobs
+                        WHERE state='Descargando' ORDER BY ordinal''').fetchall()
+                    for identifier,ordinal,state,attempts,rows,error in [*records,*active]:
+                        self._jobs[manifest_job_key(path,identifier)] = dict(id=identifier,ordinal=ordinal,
+                            state=state,attempts=attempts,rows=rows,error=error,mode=mode,database=str(path))
         record['summary'] = summary
+        if self.flow!='bls':
+            self.update_manifest_summary(record)
         if not self.processing:
             # Una reserva huérfana se recupera bajo el bloqueo al reanudar; no simular actividad.
             summary['pending'] += summary['running']

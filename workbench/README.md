@@ -122,6 +122,23 @@ El visor permite seleccionar cada fila. Instalar con `Instalar_Talon.bat` o
 
 ## Manifiestos y BLs
 
+En los cinco procedimientos de Manifiestos, la columna **Modalidad** identifica
+cada resultado como **Marítimo**, **Aéreo** o **Terrestre**. El listado principal
+muestra una fila `listado` por modalidad: sus filas e intentos pertenecen solo
+a esa descarga. Antes ambas compartían la clave de la vista y una podía ocultar
+a la otra; las bases y los CSV permanecían separados.
+
+El resumen general suma todas las modalidades guardadas. Debajo aparecen sus
+conteos independientes de guardados, pendientes, en curso, excluidos y filas.
+El filtro **Todas / Marítimo / Aéreo / Terrestre**, junto a Buscar, cambia las
+filas visibles; los contadores siguen mostrando la cobertura completa del lote.
+Buscar y paginar respetan esa modalidad. Los trabajos activos se muestran
+aparte con su modalidad, incluso si el historial está filtrado a otra.
+
+**TICA** abre la base/modalidad exacta de la fila elegida. También funciona con
+dos filas llamadas `listado`; no requiere reconsultar ni migrar las descargas
+ya guardadas. Cambiar el filtro no modifica la configuración aún sin guardar.
+
 En **Manifiestos**, la barra horizontal permite elegir **Manifiestos**,
 **Conocimientos**, **DUAs**, **Movimientos** o **Contenedores**, con el mismo estilo
 de la barra lateral. En **Procesamiento**, elegir período y modalidad y pulsar

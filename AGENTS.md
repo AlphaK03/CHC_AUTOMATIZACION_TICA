@@ -24,6 +24,10 @@
   procesos independientes. BLs conserva su motor original aislado. Adaptadores:
   `batch_worker.py`, `manifest_service.py`, `manifest_adapters.py` y
   `workbench/batch_bridge.py`. No forzarlos al perfil DUA ni sustituir sus fuentes.
+- Observación Manifiestos: identificar filas y conteos por `(base SQLite, jobId)`;
+  nunca solo `listado`, que existe en varias modalidades. Mantener resúmenes por
+  modalidad, filtro/paginación del historial y activos visibles independientes.
+  TICA debe capturar la base de la fila y validarla dentro del lote en modo lectura.
 - Manifiestos acumula por procedimiento/mes/Courier sin IDs ni límite:
   `manifest_incremental.py` agrega manifiestos al recibir otro listado confirmado,
   conserva Guardado/intentos/checkpoints y restringe los pendientes a la consulta

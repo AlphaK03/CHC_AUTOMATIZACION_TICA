@@ -6,6 +6,19 @@
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Observación de Manifiestos por modalidad: columna y resumen para Marítimo,
+  Aéreo y Terrestre, filtro del historial y paginación conjunta sin perder filas.
+  La clave interna de observación es `(base SQLite, jobId)`; no usar solo el ID:
+  dos bases tienen `listado` y antes una ocultaba a la otra en la GUI. SQLite y
+  CSV estaban separados y conservan sus datos. `BatchService` agrega resúmenes
+  por base/modalidad, tanto en progreso como al inspeccionar históricos; callbacks
+  capturan modalidad/ruta por iteración. Activos visibles antes del límite de 200
+  e independientes del filtro. TICA recibe la base elegida y `manual_review_data`
+  comprueba pertenencia al lote antes de leer en modo solo lectura. Fuentes
+  originales intactas; no hay migración ni descargas nuevas al abrir esta vista.
+  Diez pruebas offline pasaron, incluidos los cinco procedimientos con ambas
+  modalidades, reintentos, carga posterior, paginación, conteos y QML/TICA.
+  La instancia activa se conservó; cambio completo al próximo arranque.
 - Borrado seguro disponible en los seis bots. Los cuatro DUA exigen **BORRAR**
   para quitar filas, limpiar completados o eliminar tabla, validado por el worker.
   Manifiestos (sus cinco procedimientos) y BLs añaden **Más → Eliminar base de

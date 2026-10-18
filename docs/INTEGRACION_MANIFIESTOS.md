@@ -25,6 +25,20 @@ No sustituye el proveedor de DUAs por régimen usado por los cuatro bots DUA.
 4. Para continuar un lote, elegirlo en **Ejecuciones guardadas** y volver a iniciar.
 5. **Ver resultados** abre su carpeta pública, que contiene exclusivamente CSV de datos.
 
+La observación diferencia las modalidades mediante la columna **Modalidad** y
+resúmenes independientes. **Todas / Marítimo / Aéreo / Terrestre** filtra las
+filas del historial sin cambiar el total general ni los datos descargados.
+Los cinco procedimientos conservan filas distintas por base SQLite y trabajo;
+en Tabla, cada modalidad tiene su propio `listado`, con filas e intentos propios.
+Antes la clave visual `listado` podía reemplazar una modalidad por la otra;
+el problema afectaba la observación, con SQLite y CSV separados.
+
+El progreso agrega contadores por base y captura su modalidad en el callback.
+Al reabrir se reconstruyen desde SQLite; no se consulta TICA. La paginación de
+200 se aplica después de combinar las bases, con los activos visibles aparte
+y antes del límite. El botón **TICA** envía la ruta de la base concreta y la
+revisión comprueba que pertenece al lote; así dos `listado` no son ambiguos.
+
 Cambiar de procedimiento no detiene el anterior. Cada uno mantiene su configuración,
 cola, proceso e historial. Las modalidades seleccionadas se recorren secuencialmente,
 como en el original; dentro de cada modalidad se aplica su concurrencia.

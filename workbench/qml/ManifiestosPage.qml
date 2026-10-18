@@ -38,6 +38,16 @@ ScrollView {
         return chosen.length===1 ? chosen[0].label : chosen.length ? chosen.length+" períodos seleccionados" : "Seleccione los meses y modalidades descargados"
     }
     function localPath(url) { return decodeURIComponent(url.toString().replace(/^file:\/\/\//,"")) }
+    function modeLabel(mode) { return ({maritimo:"Marítimo",aereo:"Aéreo",terrestre:"Terrestre"})[mode] || "Sin modalidad" }
+    function refreshRows() {
+        page.rowOffset = 0
+        moduleBridge.command("view",{search:search.text,offset:0,mode:page.isBls ? "" : ["","maritimo","aereo","terrestre"][modeFilter.currentIndex]})
+    }
+    function syncView() {
+        modeFilter.currentIndex = Math.max(0,["","maritimo","aereo","terrestre"].indexOf(moduleBridge.viewMode))
+        page.rowOffset = moduleBridge.viewOffset
+        search.text = moduleBridge.viewSearch
+    }
     function requestDelete() {
         const selected = moduleBridge.history.find(item => item.id === moduleBridge.activeId)
         if (!selected) return
@@ -84,6 +94,7 @@ ScrollView {
         inputMode.currentIndex=c.inputMode==="file" ? 1 : 0
         page.selectedKnowledge=c.knowledgePeriods || []
         history.currentIndex = moduleBridge.history.findIndex(item => item.id === moduleBridge.activeId)
+        page.syncView()
     }
     function configuration() {
         let modes = []
@@ -101,6 +112,7 @@ ScrollView {
     Connections {
         target: moduleBridge
         function onEventReceived(event) {
+            if(event.flow === moduleBridge.flow && event.event === "result" && event.command === "view") { page.syncView(); return }
             if(event.flow === moduleBridge.flow && (event.event === "ready" ||
                (event.event === "result" && ["configure","refresh","select","import_progress","run","knowledge_empty","delete"].indexOf(event.command) >= 0))) loadConfig()
         }
@@ -267,9 +279,24 @@ ScrollView {
         }
         RowLayout {
             Layout.fillWidth:true
-            Text { text:moduleBridge.summary.succeeded+" guardados   ·   "+moduleBridge.summary.pending+" pendientes   ·   "+moduleBridge.summary.running+" en curso"+(moduleBridge.summary.excluded ? "   ·   "+moduleBridge.summary.excluded+" excluidos" : "")+"   ·   "+moduleBridge.summary.rows+(page.isBls ? " filas confirmadas" : " filas"); color:Theme.muted; font.pixelSize:12; Layout.fillWidth:true }
+            Text { text:moduleBridge.summary.succeeded+" guardados   ·   "+moduleBridge.summary.pending+" pendientes   ·   "+moduleBridge.summary.running+" en curso"+(moduleBridge.summary.excluded ? "   ·   "+moduleBridge.summary.excluded+" excluidos" : "")+"   ·   "+moduleBridge.summary.rows+(page.isBls ? " filas confirmadas" : " filas"); color:Theme.muted; font.pixelSize:12; Layout.fillWidth:true; wrapMode:Text.WordWrap }
             visible: !page.optionsVisible
-            Field { id:search; placeholderText:page.isBls ? "Buscar BL" : "Buscar manifiesto"; Layout.preferredWidth:170; enabled:!moduleBridge.busy; onAccepted:{page.rowOffset=0; moduleBridge.command("view",{search:text,offset:0})} }
+            Select { id:modeFilter; objectName:"manifestModeFilter"; visible:!page.isBls; Layout.preferredWidth:150; model:["Todas","Marítimo","Aéreo","Terrestre"]; enabled:!moduleBridge.busy; onActivated:page.refreshRows() }
+            Field { id:search; placeholderText:page.isBls ? "Buscar BL" : "Buscar manifiesto"; Layout.preferredWidth:170; enabled:!moduleBridge.busy; onAccepted:page.refreshRows() }
+        }
+        ColumnLayout {
+            visible: !page.optionsVisible && !page.isBls
+            Layout.fillWidth:true; spacing:4
+            Repeater {
+                model:moduleBridge.modeSummaries
+                Text {
+                    required property var modelData
+                    objectName:"manifestModeSummary"; Layout.fillWidth:true; wrapMode:Text.WordWrap
+                    text:modelData.label+"   ·   "+modelData.succeeded+" guardados   ·   "+modelData.pending+" pendientes   ·   "+modelData.running+" en curso"+
+                        (modelData.excluded ? "   ·   "+modelData.excluded+" excluidos" : "")+"   ·   "+modelData.rows+" filas"
+                    color:Theme.text; font.family:Theme.family; font.pixelSize:12
+                }
+            }
         }
         Panel {
             visible: !page.optionsVisible && moduleBridge.activeJobs.length > 0
@@ -283,7 +310,7 @@ ScrollView {
                     Text {
                         required property var modelData
                         objectName: "batchActiveJob"; Layout.fillWidth: true; color: Theme.text; font.pixelSize: 12
-                        text: modelData.id + (page.isBls ? " · Página " + (modelData.page || 1) + " · " + (modelData.collectedRows || 0) + " filas acumuladas" : "")
+                        text: (page.isBls ? "" : page.modeLabel(modelData.mode)+" · ")+modelData.id + (page.isBls ? " · Página " + (modelData.page || 1) + " · " + (modelData.collectedRows || 0) + " filas acumuladas" : "")
                         elide: Text.ElideMiddle; ToolTip.visible: activeHover.hovered; ToolTip.text: text
                         HoverHandler { id: activeHover }
                     }
@@ -298,6 +325,7 @@ ScrollView {
                 RowLayout {
                     Layout.fillWidth:true
                     Text { visible:page.isBls; text:"Fila"; color:Theme.faint; Layout.preferredWidth:40 }
+                    Text { visible:!page.isBls; text:"Modalidad"; color:Theme.faint; Layout.preferredWidth:85 }
                     Text { text:page.isBls ? "Manifiesto / BL original" : "Manifiesto"; color:Theme.faint; Layout.fillWidth:true }
                     Text { text:"Estado"; color:Theme.faint; Layout.preferredWidth:105 }
                     Text { text:"Intentos"; color:Theme.faint; Layout.preferredWidth:55 }
@@ -319,12 +347,13 @@ ScrollView {
                             RowLayout {
                                 Layout.fillWidth:true
                                 Text { visible:page.isBls; text:modelData.ordinal; color:Theme.muted; font.pixelSize:12; Layout.preferredWidth:40 }
+                                Text { objectName:"manifestJobMode"; visible:!page.isBls; text:page.modeLabel(modelData.mode); color:Theme.text; font.pixelSize:12; Layout.preferredWidth:85 }
                                 Text { text:modelData.id; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true; elide:Text.ElideMiddle; ToolTip.visible:hover.hovered; ToolTip.text:modelData.id; HoverHandler{id:hover} }
                                 Text { text:modelData.state; color:modelData.state==="Guardado" ? Theme.success : Theme.muted; Layout.preferredWidth:105; font.pixelSize:12 }
                                 Text { text:modelData.attempts; color:Theme.muted; Layout.preferredWidth:55; font.pixelSize:12 }
                                 Text { visible:page.isBls; text:modelData.page || "—"; color:Theme.muted; Layout.preferredWidth:55; font.pixelSize:12; ToolTip.visible:pageHover.hovered; ToolTip.text:modelData.checkpointPage ? "Última página guardada: "+modelData.checkpointPage : "Todavía no hay una página guardada"; HoverHandler{id:pageHover} }
                                 Text { text:page.isBls && modelData.state!=="Guardado" ? modelData.collectedRows || 0 : modelData.rows; color:Theme.muted; Layout.preferredWidth:60; font.pixelSize:12; ToolTip.visible:page.isBls && rowsHover.hovered; ToolTip.text:modelData.state==="Guardado" ? "Filas confirmadas del BL completo" : "Filas recopiladas y guardadas por página; el BL sigue pendiente hasta terminar"; HoverHandler{id:rowsHover} }
-                                ActionButton { objectName: "batchOpenTica"; text: "TICA"; Layout.preferredWidth:62; enabled: !moduleBridge.manualReview.running && !moduleBridge.closing; onClicked: moduleBridge.openInTica(modelData.id,modelData.ordinal); ToolTip.visible: hovered; ToolTip.text: "Revisar esta consulta en un navegador visible" }
+                                ActionButton { objectName: "batchOpenTica"; text: "TICA"; Layout.preferredWidth:62; enabled: !moduleBridge.manualReview.running && !moduleBridge.closing; onClicked: moduleBridge.openInTica(modelData.id,modelData.ordinal,modelData.database || ""); ToolTip.visible: hovered; ToolTip.text: "Revisar esta consulta en un navegador visible" }
                             }
                             Text { visible:modelData.error!==""; text:modelData.error; color:"#db9d80"; font.pixelSize:11; Layout.fillWidth:true; elide:Text.ElideRight; ToolTip.visible:errorHover.hovered; ToolTip.text:modelData.error; HoverHandler{id:errorHover} }
                         }
@@ -336,8 +365,8 @@ ScrollView {
         RowLayout {
             Layout.fillWidth:true
             Text { text:moduleBridge.error || moduleBridge.status; color:moduleBridge.error ? "#ee9d91" : Theme.muted; Layout.fillWidth:true; elide:Text.ElideRight; ToolTip.visible:statusHover.hovered; ToolTip.text:text; HoverHandler{id:statusHover} }
-            ActionButton { visible: !page.optionsVisible; text:"Anterior"; enabled:!moduleBridge.busy && page.rowOffset>0; onClicked:{page.rowOffset=Math.max(0,page.rowOffset-200); moduleBridge.command("view",{search:search.text,offset:page.rowOffset})} }
-            ActionButton { visible: !page.optionsVisible; text:"Siguiente"; enabled:!moduleBridge.busy && moduleBridge.jobs.length>=200; onClicked:{page.rowOffset+=200; moduleBridge.command("view",{search:search.text,offset:page.rowOffset})} }
+            ActionButton { visible: !page.optionsVisible; text:"Anterior"; enabled:!moduleBridge.busy && page.rowOffset>0; onClicked:{page.rowOffset=Math.max(0,page.rowOffset-200); moduleBridge.command("view",{search:search.text,offset:page.rowOffset,mode:moduleBridge.viewMode})} }
+            ActionButton { visible: !page.optionsVisible; text:"Siguiente"; enabled:!moduleBridge.busy && moduleBridge.jobs.length>=200; onClicked:{page.rowOffset+=200; moduleBridge.command("view",{search:search.text,offset:page.rowOffset,mode:moduleBridge.viewMode})} }
         }
         ReviewStatus { Layout.fillWidth:true; inspector:moduleBridge.manualReview }
     }

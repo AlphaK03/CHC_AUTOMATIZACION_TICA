@@ -6,6 +6,9 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
+La lista de los cinco procedimientos de Manifiestos distingue **Marítimo,
+Aéreo y Terrestre** en cada fila, con conteos propios y filtro de modalidad.
+Las descargas existentes se muestran desde SQLite sin volver a consultarlas.
 Los seis bots permiten eliminar sus tablas/ejecuciones guardadas con respaldo y
 confirmación escrita **BORRAR**. En Manifiestos y BLs: seleccionar una ejecución
 y abrir **Más → Eliminar base de datos…**; conserva entradas originales y CSV.

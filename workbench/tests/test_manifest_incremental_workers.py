@@ -44,6 +44,20 @@ class IncrementalWorkersTests(unittest.TestCase):
                     config=dict(year=2026,month=9,modes=['maritimo','aereo'],start='2026-09-01',end='2026-09-15',
                                 workers=2,headless=True,timeout=5)
                     initial=call(flow,config);before=jobs(flow)
+                    snapshot=bridge.current().snapshot
+                    self.assertEqual({j['mode'] for j in snapshot['jobs']},{'maritimo','aereo'})
+                    self.assertEqual({s['mode'] for s in snapshot['modeSummaries']},{'maritimo','aereo'})
+                    self.assertEqual(snapshot['summary']['rows'],sum(s['rows'] for s in snapshot['modeSummaries']))
+                    if flow=='tabla':
+                        self.assertEqual([j['id'] for j in snapshot['jobs']],['listado','listado'])
+                    channel=bridge.current()
+                    self.assertTrue(channel.send('view',dict(mode='aereo',offset=0,search='')))
+                    wait_until(lambda:not channel.busy)
+                    self.assertTrue(channel.snapshot['jobs'])
+                    self.assertTrue(all(j['mode']=='aereo' for j in channel.snapshot['jobs']))
+                    self.assertEqual(channel.snapshot['summary'],snapshot['summary'])
+                    self.assertTrue(channel.send('view',dict(mode='',offset=0,search='')))
+                    wait_until(lambda:not channel.busy)
                     self.assertTrue(before)
                     self.assertTrue(all(row[0]==1 for row in before.values()))
                     self.assertEqual(call(flow,{**config,'modes':['maritimo'],'end':'2026-09-30'}),initial)
