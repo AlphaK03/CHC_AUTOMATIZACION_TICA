@@ -2,6 +2,22 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- BLs muestra resúmenes independientes por modalidad: guardados/total y estado
+  Completado/Descargando/Con pendientes, más pendientes, en curso, inválidos,
+  filas confirmadas y vacíos. `bls_observation.py` deriva el modo del IDManifiesto
+  (también archivos externos/antiguos), lee todos los trabajos en ready/finished
+  y actualiza deltas en memoria por evento, sin SQL por página. No sumar páginas
+  parciales como confirmadas ni depender de las 200 filas/búsqueda. Repeticiones
+  de página no inflan conteos. `manifest_service.py` recupera en solo lectura y
+  transmite `modeSummaries` por el puente existente; reservas huérfanas se muestran
+  pendientes al detener. QML conserva el resumen global y añade dos resúmenes
+  de modo, con modalidad también en Descargando ahora. No cambia colas, firmas,
+  datos ni exportaciones. Completado de modo describe el lote, no prueba cobertura
+  mensual. 11 pruebas offline enfocadas pasaron; captura compacta aislada en
+  `runtime/diagnostics/bls-modes.png`, QML sin avisos a 1280×820 y 1000×600.
+  Al terminar la instancia anterior ya estaba cerrada; se abrió la app actualizada
+  en BLs antes de documentar, sin iniciar consultas ni detener la revisión Edge.
+
 - BLs acumula desde Conocimientos dentro de la **misma selección exacta de meses
   y modalidades** y configuración de búsqueda. Pasar de 250 a 251 conserva el
   lote/SQLite/CSV existentes: añade solo nuevos, consulta pendientes presentes

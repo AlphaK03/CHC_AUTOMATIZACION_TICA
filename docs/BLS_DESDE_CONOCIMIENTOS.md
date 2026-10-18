@@ -105,6 +105,32 @@ se priorizan los trabajos en curso. Preparar la base/navegador no reinicia los
 contadores. Al retomar la misma selección con pendientes, el botón indica
 **Continuar pendientes**.
 
+## Observación por modalidad — 18/10/2026
+
+BLs presenta un resumen independiente por modalidad: guardados/total, Completado,
+Descargando o Con pendientes, además de pendientes, en curso, inválidos, filas
+confirmadas y BLs sin líneas. La modalidad procede del IDManifiesto de cada trabajo,
+también en entradas externas y lotes antiguos. Los identificadores desconocidos
+quedan visibles como Sin modalidad. Un modo está Completado solo cuando todos sus
+BLs están Guardado, incluidos los vacíos confirmados; los parciales no suman filas
+confirmadas. Este estado no sustituye la cobertura mensual de la bitácora.
+
+`chc_runtime/bls_observation.py` lee todos los trabajos al abrir el lote y en las
+fases ready/finished del adaptador. Durante la descarga actualiza conteos en memoria
+por transición de trabajo, sin recorrer SQLite por página ni cambiar datos, cola,
+reintentos o exportaciones. Repetir eventos de página no duplica BLs ni confirma
+parciales. `manifest_service.py` transporta `modeSummaries` al puente existente;
+el resumen no depende de la búsqueda, paginación ni límite de 200 filas. Una
+reserva interrumpida se muestra pendiente mientras el bot está detenido, sin
+modificar la recuperación del motor. La zona activa muestra también el modo.
+
+Pasaron 11 pruebas offline enfocadas: lectura de 305 trabajos, invariancia ante
+búsqueda/paginación, reapertura sin escrituras, estados reales guardado/vacío/fallo,
+eventos de página repetidos, reanudación por páginas y compatibilidad de Manifiestos.
+QML revisado a 1280×820 y 1000×600 sin avisos; captura aislada en
+`runtime/diagnostics/bls-modes.png`. La instancia anterior se encontró cerrada al
+final; se abrió la app actualizada en BLs antes de documentar, sin iniciar consultas.
+
 ## Página actual y recuperación dentro del BL
 
 La acción manual **BLs → Más → Reconsultar BLs con 0 filas…** permite revisar

@@ -300,14 +300,19 @@ ScrollView {
             Field { id:search; placeholderText:page.isBls ? "Buscar BL" : "Buscar manifiesto"; Layout.preferredWidth:170; enabled:!moduleBridge.busy; onAccepted:page.refreshRows() }
         }
         ColumnLayout {
-            visible: !page.optionsVisible && !page.isBls
+            visible: !page.optionsVisible
             Layout.fillWidth:true; spacing:4
             Repeater {
                 model:moduleBridge.modeSummaries
                 Text {
                     required property var modelData
                     objectName:"manifestModeSummary"; Layout.fillWidth:true; wrapMode:Text.WordWrap
-                    text:modelData.label+"   ·   "+modelData.succeeded+" guardados   ·   "+modelData.pending+" pendientes   ·   "+modelData.running+" en curso"+
+                    text:page.isBls ? modelData.label+"   ·   "+modelData.succeeded+"/"+modelData.total+" BLs   ·   "+
+                        (modelData.total>0 && modelData.succeeded===modelData.total ? "Completado" : modelData.running>0 ? "Descargando" : "Con pendientes")+
+                        "\n"+modelData.pending+" pendientes   ·   "+modelData.running+" en curso"+
+                        (modelData.invalid ? "   ·   "+modelData.invalid+" inválidos" : "")+
+                        "   ·   "+modelData.rows+" filas confirmadas   ·   "+(modelData.empty || 0)+" BLs sin líneas" :
+                        modelData.label+"   ·   "+modelData.succeeded+" guardados   ·   "+modelData.pending+" pendientes   ·   "+modelData.running+" en curso"+
                         (modelData.excluded ? "   ·   "+modelData.excluded+" excluidos" : "")+"   ·   "+modelData.rows+" filas"
                     color:Theme.text; font.family:Theme.family; font.pixelSize:12
                 }
@@ -325,7 +330,7 @@ ScrollView {
                     Text {
                         required property var modelData
                         objectName: "batchActiveJob"; Layout.fillWidth: true; color: Theme.text; font.pixelSize: 12
-                        text: (page.isBls ? "" : page.modeLabel(modelData.mode)+" · ")+modelData.id + (page.isBls ? " · Página " + (modelData.page || 1) + " · " + (modelData.collectedRows || 0) + " filas acumuladas" : "")
+                        text: page.modeLabel(modelData.mode)+" · "+modelData.id + (page.isBls ? " · Página " + (modelData.page || 1) + " · " + (modelData.collectedRows || 0) + " filas acumuladas" : "")
                         elide: Text.ElideMiddle; ToolTip.visible: activeHover.hovered; ToolTip.text: text
                         HoverHandler { id: activeHover }
                     }

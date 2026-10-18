@@ -14,6 +14,7 @@ import time
 
 from .manifest_names import manifest_scope, manifest_name, normalized_scope, cumulative_family
 from . import output_layout
+from .bls_observation import BlsModeProgress, manifest_mode, combine
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
@@ -48,7 +49,7 @@ def name_checked(value):
 def bls_job(ordinal, payload, state, attempts, rows, error):
     original = json.loads(payload) if isinstance(payload, str) else payload
     manifest, bl = original.get('IDManifiesto', ''), original.get('BL original', '')
-    return dict(id=manifest+' / '+bl, manifest=manifest, bl=bl, ordinal=ordinal,
+    return dict(id=manifest+' / '+bl, manifest=manifest, bl=bl, ordinal=ordinal, mode=manifest_mode(manifest),
                 state=state, attempts=attempts, rows=rows, error=error,
                 page=0,checkpointPage=0,collectedRows=rows)
 
@@ -108,7 +109,7 @@ class BatchService:
         summary = active.get('summary', {})
         jobs = list(self._jobs.values())
         jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,
-            MODE_ORDER.get(item.get('mode'),3),
+            MODE_ORDER.get(item.get('mode'),3) if self.flow!='bls' else 0,
             item['ordinal'],item.get('database','')))
         active_jobs = [j for j in jobs if j['state']=='Descargando'] if self.processing else []
         if self.flow != 'bls':
@@ -124,7 +125,7 @@ class BatchService:
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
             'summary':{**{key:summary.get(key,0) for key in COUNT_KEYS},
                        **({'empty':summary.get('empty',0)} if self.flow=='bls' else {})},
-            'modeSummaries':active.get('modeSummaries',[]) if self.flow!='bls' else [],
+            'modeSummaries':active.get('modeSummaries',[]),
             'viewMode':self._view_mode, 'viewSearch':self._view_search, 'viewOffset':self._view_offset,
             'jobs':jobs[:200], 'activeJobs':active_jobs, 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
             'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info,
@@ -169,6 +170,8 @@ class BatchService:
             summary = dict(record.get('summary',{}))
         if self.flow == 'bls':
             record['summary'] = summary
+            if 'modeSummaries' in payload:
+                record['modeSummaries'] = payload['modeSummaries']
         if payload.get('message'):
             self.message = payload['message']
         jobs = payload.get('jobs', payload.get('rows', []))
@@ -621,6 +624,7 @@ class BatchService:
         self._jobs = {}
         summary = dict(total=0,succeeded=0,pending=0,running=0,excluded=0,rows=0,invalid=0)
         if self.flow=='bls':summary['empty']=0
+        bls_modes = []
         self._result_counts = {}
         self._database_summaries = {}
         databases = list(dict.fromkeys(str(Path(p).resolve()) for p in record.get('databases',[])))
@@ -655,6 +659,7 @@ class BatchService:
                     self._result_counts.update((manifest_job_key(path,identifier),kept)
                         for identifier,kept in db.execute("SELECT id,kept_count FROM jobs WHERE state='Guardado'"))
                 if self.flow=='bls':
+                    bls_modes.extend(BlsModeProgress.read(db).summaries(processing=self.processing))
                     summary['empty'] += db.execute("SELECT count(*) FROM jobs WHERE state='Guardado' AND result_count=0").fetchone()[0]
                     progress = {}
                     checkpoint = path.with_name('bls_pages.sqlite3')
@@ -692,6 +697,8 @@ class BatchService:
         record['summary'] = summary
         if self.flow!='bls':
             self.update_manifest_summary(record)
+        else:
+            record['modeSummaries'] = combine(bls_modes)
         if not self.processing:
             # Una reserva huérfana se recupera bajo el bloqueo al reanudar; no simular actividad.
             summary['pending'] += summary['running']

@@ -15,6 +15,9 @@ final, como `2601287L`, conservando el identificador y sus ceros sin cambios.
 En **BLs → Más → Reconsultar BLs con 0 filas…** se pueden volver a consultar
 los guardados vacíos del lote elegido, con confirmación y respaldo. Conserva
 historial, BLs con líneas y otros pendientes; actualiza el CSV con las líneas nuevas.
+BLs muestra un resumen por modalidad con **guardados/total**, estado, pendientes,
+trabajos en curso, filas confirmadas y BLs sin líneas. Permite ver si Marítimo
+terminó mientras Aéreo sigue descargando, contando todo el lote.
 La lista de los cinco procedimientos de Manifiestos distingue **Marítimo,
 Aéreo y Terrestre** en cada fila, con conteos propios y filtro de modalidad.
 Las descargas existentes se muestran desde SQLite sin volver a consultarlas.

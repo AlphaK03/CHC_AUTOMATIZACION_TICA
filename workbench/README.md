@@ -240,6 +240,15 @@ en su defecto, el de mayor avance. No se fusionan ni eliminan automáticamente.
 
 La lista BLs muestra **Fila** y **Manifiesto / BL original**, incluidos sus ceros,
 al consultar y al recuperar SQLite. Buscar BL también encuentra el manifiesto.
+Sobre la lista aparece un resumen independiente de **Marítimo** y **Aéreo**:
+por ejemplo, **Marítimo · 250/250 BLs · Completado** y
+**Aéreo · 80/120 BLs · Descargando**. Cada modo indica pendientes, trabajos en curso,
+inválidos cuando existan, filas confirmadas y BLs guardados sin líneas.
+Los conteos incluyen todo el lote y permanecen iguales al buscar o cambiar de
+página. Completado exige todos los BLs del modo Guardado; las páginas parciales
+siguen pendientes. Este estado describe el lote seleccionado, no acredita por
+sí solo la cobertura de todo un mes. **Descargando ahora** identifica también
+la modalidad de cada BL activo. Los resúmenes se recuperan al abrir el lote.
 **Continuar pendientes** aparece al retomar la misma selección con pendientes.
 Durante la preparación se conservan los contadores guardados; al consultar, las
 filas en curso aparecen primero y sus eventos actualizan la misma fila.

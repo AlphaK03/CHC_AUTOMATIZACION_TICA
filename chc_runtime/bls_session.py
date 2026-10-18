@@ -140,6 +140,7 @@ class WorkbenchBLSProcessor(BLSProcessor):
         self._empty_retry_started = False
         self._accumulation_started = False
         self._incoming_frame = None
+        self._mode_progress = None
 
     def emit(self, kind='summary', **extra):
         accumulation=self.config.get('workbench_bls_accumulation')
@@ -157,6 +158,13 @@ class WorkbenchBLSProcessor(BLSProcessor):
             from .bls_empty_retry import begin
             begin(self.store,request)
             self._empty_retry_started = True
+        from .bls_observation import BlsModeProgress
+        if extra.get('phase') in ('ready','finished'):
+            self._mode_progress = BlsModeProgress.read(self.store.db)
+        elif self._mode_progress is not None and extra.get('job'):
+            self._mode_progress.update(extra['job'])
+        if self._mode_progress is not None:
+            extra['modeSummaries'] = self._mode_progress.summaries()
         super().emit(kind,**extra)
 
     async def run_async(self, df, session_factory=None):
