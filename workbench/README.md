@@ -20,6 +20,14 @@ El entorno local está preparado. En un equipo nuevo, ejecutar primero
 `Instalar_Workbench.bat` y los instaladores de los módulos que se utilizarán
 (Python 3.12); la lista completa está en el README principal.
 
+Al cargar las bases, una ventana de espera muestra el logo animado y los bots
+que siguen preparándose. La interfaz permanece bloqueada hasta terminar y se
+habilita automáticamente. También acompaña la selección/importación de tablas.
+Usa el estado real de carga, sin un tiempo de espera fijo. Si un módulo falla,
+deja de mantener la espera para permitir revisar el error y reconectarlo. Las
+descargas conservan sus controles normales, incluido **Detener**. El modo demo
+no activa esta espera.
+
 Alternativa en PowerShell:
 
 ```powershell

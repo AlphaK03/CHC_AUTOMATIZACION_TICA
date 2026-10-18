@@ -6,6 +6,8 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
 El panel utiliza el símbolo vectorial de CHC en la navegación y Acerca de,
 con icono propio de Windows y recursos incluidos en el repositorio.
+Durante la carga de bases aparece una espera animada con los bots que siguen
+preparándose. Los controles se habilitan automáticamente al terminar la carga.
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
 La preparación y el motor de BLs admiten números de manifiesto con una letra

@@ -2,6 +2,23 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- Espera visual de bases en los seis bots: `components/LoadingOverlay.qml`
+  presenta logo, indicador animado, módulos pendientes, fondo atenuado y
+  entrada/salida suave. `Main.qml` agrega los estados `loading`, bloquea controles
+  y atajos mientras se preparan bases y conserva el cierre normal de la ventana.
+  Los puentes Qt exponen ese estado a partir de inicialización y solicitudes de
+  lectura/selección/importación; BatchChannel conserva el comando activo hasta
+  idle. Esperar también al acuse idle después de ready/result. Demostración,
+  errores y cierre no quedan atrapados; run/retry_empty/diario y lecturas de
+  progreso durante las descargas conservan su interfaz habitual. Proveedor BLs
+  de preparación para iniciar una descarga no activa esta espera de lectura.
+  Cambio solo de presentación/estado Qt, sin modificar motores, protocolos,
+  bases ni comportamiento de consultas. Pasaron 5 pruebas locales (estados de
+  los seis bots, entrada modal/atajos y flujos QML Detalles/BLs) más el smoke de
+  seis vistas. Capturas en `runtime/diagnostics/loading/`: oscuro 1280×820 y
+  claro 1000×600, sin avisos QML. La instancia activa se conservó; la espera se
+  carga al próximo arranque.
+
 - Identidad visual CHC actualizada desde las opciones proporcionadas en
   `SYS_CARGA_TRANSITO/Logos_CHC`. Copias propias en `workbench/assets/branding`:
   símbolo SVG de `CHC_vectorizados.zip` e ICO `Logo_CHC_REPORTES.ico` con seis

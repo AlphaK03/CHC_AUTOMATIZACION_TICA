@@ -103,6 +103,13 @@ class DetailsBridge(QObject):
     @Property(bool, notify=changed)
     def busy(self): return self._busy
     @Property(bool, notify=changed)
+    def loading(self):
+        if not self._enabled or self._closing or self._error or self._running or self._daily_active:
+            return False
+        return not self._ready or any(request['command'] in {
+            'initialize','select','refresh','inspect_excel','prepare_import','import'
+        } and not request.get('readonly') for request in self._requests.values())
+    @Property(bool, notify=changed)
     def running(self): return self._running
     @Property(bool, notify=changed)
     def dailyActive(self): return self._daily_active

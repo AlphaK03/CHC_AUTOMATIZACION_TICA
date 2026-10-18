@@ -30,6 +30,7 @@ class BatchChannel(QObject):
         self.buffer = b''
         self.stderr = ''
         self.pending = None
+        self.active_command = ''
         self.process = QProcess(self)
         self.guard = ProcessTreeGuard()
         self.process.readyReadStandardOutput.connect(self.read)
@@ -89,6 +90,8 @@ class BatchChannel(QObject):
                 self.error = ''
         else:
             return False
+        if command not in ('stop','shutdown'):
+            self.active_command = command
         self.changed.emit()
         return True
 
@@ -111,6 +114,7 @@ class BatchChannel(QObject):
                     self.pending = None
             elif kind == 'idle':
                 self.busy = False
+                self.active_command = ''
             elif kind == 'error':
                 self.error = event.get('message','Error del motor')
             self.changed.emit()
@@ -208,6 +212,19 @@ class BatchBridge(QObject):
     def ready(self): return self.current().ready
     @Property(bool, notify=changed)
     def busy(self): return self.current().busy or self._knowledge_request is not None or (self.isBls and self.channels['bls_source'].busy)
+    @Property(bool, notify=changed)
+    def loading(self):
+        if not self.enabled or self._closing or self._knowledge_request is not None:
+            return False
+        channel = self.current()
+        if channel.busy and channel.active_command in {'run','retry_empty'}:
+            return False
+        if not channel.error and (not channel.ready or
+                (channel.busy and channel.active_command in {'refresh','select','import_progress'})):
+            return True
+        auxiliary = self.channels.get('bls_source' if self.isBls else 'bases')
+        return bool(auxiliary and not auxiliary.error and auxiliary.busy and
+                    auxiliary.active_command in {'refresh','knowledge_catalog','base_load'})
     @Property(bool, notify=changed)
     def running(self): return any(c.busy for c in self.channels.values())
     @Property(bool, notify=changed)

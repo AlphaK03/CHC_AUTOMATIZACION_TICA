@@ -28,6 +28,12 @@ ApplicationWindow {
     property var blsBridge: typeof bls !== 'undefined' ? bls : null
     property var cloudBridge: typeof sharepoint !== 'undefined' ? sharepoint : null
     property bool closingRequested: false
+    property var loadingModules: [
+        {bridge:details,title:"Detalles"}, {bridge:transitBridge,title:"DUAs Tránsito"},
+        {bridge:talonBridge,title:"Talón"}, {bridge:movementsBridge,title:"XMovimientos"},
+        {bridge:manifestsBridge,title:"Manifiestos"}, {bridge:blsBridge,title:"BLs"}
+    ].filter(entry => entry.bridge && entry.bridge.enabled && entry.bridge.loading)
+    property bool loadingBases: !closingRequested && loadingModules.length > 0
     function workersClosed() { return [details,transitBridge,talonBridge,movementsBridge,manifestsBridge,blsBridge,cloudBridge].every(bridge => !bridge || !bridge.enabled || bridge.isClosed) }
     onClosing: function(close) {
         window.closingRequested = true
@@ -51,9 +57,9 @@ ApplicationWindow {
     Connections { target: window.blsBridge; function onClosed() { if(window.blsBridge.closing && window.workersClosed()) Qt.callLater(window.close) } }
     Connections { target: window.cloudBridge; function onClosed() { if(window.closingRequested && window.workersClosed()) Qt.callLater(window.close) } }
 
-    Shortcut { sequence: "Ctrl+K"; onActivated: searchInput.forceActiveFocus() }
-    Shortcut { sequence: "Ctrl+B"; onActivated: window.sidebarExpanded = !window.sidebarExpanded }
-    Shortcut { sequence: "Escape"; onActivated: { searchInput.text = ""; searchInput.focus = false } }
+    Shortcut { sequence: "Ctrl+K"; enabled:!window.loadingBases; onActivated: searchInput.forceActiveFocus() }
+    Shortcut { sequence: "Ctrl+B"; enabled:!window.loadingBases; onActivated: window.sidebarExpanded = !window.sidebarExpanded }
+    Shortcut { sequence: "Escape"; enabled:!window.loadingBases; onActivated: { searchInput.text = ""; searchInput.focus = false } }
 
     Connections {
         target: demo
@@ -62,6 +68,8 @@ ApplicationWindow {
     Timer { id: toastTimer; interval: 4000; onTriggered: window.toastMessage = "" }
 
     RowLayout {
+        objectName: "workbenchControls"
+        enabled: !window.loadingBases
         anchors.fill: parent
         spacing: 0
         Rectangle {
@@ -208,6 +216,7 @@ ApplicationWindow {
         }
     }
 
+    LoadingOverlay { loading:window.loadingBases; moduleNames:window.loadingModules.map(entry => entry.title) }
     SharePointDialog { id:sharePointDialog; objectName:"sharePointDialog"; service:window.cloudBridge }
 
     AppDialog {
