@@ -283,6 +283,10 @@ class BatchBridge(QObject):
 
     @Slot(str, 'QVariantMap', result=bool)
     def command(self, name, data):
+        if self.isBls and name == 'retry_empty':
+            if self.busy or self._closing or self._review.running:
+                return False
+            self._knowledge_error=self._knowledge_status=''
         if name == 'delete' and (self.busy or self._closing or self._review.running):
             return False
         if self.isBls and name=='run' and self.enabled:

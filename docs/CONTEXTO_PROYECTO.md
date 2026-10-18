@@ -2,6 +2,28 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- BLs incorpora **Más → Reconsultar BLs con 0 filas…**, con conteo/confirmación
+  para el lote activo y resumen de guardados sin líneas. Comando `retry_empty`
+  independiente del proveedor: reconstruir la entrada desde `inputs`, comprobar
+  firma/ruta/configuración original y no crear otra identidad ni leer de nuevo el
+  archivo de entrada. `bls_empty_retry.py` respalda SQLite fuera de `data/jobs`,
+  conserva intentos y registra solicitud/miembros; reabre solo Guardado con
+  `result_count=0` y cero resultados reales. Cola acotada a esos miembros en
+  todas las rondas; preservar los pendientes anteriores y los BLs con líneas.
+  Se mantiene el bloqueo original y se rechazan selección cambiada/lote ocupado.
+  Cada reconsulta inicia un avance por páginas nuevo mediante generación
+  persistida por job; las páginas anteriores permanecen intactas. `PageStore`
+  y la observación de página/filas resuelven únicamente la generación vigente.
+  Ante fallo/detención, los reabiertos quedan pendientes y el inicio normal
+  recupera ese avance nuevo; ese inicio normal conserva su alcance habitual.
+  El guardado original actualiza filas y CSV acumulado sin duplicar resultados.
+  Sin consultas/subidas automáticas ni cambios en fuentes copiadas. 23 pruebas
+  locales pasaron (14 páginas/portal, 2 cola/respaldo y 7 puente/QML/recuperación),
+  incluida conversión vacío→con líneas, repetición vacía, reanudación, alcance de
+  rondas, entrada externa ausente y bloqueos. Captura compacta en
+  `runtime/diagnostics/bls-empty-retry.png`. La app se encontró cerrada y se abrió
+  la versión actualizada en BLs antes de documentar, sin iniciar consultas reales.
+
 - BLs acepta números de manifiesto con una letra ASCII final (`2601287L`),
   además de los numéricos. La consulta manual solicitada confirmó en TICA
   `4-1-2601287L-P001-13/10/26`, con 22 conocimientos (20 Courier N y 2 S).

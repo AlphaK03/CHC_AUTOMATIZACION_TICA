@@ -122,7 +122,8 @@ class BatchService:
         return {'config':{**self.index['config'],'outputRoot':str(self.public_root())}, 'history':[
             {'id':item['id'], 'name':item['name'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
-            'summary':{key:summary.get(key,0) for key in COUNT_KEYS},
+            'summary':{**{key:summary.get(key,0) for key in COUNT_KEYS},
+                       **({'empty':summary.get('empty',0)} if self.flow=='bls' else {})},
             'modeSummaries':active.get('modeSummaries',[]) if self.flow!='bls' else [],
             'viewMode':self._view_mode, 'viewSearch':self._view_search, 'viewOffset':self._view_offset,
             'jobs':jobs[:200], 'activeJobs':active_jobs, 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
@@ -162,6 +163,7 @@ class BatchService:
         elif 'total' in p:
             summary = dict(total=p.get('total',0), succeeded=p.get('saved',0), pending=p.get('pending',0),
                            running=p.get('running',0), excluded=0, invalid=p.get('invalid',0), rows=p.get('result_rows',0))
+            if self.flow == 'bls':summary['empty'] = p.get('empty_saved',0)
         else:
             # Preparar el navegador/base no significa reiniciar el avance guardado.
             summary = dict(record.get('summary',{}))
@@ -231,6 +233,18 @@ class BatchService:
             self.index['config'].update({k:v for k,v in request.get('config',{}).items() if k in self.index['config']})
             self.save()
             self.run()
+        elif command == 'retry_empty':
+            record = self.active()
+            if self.flow != 'bls' or not record or request.get('recordId') != record['id']:
+                raise ValueError('El lote BLs seleccionado cambió. Abre de nuevo la reconsulta.')
+            if self.processing:
+                raise ValueError('Primero termina la consulta activa.')
+            from .bls_empty_retry import load_input
+            if not load_input(self.root,record)[3]:
+                self.inspect()
+                self.message = 'No hay BLs guardados con 0 filas en este lote.'
+            else:
+                self.run(retry_empty=True)
         elif command == 'select':
             if not any(item['id'] == request['id'] for item in self.index['history']):
                 raise ValueError('No se encontró la ejecución')
@@ -422,8 +436,8 @@ class BatchService:
         self.save()
         return record
 
-    def run(self):
-        record = self.prepare()
+    def run(self, retry_empty=False):
+        record = self.active() if retry_empty else self.prepare()
         if self.flow=='bls':
             for spec in record.get('publicSpecs',[]):self.publication_target(record,spec=spec)
         else:
@@ -435,7 +449,7 @@ class BatchService:
         self.processing = True
         self.save()
         async def guarded():
-            operation = asyncio.create_task(self.run_bls(record) if self.flow == 'bls' else self.run_manifests(record))
+            operation = asyncio.create_task(self.run_bls(record,retry_empty=retry_empty) if self.flow == 'bls' else self.run_manifests(record))
             async def watch():
                 while not self.stop.is_set():
                     await asyncio.sleep(.1)
@@ -522,15 +536,34 @@ class BatchService:
             finally:
                 await browser.close()
 
-    async def run_bls(self, record):
+    async def run_bls(self, record, retry_empty=False):
         from config_manager import DEFAULTS
         from chc_runtime.bls_session import WorkbenchBLSProcessor
         from input_files import load_input_file
-        c = self.index['config']
+        c = record['config'] if retry_empty else self.index['config']
         config = {**DEFAULTS, 'sheet_name':c['sheet'], 'output_base_path':record['work'],
             'cant_hilos':int(c['workers']), 'max_retries':int(c['max_retries']),
             'timeout':float(c['timeout']), 'headless':bool(c['headless']), 'event_callback':self.progress}
-        frame = load_input_file(c['input'],c['sheet'])
+        if retry_empty:
+            import pandas as pd
+            from core.inputs import batch_scope
+            from .bls_empty_retry import load_input
+            path,scope,records,_ = load_input(self.root,record)
+            frame = pd.DataFrame(records)
+            config.update(target_url=scope['target_url'],dates_from_input=scope['dates_from_input'],
+                          sheet_name=scope['sheet'],batch_revision=scope.get('revision',''))
+            for field in ('fecha_inicio','fecha_fin'):
+                if field in scope:config[field]=scope[field]
+            signature,_ = batch_scope(frame,config)
+            if config['batch_revision']:
+                signature=hashlib.sha256((signature+config['batch_revision']).encode()).hexdigest()
+            with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as db:
+                expected=db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]
+            if signature != expected or path != (Path(record['work'])/config['sheet_name']/signature[:16]/'SQLite/bls.sqlite3').resolve():
+                raise ValueError('La entrada persistida no coincide con la firma del lote; progreso conservado.')
+            config['workbench_empty_retry'] = {'database':str(path),'backups':str(self.root/'data/backups/bls_empty')}
+        else:
+            frame = load_input_file(c['input'],c['sheet'])
         factory = None
         if self.fixture:
             from chc_runtime.bls_fixture import Session
@@ -555,6 +588,7 @@ class BatchService:
             return
         self._jobs = {}
         summary = dict(total=0,succeeded=0,pending=0,running=0,excluded=0,rows=0,invalid=0)
+        if self.flow=='bls':summary['empty']=0
         self._result_counts = {}
         self._database_summaries = {}
         databases = list(dict.fromkeys(str(Path(p).resolve()) for p in record.get('databases',[])))
@@ -589,6 +623,7 @@ class BatchService:
                     self._result_counts.update((manifest_job_key(path,identifier),kept)
                         for identifier,kept in db.execute("SELECT id,kept_count FROM jobs WHERE state='Guardado'"))
                 if self.flow=='bls':
+                    summary['empty'] += db.execute("SELECT count(*) FROM jobs WHERE state='Guardado' AND result_count=0").fetchone()[0]
                     progress = {}
                     checkpoint = path.with_name('bls_pages.sqlite3')
                     if checkpoint.is_file():
@@ -596,8 +631,12 @@ class BatchService:
                             signature = db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]
                             if pages.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]!=signature:
                                 raise ValueError('Las páginas guardadas pertenecen a otra selección BLs')
-                            progress = {ordinal:(number,count) for ordinal,number,count in pages.execute(
-                                'SELECT ordinal,MAX(page),SUM(count) FROM pages GROUP BY ordinal')}
+                            from .bls_empty_retry import generations,page_key
+                            versions=generations(db)
+                            aliases={page_key(key,versions):key for key in versions}
+                            progress = {ordinal:(number,count) for key,ordinal,number,count in pages.execute(
+                                'SELECT job,ordinal,MAX(page),SUM(count) FROM pages GROUP BY job')
+                                if key==page_key(aliases.get(key,key),versions) and ('@' not in key or key in aliases)}
                     records = db.execute('''SELECT ordinal,payload,state,attempts,result_count,error FROM jobs
                         WHERE json_extract(payload,'$."IDManifiesto"') LIKE ?
                            OR json_extract(payload,'$."BL original"') LIKE ?

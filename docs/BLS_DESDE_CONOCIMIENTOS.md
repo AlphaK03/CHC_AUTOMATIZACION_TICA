@@ -106,6 +106,34 @@ contadores. Al retomar la misma selección con pendientes, el botón indica
 
 ## Página actual y recuperación dentro del BL
 
+La acción manual **BLs → Más → Reconsultar BLs con 0 filas…** permite revisar
+de nuevo los vacíos confirmados del lote seleccionado. Requiere confirmar el
+conteo y que el bot esté libre. El proveedor no se ejecuta: se reconstruye el
+DataFrame desde `inputs` persistidos, se verifica firma/configuración/ruta del
+lote y se conserva su identidad. `bls_empty_retry.py` guarda respaldo de SQLite
+en `data/backups/bls_empty/`, antes de reabrir trabajos bajo el bloqueo original.
+La operación y sus miembros quedan en `workbench_empty_requeries` y
+`workbench_empty_requery_jobs`. Solo Guardado con `result_count=0` y ningún
+resultado puede pasar a Pendiente; conserva intentos y sus registros anteriores.
+La cola se limita a los miembros de esa solicitud en cada ronda, sin consumir
+los pendientes anteriores ni los guardados con líneas.
+
+`workbench_bls_generations` mantiene una generación por BL reabierto. Las páginas
+usan una clave interna `job@generación`, dejando las antiguas sin borrar. La
+primera consulta es nueva y el lector de progreso muestra solo esa generación.
+Si falla o se detiene, el BL queda pendiente y el inicio normal puede recuperar
+sus páginas nuevas; ese inicio también procesa sus otros pendientes habituales.
+Si permanece vacío, se confirma otra vez con 0 filas; si recibe líneas, el
+guardado/exportación originales incorporan esas filas al resultado acumulado.
+La acción no se ejecuta automáticamente al abrir, cerrar el mes o subir archivos.
+
+Verificación aislada: 23 pruebas de páginas/portal local, cola/respaldo y
+puente/QML/recuperación. Incluyen vacío→con líneas sin reutilizar el EOF vacío,
+dos reconsultas todavía vacías, fallo parcial seguido de reanudación normal,
+preservación de otros pendientes y BLs con líneas, todas las rondas acotadas,
+archivo original ausente, cambio de selección/bloqueo, actualización del CSV y
+diálogo completo a 1000×600. No se ejecutaron reconsultas reales como pruebas.
+
 El Workbench añade **Página** y las filas acumuladas de cada BL. Mientras solicita
 la página siguiente puede mostrar, por ejemplo, página 4 y seis filas guardadas
 de las tres anteriores. La ayuda identifica la última página verificada. Al

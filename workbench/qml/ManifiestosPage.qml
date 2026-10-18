@@ -121,7 +121,7 @@ ScrollView {
         function onEventReceived(event) {
             if(event.flow === moduleBridge.flow && event.event === "result" && event.command === "view") { page.syncView(); return }
             if(event.flow === moduleBridge.flow && (event.event === "ready" ||
-               (event.event === "result" && ["configure","refresh","select","import_progress","run","knowledge_empty","delete"].indexOf(event.command) >= 0))) loadConfig()
+               (event.event === "result" && ["configure","refresh","select","import_progress","run","retry_empty","knowledge_empty","delete"].indexOf(event.command) >= 0))) loadConfig()
         }
     }
     ColumnLayout {
@@ -136,6 +136,12 @@ ScrollView {
             ActionButton { text:"Más"; onClicked:more.open(); Menu {
                 id:more
                 MenuItem { text:"Actualizar CSV"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("export",{}) }
+                MenuItem {
+                    objectName:"blsRetryEmpty"; text:"Reconsultar BLs con 0 filas…"; visible:page.isBls
+                    enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
+                        moduleBridge.activeId!=="" && (moduleBridge.summary.empty || 0)>0
+                    onTriggered:{ emptyRetry.recordId=moduleBridge.activeId; emptyRetry.count=moduleBridge.summary.empty || 0; emptyRetry.open() }
+                }
                 MenuItem { text:"Pendientes y exclusiones"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("review",{}) }
                 MenuItem { text:"Importar progreso SQLite…"; visible:!page.isBls && ["conocimientos","duas","movimientos"].indexOf(moduleBridge.flow)>=0; enabled:!moduleBridge.busy; onTriggered:progressFile.open() }
                 MenuItem { text:"Dividir CSV para Excel"; enabled:!moduleBridge.busy; onTriggered:splitFile.open() }
@@ -288,7 +294,7 @@ ScrollView {
         }
         RowLayout {
             Layout.fillWidth:true
-            Text { text:moduleBridge.summary.succeeded+" guardados   ·   "+moduleBridge.summary.pending+" pendientes   ·   "+moduleBridge.summary.running+" en curso"+(moduleBridge.summary.excluded ? "   ·   "+moduleBridge.summary.excluded+" excluidos" : "")+"   ·   "+moduleBridge.summary.rows+(page.isBls ? " filas confirmadas" : " filas"); color:Theme.muted; font.pixelSize:12; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+            Text { text:moduleBridge.summary.succeeded+" guardados"+(page.isBls ? " ("+(moduleBridge.summary.empty || 0)+" sin líneas)" : "")+"   ·   "+moduleBridge.summary.pending+" pendientes   ·   "+moduleBridge.summary.running+" en curso"+(moduleBridge.summary.excluded ? "   ·   "+moduleBridge.summary.excluded+" excluidos" : "")+"   ·   "+moduleBridge.summary.rows+(page.isBls ? " filas confirmadas" : " filas"); color:Theme.muted; font.pixelSize:12; Layout.fillWidth:true; wrapMode:Text.WordWrap }
             visible: !page.optionsVisible
             Select { id:modeFilter; objectName:"manifestModeFilter"; visible:!page.isBls; Layout.preferredWidth:150; model:["Todas","Marítimo","Aéreo","Terrestre"]; enabled:!moduleBridge.busy; onActivated:page.refreshRows() }
             Field { id:search; placeholderText:page.isBls ? "Buscar BL" : "Buscar manifiesto"; Layout.preferredWidth:170; enabled:!moduleBridge.busy; onAccepted:page.refreshRows() }
@@ -385,6 +391,28 @@ ScrollView {
         ReviewStatus { Layout.fillWidth:true; inspector:moduleBridge.manualReview }
     }
     FileDialog { id:inputFile; title:"Base de BLs"; nameFilters:["Bases BLs (*.xlsx *.sqlite3 *.sqlite *.db)"]; onAccepted:input.text=page.localPath(selectedFile) }
+    AppDialog {
+        id:emptyRetry; objectName:"blsEmptyRetryDialog"
+        anchors.centerIn:parent; width:Math.min(520,parent ? parent.width-32 : 520); modal:true
+        title:"Reconsultar BLs con 0 filas"
+        property string recordId:""
+        property int count:0
+        contentItem:ColumnLayout {
+            spacing:16
+            Text { text:"Se volverán a consultar los "+emptyRetry.count+" BLs guardados sin líneas del lote seleccionado. Las líneas nuevas se incorporarán al CSV. Se conservan el historial, los BLs con líneas y los demás pendientes."; color:Theme.muted; font.pixelSize:13; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+            RowLayout {
+                Layout.fillWidth:true
+                ActionButton { text:"Cancelar"; subtle:true; onClicked:emptyRetry.close() }
+                Item { Layout.fillWidth:true }
+                ActionButton {
+                    objectName:"blsConfirmRetryEmpty"; text:"Reconsultar"; primary:true
+                    enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
+                        emptyRetry.recordId===moduleBridge.activeId && (moduleBridge.summary.empty || 0)>0
+                    onClicked:{ moduleBridge.command("retry_empty",{recordId:emptyRetry.recordId}); emptyRetry.close() }
+                }
+            }
+        }
+    }
     DeleteConfirmation {
         id: deleteDialog; objectName: "batchDeleteDialog"
         anchors.centerIn: parent; width: Math.min(560,page.width - 30)

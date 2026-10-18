@@ -231,6 +231,17 @@ Los lotes anteriores conservan sus resultados; muestran «—» en Página cuand
 hay historial por páginas. No se inicia una consulta automáticamente al abrir.
 [Captura con datos de prueba](../docs/preview/bls-paginas.png).
 
+Para revisar si los BLs vacíos recibieron líneas al cerrar el mes, elegir su lote
+y abrir **Más → Reconsultar BLs con 0 filas…**. El diálogo muestra la cantidad;
+**Reconsultar** inicia solo los que están Guardado con cero filas. La opción se
+habilita cuando hay vacíos y el bot está libre. El resumen muestra cuántos
+guardados siguen sin líneas. Conserva el historial, los BLs con líneas y los
+pendientes que ya existían; no vuelve a preparar Conocimientos ni necesita el
+archivo de entrada original. Hace una consulta nueva, conserva las páginas
+antiguas aparte y actualiza el CSV si aparecen líneas. Si sigue vacío vuelve a
+Guardado con 0 filas. Ante error/detención queda Pendiente; **Continuar pendientes**
+usa el avance nuevo y también atiende los demás pendientes de su alcance normal.
+
 Un timeout indica que no se pudo confirmar la respuesta, no que el BL esté vacío
 o ausente. El bot acepta tanto la respuesta de Confirmar como el refresco GET
 de TICA, comprobando fechas, manifiesto, BL, secuencia y columnas. Si no puede

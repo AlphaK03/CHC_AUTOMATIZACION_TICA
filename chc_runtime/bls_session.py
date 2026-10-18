@@ -135,6 +135,15 @@ class WorkbenchBLSProcessor(BLSProcessor):
     def __init__(self, config, stop_event):
         super().__init__(config,stop_event)
         self.page_store = None
+        self._empty_retry_started = False
+
+    def emit(self, kind='summary', **extra):
+        request = self.config.get('workbench_empty_retry')
+        if request and extra.get('phase') == 'prepare' and not self._empty_retry_started:
+            from .bls_empty_retry import begin
+            begin(self.store,request)
+            self._empty_retry_started = True
+        super().emit(kind,**extra)
 
     async def run_async(self, df, session_factory=None):
         try:
@@ -151,7 +160,9 @@ class WorkbenchBLSProcessor(BLSProcessor):
                 return original
             if self.page_store is None:
                 signature = self.store.get_metadata('signature')
-                self.page_store = PageStore(self.store.path.with_name('bls_pages.sqlite3'),signature)
+                from .bls_empty_retry import generations
+                self.page_store = PageStore(self.store.path.with_name('bls_pages.sqlite3'),signature,
+                                            generations(self.store.db))
             reservation = {}
             def active(key):
                 if self.stop_event.is_set():
