@@ -24,6 +24,15 @@
   procesos independientes. BLs conserva su motor original aislado. Adaptadores:
   `batch_worker.py`, `manifest_service.py`, `manifest_adapters.py` y
   `workbench/batch_bridge.py`. No forzarlos al perfil DUA ni sustituir sus fuentes.
+- Manifiestos acumula por procedimiento/mes/Courier sin IDs ni límite:
+  `manifest_incremental.py` agrega manifiestos al recibir otro listado confirmado,
+  conserva Guardado/intentos/checkpoints y restringe los pendientes a la consulta
+  actual. Cambiar fechas/modalidades reutiliza el lote; no fusionar bases históricas.
+  Fuentes copiadas intactas; respaldar la adaptación en `data/backups/`, fuera de
+  fuentes. `manifest_coverage.py` exige cantidad/firma/lista/finalización verificables
+  por rango/modalidad; no usar el último scope ni el nombre como cobertura.
+  Los filtros IDs/límite conservan selección fija. CSV mensual por modalidad;
+  parciales reemplazados dejan de ser finales sin borrar archivos ni subir solos.
 - Mantener instancia única con `single_instance.py`: otra apertura activa la
   ventana existente antes de crear workers. No interrumpir consultas al actualizar.
   Capturas y smoke quedan aislados, sin una nueva ventana interactiva.

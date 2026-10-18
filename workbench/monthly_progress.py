@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+from chc_runtime.manifest_coverage import cumulative_days, day_ranges
 
 if __package__:
     from .daily_marks import DailyMarks
@@ -232,9 +233,13 @@ class MonthlyReader:
                         partial=db.execute('SELECT count(*) FROM partial_pages WHERE manifest NOT IN (SELECT id FROM jobs WHERE '+excluded+')').fetchone()[0]
                         last=db.execute('SELECT state,finished FROM runs ORDER BY rowid DESC LIMIT 1').fetchone()
                         confirmed=bool(selected and not partial and last and last[0]=='Finalizada' and last[1] and saved+omitted==total)
-                        days=covered(scope,key) if confirmed else set()
+                        accumulated=cumulative_days(db,allow_omitted=True)
+                        unfiltered=not scope.get('ids') and not scope.get('limit') and scope.get('courier') in (None,'todos')
+                        days=(accumulated if unfiltered else set()) if accumulated is not None else covered(scope,key) if confirmed else set()
                     detail=f"{scope.get('mode','')} · {saved:,} / {total:,} confirmados"
                     detail+=f" · {scope.get('desde') or min(month_days(key))} a {scope.get('hasta') or max(month_days(key))}"
+                    if accumulated is not None:
+                        detail+=' · cobertura acumulada: '+(', '.join(a+' a '+b for a,b in day_ranges(days)) or 'sin consultas completas')
                     if scope.get('ids') or scope.get('limit') or scope.get('courier') not in (None,'todos'):detail+=' · selección filtrada'
                     if omitted:detail+=f' · {omitted} omitidos, disponibles para reintento'
                     status=state(total,saved+omitted,counts.get('Descargando',0),self.coverage_status(key,days)=='completed')

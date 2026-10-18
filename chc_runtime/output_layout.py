@@ -95,7 +95,7 @@ def manifest_spec(flow,record,mode):
     qualifier=''
     import calendar
     first=key+'-01';last=key+f"-{calendar.monthrange(scope['year'],scope['month'])[1]:02d}"
-    if scope.get('start',first)!=first or scope.get('end',last)!=last:
+    if not record.get('cumulative') and (scope.get('start',first)!=first or scope.get('end',last)!=last):
         qualifier='DEL_'+scope.get('start',first)+'_AL_'+scope.get('end',last)
     if scope.get('courier') not in (None,'todos'):qualifier+='_COURIER_'+scope['courier']
     if scope.get('ids') or scope.get('limit'):
@@ -121,7 +121,7 @@ def open_registry(path):
     return db
 
 
-def publish(source,base,spec,owner,registry,final=True):
+def publish(source,base,spec,owner,registry,final=True,supersede=False):
     source=Path(source)
     if not source.is_file():return None
     destination=Path(base).joinpath(*spec['relativeFolders'],spec['filename'])
@@ -136,6 +136,10 @@ def publish(source,base,spec,owner,registry,final=True):
         fd,temp=tempfile.mkstemp(dir=destination.parent,suffix='.tmp');os.close(fd)
         shutil.copyfile(source,temp);os.replace(temp,destination)
         db.execute('INSERT OR REPLACE INTO exports VALUES(?,?,?,?,?,?)',(str(destination),owner,spec['target'],spec['period'],json.dumps(spec),int(final)))
+        if supersede and final:
+            db.execute('''UPDATE exports SET final=0 WHERE owner=? AND target=? AND period=? AND path!=?
+                AND coalesce(json_extract(spec,'$.mode'),'')=?''',
+                (owner,spec['target'],spec['period'],str(destination),spec.get('mode','')))
         db.commit()
         return {'path':str(destination),'name':month_label(spec['period']),'owner':owner,**spec,'final':final}
     finally:

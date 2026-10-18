@@ -12,7 +12,7 @@ import sqlite3
 import tempfile
 import time
 
-from .manifest_names import manifest_scope, manifest_name, normalized_scope
+from .manifest_names import manifest_scope, manifest_name, normalized_scope, cumulative_family
 from . import output_layout
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -286,7 +286,7 @@ class BatchService:
             spec = {'input':c['input'], 'sheet':c['sheet']}
         else:
             spec = manifest_scope(self.flow, c)
-            key = hashlib.sha256(json.dumps(normalized_scope(spec),sort_keys=True).encode()).hexdigest()
+            key = hashlib.sha256(json.dumps(cumulative_family(spec) or normalized_scope(spec),sort_keys=True).encode()).hexdigest()
         maximum = 20 if self.flow == 'bls' else 32
         if not 1 <= int(c['workers']) <= maximum:
             raise ValueError(f'Use entre 1 y {maximum} descargas simultáneas')
@@ -318,9 +318,12 @@ class BatchService:
         if self.flow!='bls':
             # Recuperar también lotes anteriores con nombre manual, sin mover sus datos.
             candidates = [item for item in self.index['history']
-                          if normalized_scope(item['spec']) == normalized_scope(spec)]
-            record = next((item for item in candidates if item['id']==self.index['active']),
-                          candidates[-1] if candidates else None)
+                          if (cumulative_family(spec) and cumulative_family(item['spec'])==cumulative_family(spec))
+                          or normalized_scope(item['spec']) == normalized_scope(spec)]
+            populated=[item for item in candidates if item.get('databases')]
+            pool=populated or candidates
+            record = next((item for item in pool if item['id']==self.index['active']),
+                          max(pool,key=lambda item:item.get('summary',{}).get('succeeded',0)) if pool else None)
             c['name'] = record['name'] if record else name
         elif record is None:
             # Cambiar la carpeta pública nunca reinicia un lote BL ya existente.
@@ -331,6 +334,9 @@ class BatchService:
                 'spec':spec, 'config':dict(c), 'work':str(self.root/'data/jobs'/self.flow/identity),
                 'output':str(Path(c['outputRoot']).resolve()/name), 'databases':[], 'state':'Pendiente', 'summary':{}}
             self.index['history'].append(record)
+        if self.flow!='bls' and cumulative_family(spec):
+            record['cumulative']=True
+            record['spec']=spec
         record['config'] = dict(c)
         if self.flow=='bls':
             public_specs={}
@@ -403,6 +409,9 @@ class BatchService:
         from resultados import output_paths
         from chc_runtime.manifest_adapters import WorkbenchManifestScraper
         c, spec = self.index['config'], record['spec']
+        if record.get('cumulative'):
+            from chc_runtime.manifest_adapters import enable_incremental_stores
+            enable_incremental_stores()
         workspace = Path(record['work'])
         config = {'timeout_manifest':float(c['timeout']), 'headless':bool(c['headless']),
             'app_data_folder':str(workspace/'datos_app'), 'resultados_folder':str(workspace/'resultados'),
@@ -429,11 +438,11 @@ class BatchService:
                     elif self.flow in ('duas','movimientos'):
                         await scraper.run_tracked_table(self.flow,mode,spec['month'],spec['year'])
                     elif self.flow == 'contenedores':
-                        config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow}
+                        config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow,'workbench_cumulative':bool(record.get('cumulative'))}
                         scraper.config.update(config)
                         await scraper.run_container_jobs(mode,spec['month'],spec['year'],paths.csv,paths.database)
                     else:
-                        scraper.config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow}
+                        scraper.config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow,'workbench_cumulative':bool(record.get('cumulative'))}
                         await scraper.run_main_job(mode,spec['month'],spec['year'],paths.csv,paths.database)
                     self.inspect()
                     self.emit('progress',snapshot=self.snapshot())
@@ -556,7 +565,8 @@ class BatchService:
         try:
             for path,spec in files:
                 destination,owner_path=self.publication_target(record,spec=spec)
-                result=output_layout.publish(path,self.public_root(),spec,self.flow+':'+record['id'],output_layout.registry_path(self.root))
+                result=output_layout.publish(path,self.public_root(),spec,self.flow+':'+record['id'],output_layout.registry_path(self.root),
+                                             supersede=bool(record.get('cumulative')))
                 if result:
                     write_json(owner_path,{'owner':record['id'],'path':str(destination)})
                     self.emit('published',flow=self.flow,**result)

@@ -53,7 +53,8 @@ class KnowledgeConnection(unittest.TestCase):
                 wait_until(lambda:not bridge.busy,timeout=20000)
                 self.assertFalse(bridge.error,bridge.error)
                 self.assertEqual(bridge.summary['succeeded'],2)
-                self.assertTrue(bridge.current().snapshot['outputFolder'].endswith('BLs 2026-09 Marítimo y Aéreo'))
+                self.assertTrue(bridge.current().snapshot['outputFolder'].endswith('BLS'))
+                self.assertTrue(any('BLs 2026-09 Marítimo y Aéreo' in r['label'] for r in bridge.current().snapshot['history']))
                 original_input=bridge.config['input']
                 with closing(sqlite3.connect(original_input)) as db:
                     rows=db.execute('SELECT * FROM BLS ORDER BY rowid').fetchall()
@@ -72,7 +73,8 @@ class KnowledgeConnection(unittest.TestCase):
                 wait_until(lambda:not bridge.busy,timeout=15000)
                 self.assertFalse(bridge.error,bridge.error)
                 self.assertEqual(bridge.summary['succeeded'],1)
-                self.assertTrue(bridge.current().snapshot['outputFolder'].endswith('BLs 2026-08 Aéreo'))
+                self.assertTrue(bridge.current().snapshot['outputFolder'].endswith('BLS'))
+                self.assertTrue(any('BLs 2026-08 Aéreo' in r['label'] for r in bridge.current().snapshot['history']))
                 # Un período no ofrecido se rechaza antes de arrancar BLs.
                 count=len([e for e in events if e.get('flow')=='bls' and e.get('command')=='run' and e['event']=='result'])
                 bridge.command('run',{'config':{**config,'knowledgePeriods':['2026-10|maritimo']}})

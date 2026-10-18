@@ -30,13 +30,53 @@ cola, proceso e historial. Las modalidades seleccionadas se recorren secuencialm
 como en el original; dentro de cada modalidad se aplica su concurrencia.
 
 El nombre de los cinco procedimientos no se escribe manualmente. Cambia al elegir
-período y selección; las variantes de modalidades, fechas, Courier, límite o IDs
-reciben sufijos deterministas para conservar su alcance y sus CSV independientes.
-Una misma selección en la misma carpeta reutiliza su ejecución aunque cambien el
-nombre enviado, los hilos o el orden de las modalidades. Los lotes anteriores se
-reconocen por su selección y conservan identidad, nombre, rutas y progreso; no se
-renombran ni se fusionan bases existentes. BLs conserva su política de nombres.
+período. Desde el 17/10, las consultas sin IDs ni límite forman un acumulado por
+procedimiento/mes/Courier: cambiar el rango o las modalidades no crea otro lote.
+Los nombres nuevos son `octubre26`, con sufijo Courier cuando corresponde;
+los lotes existentes conservan identidad, nombre, rutas y progreso. Se retoma
+el lote compatible activo, o uno con datos si la selección activa quedó vacía.
+No se fusionan automáticamente bases históricas independientes. IDs/límite
+conservan selecciones aisladas, nombres con sufijo y su lista fija original.
+BLs conserva su política de identidad de entrada, firmas y checkpoints.
 No se sobrescriben CSV externos: ante un conflicto se pide otra carpeta de resultados.
+
+## Actualización acumulativa por mes
+
+Los cinco procedimientos vuelven a obtener un listado confirmado en cada inicio.
+Se agregan únicamente manifiestos nuevos; los Guardado y sus filas/intentos se
+conservan, y solo se reservan pendientes presentes en el rango de esa consulta.
+Cambiar de ambas modalidades a una sola actualiza únicamente la elegida y conserva
+la SQLite y el CSV de la otra. El listado principal agrega identidades nuevas
+al acumulado en lugar de volver a publicar solo el último intervalo consultado.
+Cada CSV público sigue separado por modalidad y reúne todos sus datos confirmados.
+
+Ejemplo: octubre 1–17, Marítimo + Aéreo; el 1 de noviembre consultar octubre 1–31.
+La ejecución se mantiene, detecta los manifiestos incorporados y evita volver a
+extraer los ya guardados. Mantener el rango anterior solo descubre novedades de
+ese rango; para incluir el resto del mes se debe ampliarlo, o usar el mes completo.
+La unidad de confirmación sigue siendo el manifiesto; no se revalidan sus detalles
+ya Guardado para detectar modificaciones internas posteriores del portal.
+
+`manifest_incremental.py` adapta los stores originales sin modificar sus fuentes.
+Antes de ampliar una base anterior crea una instantánea en `data/backups/` fuera
+de los directorios de fuentes. Los nuevos jobs se anexan con ordinales estables;
+no se pierden resultados, intentos, exclusiones ni páginas parciales. Se conserva
+la reparación original de identidades, antes de insertar el identificador canónico.
+
+`workbench_queries` y `workbench_query_jobs` registran intervalo, lista confirmada,
+cantidad, firma y finalización. `manifest_coverage.py` acredita solo consultas
+finalizadas con sus miembros verificables, sin inferir huecos entre rangos ni
+mezclar modalidades. El intervalo se limita a la última fecha consultable de
+Costa Rica; una consulta del mes actual no acredita días futuros. La cobertura
+legada se limita a la fecha de su primera selección congelada. Fallos, detenciones
+o listas incompletas no acreditan un rango nuevo; los vacíos confirmados sí.
+Bitácora y proveedor BLs leen esta cobertura, conservando sus propias reglas de
+pendientes/excepciones. El proveedor BLs sigue rechazando parciales o pendientes.
+
+Cuando un CSV parcial anterior se sustituye por el acumulado canónico, se conserva
+el archivo pero su registro deja de ofrecerse como salida final; las copias de
+envío pendientes de ese archivo se pausan. No se borran archivos locales ni remotos.
+Solo una acción explícita del usuario inicia una subida a SharePoint.
 
 En **Configuración** se encuentran consultas simultáneas, navegador visible,
 espera y carpeta de resultados. **Opciones avanzadas** contiene el intervalo

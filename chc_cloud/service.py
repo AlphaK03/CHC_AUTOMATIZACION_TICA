@@ -214,6 +214,13 @@ class CloudService:
             if row['target'] not in completed.get(destination.get('period',''),{}).get('targets',set()):
                 with self.db:self.db.execute("UPDATE jobs SET state='error',error='El mes ya no está completo, al día ni cerrado manualmente; se conservó la copia local.' WHERE id=?",(row['id'],))
                 continue
+            if self.exports_registry.exists():
+                with closing(sqlite3.connect(self.exports_registry.as_uri()+'?mode=ro',uri=True)) as exports:
+                    registered=exports.execute("SELECT final FROM exports WHERE owner=? AND target=? AND json_extract(spec,'$.filename')=?",
+                        (row['owner'],row['target'],row['filename'])).fetchall()
+                if registered and not any(value[0] for value in registered):
+                    with self.db:self.db.execute("UPDATE jobs SET state='paused',error='CSV anterior sustituido por el acumulado mensual; copia local conservada.' WHERE id=?",(row['id'],))
+                    continue
             with self.db:
                 self.db.execute("UPDATE jobs SET state='uploading',error='' WHERE id=?",(row['id'],))
             try:

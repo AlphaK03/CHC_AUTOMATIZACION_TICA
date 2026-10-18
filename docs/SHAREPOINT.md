@@ -108,6 +108,13 @@ consultas TICA. Los archivos históricos se conservan en sus rutas anteriores;
 usar **Exportar** en el lote vuelve a generar sus datos guardados con la estructura
 común, sin descargar de nuevo. Cambiar la carpeta madre no mueve archivos existentes.
 
+En los acumulados de Manifiestos, el CSV mensual de una modalidad sustituye como
+salida final a los parciales del mismo lote, mes y modalidad. Los archivos anteriores
+se conservan localmente, pero no se incluyen otra vez en **Subir a SharePoint**;
+sus envíos pendientes se pausan si ya fueron sustituidos. Las otras modalidades,
+otros propietarios y las selecciones filtradas conservan sus propias salidas.
+No se borran copias históricas que ya estuvieran en SharePoint.
+
 ## Pendientes y conflictos
 
 La cola online es independiente y persistente. Sin sesión o red conserva copias

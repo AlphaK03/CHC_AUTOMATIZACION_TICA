@@ -96,16 +96,34 @@ de la barra lateral. En **Procesamiento**, elegir período y modalidad y pulsar
 **Iniciar consulta**. Cada procedimiento conserva su historial y funciona
 independientemente; cambiar de acceso no detiene sus consultas.
 El campo **Tabla** es automático y no editable: Octubre 2026 → `octubre26`,
-Enero 2027 → `enero27`. Repetir la misma selección y carpeta retoma su ejecución,
-aunque antes tuviera otro nombre. Los lotes anteriores conservan nombre, rutas
-y progreso. Para selecciones distintas, el nombre añade modalidades no predeterminadas,
-rango de días, Courier, límite o identificador de la selección de IDs según corresponda.
+Enero 2027 → `enero27`. Las consultas sin IDs ni límite acumulan por procedimiento,
+mes y filtro Courier. Ampliar fechas o pasar de ambas modalidades a una sola
+retoma esa misma ejecución; consulta el listado vigente, agrega manifiestos nuevos
+y procesa los pendientes del rango seleccionado sin repetir los guardados.
+Los lotes anteriores conservan nombre, rutas y progreso; no se fusionan bases
+históricas independientes. Las selecciones por IDs/límite siguen aisladas y
+conservan sus sufijos y su lista fija. Courier distinto también tiene un acumulado propio.
 Los cinco procedimientos conservan CSV propios dentro de la carpeta del período;
 sus tablas y progreso siguen separados. BLs conserva su nombre manual o el generado
 desde Conocimientos porque su base puede reunir varios períodos.
 **Configuración** reúne los parámetros de consulta y la carpeta de resultados;
 los filtros de fechas, IDs, límite y Courier están en **Opciones avanzadas**.
 Importación de progreso SQLite y herramientas siguen en **Más**.
+
+Ejemplo: consultar octubre del 1 al 17 con Marítimo y Aéreo; en noviembre ampliar
+al 31 e iniciar de nuevo. Se conservan los resultados de ambas modalidades y se
+añaden los manifiestos que aparecieron después. Si se elige solo Marítimo, solo
+se actualiza esa modalidad; Aéreo mantiene su avance. Cada CSV público contiene
+el acumulado del mes de su modalidad, también al consultar un rango más pequeño.
+Un inicio nuevo vuelve a leer el listado para descubrir novedades; no es un
+calendario automático. La unidad guardada sigue siendo el manifiesto: no vuelve
+a extraer sus detalles ya confirmados para buscar cambios internos posteriores.
+
+La primera actualización de una base anterior crea respaldo SQLite bajo
+`bots/manifiestos/data/backups/`. Rangos, selección confirmada y finalización se
+registran en SQLite; ni el nombre mensual ni el último rango elegido prueban
+cobertura completa. BLs recibe solo rangos terminados y verificados. Su motor,
+firmas de entrada y checkpoints no cambian con esta actualización de Manifiestos.
 **Ver resultados** abre únicamente sus CSV de datos. BLs también ofrece
 Procesamiento y Configuración. Las páginas permiten desplazarse en ventanas pequeñas.
 

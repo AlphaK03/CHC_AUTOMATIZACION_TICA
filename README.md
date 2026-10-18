@@ -52,7 +52,9 @@ los procesos ocupados; BLs espera Conocimientos completos del período elegido.
 Los procedimientos de Manifiestos se eligen en una barra horizontal con el estilo de la navegación
 lateral; cada uno ofrece Procesamiento y Configuración, como los otros bots.
 El nombre de tabla se genera por período (`octubre26`, `enero27`) y se retoma la
-misma selección sin duplicarla. Modalidades o filtros distintos añaden un sufijo.
+acumulación del mes al ampliar fechas o cambiar las modalidades: consulta de nuevo
+el listado y descarga únicamente manifiestos nuevos o pendientes. Los CSV siguen
+separados por modalidad; los filtros de Courier, IDs o límite permanecen aislados.
 [Uso, contratos y límites comprobados](docs/INTEGRACION_MANIFIESTOS.md).
 BLs permite elegir directamente meses y modalidades con descargas completas de
 Conocimientos; genera su base Courier=N e inicia su motor sin elegir archivos.

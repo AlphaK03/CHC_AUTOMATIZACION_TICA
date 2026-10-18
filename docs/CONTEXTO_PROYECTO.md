@@ -6,6 +6,13 @@
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
   Motores separados, SQLite/progreso conservados, actividad estable y revisión
   visible en TICA sin cambiar el estado de una descarga.
+- Manifiestos acumula los cinco procedimientos por mes/Courier sin IDs/límite.
+  Repetir, ampliar fechas o cambiar modalidades reutiliza la ejecución y agrega
+  manifiestos nuevos, conservando Guardado/intentos/checkpoints. Los CSV siguen
+  separados por modalidad. Cobertura exacta en `workbench_queries` y miembros
+  firmados; bitácora y proveedor BLs no deducen el mes desde el último intervalo.
+  Migraciones con respaldo en `data/backups/`, fuentes copiadas intactas. No se
+  fusionan bases históricas ni se cambian firmas/checkpoints del motor BLs.
 - Vista general: cada bot de la bitácora muestra el conteo **16/31**, solo números,
   blanco y negrita a 22 px, junto al nombre. Incluye aceptación manual; en
   Manifiestos cuenta fechas comunes a los cinco procedimientos y sus modalidades.
@@ -66,6 +73,47 @@ Los apartados siguientes son el historial de las entregas y pueden describir
 reglas anteriores; este resumen y las guías vigentes tienen prioridad.
 
 ## Historial de implementación
+
+Actualización acumulativa de Manifiestos, 17/10: el usuario preguntó por descargar
+Marítimo/Aéreo de octubre al 17 y completar al 1 de noviembre sin repetir datos.
+Antes el rango/modalidades formaban la identidad y las colas congelaban el listado.
+Ahora los cinco procedimientos sin IDs/límite comparten identidad mensual por
+Courier; se conserva el lote compatible, incluso con nombre antiguo, y se procesan
+solo novedades y pendientes de la consulta actual. Selecciones filtradas siguen
+aisladas; bases históricas independientes no se fusionan automáticamente.
+
+`manifest_incremental.py` adapta los stores en el proceso propio de Manifiestos.
+Agrega jobs con ordinales estables, conserva resultados/intentos/exclusiones/
+parciales y valida la familia de mes/modalidad/filtros antes de ampliar. La primera
+adaptación crea respaldo SQLite en `data/backups/` fuera de `data/jobs/` para no
+ofrecerlo como fuente. `manifest_adapters.py` conserva la reparación de identidades
+antes del append y valida el listado principal contra las identidades confirmadas.
+El listado agrega filas; los cuatro procesos con detalle conservan los Guardado.
+
+`manifest_coverage.py` comprueba cantidad y firma de miembros, existencia de jobs,
+resultados y fin de consulta. Une únicamente fechas acreditadas por modalidad,
+conservando huecos y el corte de 00:01 Costa Rica; la cobertura legada se limita
+a su primera selección. `MonthlyReader` y `KnowledgeSource` usan ese historial.
+BLs sigue exigiendo trabajos Guardado y ausencia de páginas parciales; Courier N
+puede alimentar BLs pero no acredita una descarga sin filtro en la bitácora.
+La unidad guardada sigue siendo el manifiesto: no se vuelven a extraer detalles
+confirmados para detectar cambios internos posteriores. El motor BLs mantiene
+su identidad de entrada; esta entrega no convierte bases BLs diferentes en un lote.
+
+CSV canónico mensual por modo: un parcial sustituido del mismo propietario/mes/
+modalidad deja de ser salida final; no se borra el archivo. SharePoint pausa los
+envíos antiguos sustituidos y solo sube el acumulado por acción explícita; no borra
+históricos remotos ni cambia otras modalidades/propietarios.
+
+Validación: 62 pruebas offline (7 nuevas de acumulación/recuperación/cobertura,
+matriz Qt→cinco workers→portal local con ampliación por modalidad/reapertura,
+entrega de base BLs, nombres, bitácora, Qt, inicio mensual, exportaciones y 20 cloud).
+Guardados mantienen intentos/datos, nuevos IDs se agregan una sola vez y no hay
+CSV duplicados. Verificador de copia correcto: 166 archivos y 138 sintaxis,
+reporte local `runtime/diagnostics/validacion-copia-acumulacion-manifiestos.json`.
+Se abrió Workbench en Vista general antes de documentar, sin iniciar consultas
+reales; se mantuvo esa ventana abierta. Cambios completos disponibles al próximo
+arranque. No se hicieron consultas de prueba a TICA ni subidas reales a SharePoint.
 
 Conteo visible de días añadido el 17/10 por petición del usuario: solo números,
 medianos/grandes y blancos. `MonthlyLog.qml` muestra `displayDays/daysInMonth`

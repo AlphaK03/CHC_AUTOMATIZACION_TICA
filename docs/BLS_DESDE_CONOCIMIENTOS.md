@@ -39,6 +39,15 @@ disponibles. **Mes completo** exige cobertura de todos sus días y que el mes ha
 terminado. Se agrupan intervalos finalizados compatibles; no se presupone cobertura
 de los días que faltan ni del resto de un mes en curso.
 
+Desde el 17/10, las bases acumulativas de Conocimientos acreditan sus rangos con
+el historial de consultas confirmadas de SQLite. Ampliar el mes añade manifiestos
+sin repetir los Guardado; el proveedor BLs toma todos los resultados confirmados
+y la unión exacta de rangos, conservando los huecos. El último intervalo elegido
+en la pantalla no sustituye la prueba de cobertura mensual. Los respaldos de
+migración se guardan fuera de los directorios de fuentes y no aparecen como bases.
+Esto no modifica la firma del motor BLs ni convierte entradas diferentes en un
+mismo lote de BLs: su recuperación y checkpoints conservan el contrato original.
+
 Solo se utilizan los archivos propios del Workbench: descargas/importaciones en
 `bots/manifiestos/data/jobs/conocimientos/` y SQLite de la copia clásica en
 `bots/manifiestos/datos_app/SQLite/conocimientos/`. No se depende de las carpetas ni
