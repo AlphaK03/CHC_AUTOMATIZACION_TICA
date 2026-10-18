@@ -85,11 +85,7 @@ ApplicationWindow {
                 spacing: 6
                 Item {
                     Layout.fillWidth: true; implicitHeight: 68
-                    Rectangle {
-                        x: 5; y: 7; width: 40; height: 40; radius: 11; color: Theme.accent
-                        Text { anchors.centerIn: parent; text: "C"; color: "#2a211c"; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.Bold }
-                        Rectangle { x: 28; y: 27; width: 6; height: 6; radius: 1; color: "#2a211c" }
-                    }
+                    BrandMark { x: 5; y: 7; width: 40; height: 40 }
                     Column {
                         x: 57; y: 8; spacing: 2; visible: window.sidebarExpanded
                         Text { text: "CHC"; color: Theme.text; font.family: Theme.family; font.pixelSize: 19; font.weight: Font.Bold; font.letterSpacing: 1 }
@@ -229,6 +225,11 @@ ApplicationWindow {
         background: Panel {}
         contentItem: ColumnLayout {
             spacing: 15
+            RowLayout {
+                spacing: 12
+                BrandMark { Layout.preferredWidth: 48; Layout.preferredHeight: 48 }
+                Text { text: "CHC Consultores"; color: Theme.text; font.family: Theme.family; font.pixelSize: 19; font.weight: Font.DemiBold }
+            }
             Text { text: "Un solo espacio para toda tu operación."; color: Theme.text; font.family: Theme.family; font.pixelSize: 17; font.weight: Font.DemiBold; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: details.enabled ? "Los módulos tienen motores independientes y almacenamiento propio. Manifiestos incluye cinco procedimientos y preparación de bases para BLs." : "Modo de demostración: los espacios usan datos sintéticos y no realizan consultas a TICA."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: "Versión 0.2 · Integración modular\nCtrl+K: buscar  ·  Ctrl+B: contraer navegación"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }

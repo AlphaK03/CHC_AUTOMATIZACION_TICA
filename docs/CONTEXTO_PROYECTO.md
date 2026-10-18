@@ -2,6 +2,19 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- Identidad visual CHC actualizada desde las opciones proporcionadas en
+  `SYS_CARGA_TRANSITO/Logos_CHC`. Copias propias en `workbench/assets/branding`:
+  símbolo SVG de `CHC_vectorizados.zip` e ICO `Logo_CHC_REPORTES.ico` con seis
+  tamaños (16–256 px). `components/BrandMark.qml` presenta el símbolo sobre blanco
+  en la barra lateral (expandida/contraída) y Acerca de; colores originales.
+  `app.py` configura `QGuiApplication.setWindowIcon` y el AppUserModelID de Windows
+  `CHC.Consultores.Workbench`, sin cambiar instancia única, motores o datos.
+  Los recursos externos permanecen intactos y no son una dependencia de ejecución.
+  Smoke de las seis vistas y tres capturas aisladas (oscuro, claro/contraído y
+  Acerca de a 1000×600) pasaron sin avisos QML; ICO comprobado en todos sus tamaños.
+  Capturas en `runtime/diagnostics/branding`. Se conservó la app activa, sin
+  reiniciarla; logo/icono se cargan completamente al siguiente arranque.
+
 - BLs incorpora **Más → Reconsultar BLs con 0 filas…**, con conteo/confirmación
   para el lote activo y resumen de guardados sin líneas. Comando `retry_empty`
   independiente del proveedor: reconstruir la entrada desde `inputs`, comprobar

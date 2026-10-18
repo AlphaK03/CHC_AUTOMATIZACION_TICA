@@ -4,6 +4,8 @@ Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón,
 XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada.
 
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
+El panel utiliza el símbolo vectorial de CHC en la navegación y Acerca de,
+con icono propio de Windows y recursos incluidos en el repositorio.
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
 La preparación y el motor de BLs admiten números de manifiesto con una letra

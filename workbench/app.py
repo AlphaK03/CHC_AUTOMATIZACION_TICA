@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 from PySide6.QtCore import QObject, QTimer, QUrl
-from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
+from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
@@ -40,9 +40,13 @@ def main():
     if args.smoke_test or args.capture:
         os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
         os.environ.setdefault('QT_QUICK_BACKEND', 'software')
+    if sys.platform == 'win32':
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('CHC.Consultores.Workbench')
     app = QGuiApplication([sys.argv[0]])
     app.setApplicationName('CHC Workbench')
     app.setOrganizationName('CHC Consultores')
+    app.setWindowIcon(QIcon(str(HERE / 'assets/branding/chc.ico')))
     instance = SingleInstance()
     if not (args.smoke_test or args.capture) and not instance.acquire():
         return 0

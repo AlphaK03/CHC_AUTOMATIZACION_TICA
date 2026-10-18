@@ -4,6 +4,10 @@ Aplicación de escritorio con Python, PySide6 y Qt Quick/QML. Detalles, DUAs
 Tránsito, Talón y XMovimientos están integrados con procesos propios y soporte
 común en `chc_runtime/`. BLs y Manifiestos también tienen motores integrados.
 Una segunda apertura activa la ventana existente, sin iniciar otros motores.
+La barra lateral y **Acerca del Workbench** muestran el símbolo vectorial de CHC,
+con base blanca para ambos temas. La ventana y barra de tareas de Windows usan
+el icono CHC con varios tamaños. Los recursos están incluidos en
+[`assets/branding`](assets/branding/README.md); no dependen de otra aplicación.
 La visión completa está en el [README principal](../README.md) y en el
 [contexto para futuras sesiones](../docs/CONTEXTO_PROYECTO.md).
 
