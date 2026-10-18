@@ -304,6 +304,16 @@ se conservan y pueden reintentarse. Vacíos verificados de XMovimientos cuentan 
 respetando las 00:01 de Costa Rica; al aparecer un nuevo día vuelve a comprobarse.
 Una fuente ilegible queda **Sin verificar**.
 
+En **Manifiestos → DUAs**, TICA puede devolver `frmAmbiente` en lugar de la tabla.
+El motor deja esos manifiestos como **Excluido** y el reintento normal los salta;
+actualmente no hay un botón para reabrirlos. Ya cuentan como omitidos fuera del
+resultado final, sin tener que marcarlos manualmente. **Finalizada con exclusiones**
+permite **Al día** o **Completado** cuando se acredita la cobertura de cada
+modalidad; no convierte las exclusiones en datos descargados. Para ver sus motivos,
+seleccionar la ejecución y abrir **Más → Pendientes y exclusiones**: abre la
+carpeta del CSV de revisión interno. No se requiere cierre manual para aceptar
+estas exclusiones.
+
 **Cierre manual…** permite elegir bot/procedimiento y **Marcar completo**, o
 **Usar comprobación automática** para retirar esa marca. No modifica resultados
 ni borra pendientes. Aplica a todos los bots, incluido Detalles, y a los cinco

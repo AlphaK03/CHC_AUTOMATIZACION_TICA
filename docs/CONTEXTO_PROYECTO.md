@@ -1,6 +1,18 @@
 # Contexto de CHC Workbench para una nueva sesión
 
-## Estado vigente — 17 de octubre de 2026
+## Estado vigente — 18 de octubre de 2026
+
+- Corrección de bitácora para DUAs por manifiesto: reconocer el estado real
+  `Finalizada con exclusiones`, además de `Finalizada`. Las exclusiones por
+  frmAmbiente cuentan como omitidas fuera del CSV y permiten Al día/Completado
+  solo con cobertura verificada de cada modalidad, selección terminada y ausencia
+  de parciales en los trabajos guardados. Antes Aéreo podía mostrar Pendiente
+  pese a tener cobertura y cero pendientes. El reintento normal sigue saltando
+  Excluido; no hay control para reabrir esas exclusiones. Más → Pendientes y
+  exclusiones permite revisar el motivo. Sin cambios en motores ni datos reales.
+  21 pruebas offline de bitácora/QML pasaron, con diez exclusiones, ambas
+  modalidades, cobertura acumulativa/antigua y lectura sin escrituras. La app
+  abierta se conservó; el cambio se carga al próximo arranque.
 
 - Seis módulos operativos: Detalles, DUAs Tránsito, Talón, XMovimientos, BLs y
   Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.

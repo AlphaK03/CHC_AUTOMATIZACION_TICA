@@ -39,6 +39,9 @@ bots admiten omitidos fuera del resultado final. Todos aceptan cierre manual con
 pendientes conservados. El mes actual puede aparecer **Al día** hasta la última
 fecha consultable. **Cierre manual…** permite cerrar un bot/procedimiento o volver
 a la comprobación automática, conservando pendientes para reintento.
+En DUAs por manifiesto, las exclusiones por `frmAmbiente` cuentan como omitidas:
+una ejecución **Finalizada con exclusiones** permite **Al día** o **Completado**
+según su cobertura. El reintento normal no reabre estas exclusiones.
 [Uso de la bitácora](workbench/README.md#bitácora-mensual).
 
 **Cuenta y SharePoint** conecta opcionalmente una cuenta CHC y permite elegir una
