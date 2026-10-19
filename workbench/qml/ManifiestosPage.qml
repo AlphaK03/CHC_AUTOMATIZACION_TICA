@@ -292,31 +292,46 @@ ScrollView {
             Select { id:history; objectName:"manifestHistory"; Layout.fillWidth:true; model:moduleBridge.history; textRole:"label"; placeholder:"Ejecuciones guardadas"; enabled:!moduleBridge.busy; onActivated:moduleBridge.command("select",{id:moduleBridge.history[currentIndex].id}) }
             ActionButton { text:"Ver resultados"; enabled:moduleBridge.activeId!==""; onClicked:moduleBridge.openResults() }
         }
+        Panel {
+            objectName: "batchProgressPanel"; visible: !page.optionsVisible
+            Layout.fillWidth: true; implicitHeight: batchProgress.implicitHeight + 32
+            ColumnLayout {
+                id: batchProgress
+                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 16; spacing: 16
+                ProgressSummary {
+                    objectName: "botProgressSummary"; Layout.fillWidth: true
+                    title: "Avance del lote"; unit: page.isBls ? "BLs guardados" : "manifiestos guardados"
+                    total: moduleBridge.summary.total; succeeded: moduleBridge.summary.succeeded
+                    pending: moduleBridge.summary.pending; running: moduleBridge.summary.running
+                    invalid: moduleBridge.summary.invalid || 0; excluded: moduleBridge.summary.excluded || 0
+                    empty: moduleBridge.summary.empty || 0; showEmpty: page.isBls
+                    rows: moduleBridge.summary.rows; busy: moduleBridge.busy
+                    showMetrics: moduleBridge.modeSummaries.length === 0
+                }
+                Rectangle { visible: moduleBridge.modeSummaries.length > 0; Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
+                GridLayout {
+                    Layout.fillWidth: true; columns: width >= 640 ? 2 : 1; columnSpacing: 24; rowSpacing: 16
+                    Repeater {
+                        model: moduleBridge.modeSummaries
+                        ProgressSummary {
+                            required property var modelData
+                            objectName: "manifestModeSummary"; Layout.fillWidth: true; Layout.preferredWidth: 1
+                            compact: true; title: modelData.label; unit: page.isBls ? "BLs" : "manifiestos"
+                            total: modelData.total; succeeded: modelData.succeeded; pending: modelData.pending; running: modelData.running
+                            invalid: modelData.invalid || 0; excluded: modelData.excluded || 0
+                            empty: modelData.empty || 0; showEmpty: page.isBls; rows: modelData.rows
+                            busy: moduleBridge.busy
+                        }
+                    }
+                }
+            }
+        }
         RowLayout {
             Layout.fillWidth:true
-            Text { text:moduleBridge.summary.succeeded+" guardados"+(page.isBls ? " ("+(moduleBridge.summary.empty || 0)+" sin líneas)" : "")+"   ·   "+moduleBridge.summary.pending+" pendientes   ·   "+moduleBridge.summary.running+" en curso"+(moduleBridge.summary.excluded ? "   ·   "+moduleBridge.summary.excluded+" excluidos" : "")+"   ·   "+moduleBridge.summary.rows+(page.isBls ? " filas confirmadas" : " filas"); color:Theme.muted; font.pixelSize:12; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+            Text { text:"Detalle de las consultas"; color:Theme.muted; font.family:Theme.family; font.pixelSize:12; Layout.fillWidth:true }
             visible: !page.optionsVisible
             Select { id:modeFilter; objectName:"manifestModeFilter"; visible:!page.isBls; Layout.preferredWidth:150; model:["Todas","Marítimo","Aéreo","Terrestre"]; enabled:!moduleBridge.busy; onActivated:page.refreshRows() }
             Field { id:search; placeholderText:page.isBls ? "Buscar BL" : "Buscar manifiesto"; Layout.preferredWidth:170; enabled:!moduleBridge.busy; onAccepted:page.refreshRows() }
-        }
-        ColumnLayout {
-            visible: !page.optionsVisible
-            Layout.fillWidth:true; spacing:4
-            Repeater {
-                model:moduleBridge.modeSummaries
-                Text {
-                    required property var modelData
-                    objectName:"manifestModeSummary"; Layout.fillWidth:true; wrapMode:Text.WordWrap
-                    text:page.isBls ? modelData.label+"   ·   "+modelData.succeeded+"/"+modelData.total+" BLs   ·   "+
-                        (modelData.total>0 && modelData.succeeded===modelData.total ? "Completado" : modelData.running>0 ? "Descargando" : "Con pendientes")+
-                        "\n"+modelData.pending+" pendientes   ·   "+modelData.running+" en curso"+
-                        (modelData.invalid ? "   ·   "+modelData.invalid+" inválidos" : "")+
-                        "   ·   "+modelData.rows+" filas confirmadas   ·   "+(modelData.empty || 0)+" BLs sin líneas" :
-                        modelData.label+"   ·   "+modelData.succeeded+" guardados   ·   "+modelData.pending+" pendientes   ·   "+modelData.running+" en curso"+
-                        (modelData.excluded ? "   ·   "+modelData.excluded+" excluidos" : "")+"   ·   "+modelData.rows+" filas"
-                    color:Theme.text; font.family:Theme.family; font.pixelSize:12
-                }
-            }
         }
         Panel {
             visible: !page.optionsVisible && moduleBridge.activeJobs.length > 0

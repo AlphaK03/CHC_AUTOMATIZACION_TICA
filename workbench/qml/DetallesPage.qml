@@ -128,23 +128,18 @@ ScrollView {
                     id: progressColumn
                     anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 16; spacing: 10
                     RowLayout {
+                        visible: String(worker.activeTable.source_path || "").startsWith("daily://")
                         Layout.fillWidth: true
-                        Text { text: page.confirmed + " / " + worker.summary.total; color: Theme.text; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                        Text { text: (worker.summary.total ? 100 * page.confirmed / worker.summary.total : 0).toFixed(1) + "%"; color: Theme.accent; font.family: Theme.family; font.pixelSize: 17 }
+                        Text { text: "Calendario mensual"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true }
                         ActionButton { objectName: "retryMonthButton"; visible: String(worker.activeTable.source_path || "").startsWith("daily://"); text: "Reintentar mes"; enabled: worker.ready && !worker.busy; onClicked: worker.retryMonth(String(worker.activeTable.source_path).slice(8)); ToolTip.visible: hovered; ToolTip.text: "Da hasta tres intentos nuevos a los pendientes del mes y consulta sus días sin completar" }
                     }
-                    Rectangle {
-                        Layout.fillWidth: true; height: 6; radius: 3; color: Theme.raised
-                        Rectangle { width: parent.width * (worker.summary.total ? page.confirmed / worker.summary.total : 0); height: parent.height; radius: 3; color: Theme.success }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 22
-                        Text { text: "Guardados: " + worker.summary.succeeded; color: Theme.success; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { visible: worker.moduleId === "xmovimientos"; text: "Vacíos: " + (worker.summary.empty || 0); color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { text: "Pendientes: " + (worker.summary.pending + worker.summary.retry); color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { text: "En curso: " + worker.summary.running; color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { text: "Revisar: " + worker.summary.invalid; color: worker.summary.invalid ? Theme.accent : Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Item { Layout.fillWidth: true }
+                    ProgressSummary {
+                        objectName: "botProgressSummary"; Layout.fillWidth: true
+                        title: "Avance de la tabla"; unit: "DUAs verificados"
+                        total: worker.summary.total; succeeded: worker.summary.succeeded
+                        pending: worker.summary.pending + worker.summary.retry; running: worker.summary.running
+                        invalid: worker.summary.invalid; empty: worker.summary.empty || 0
+                        emptyAddsToCompleted: true; showEmpty: worker.moduleId === "xmovimientos"; busy: worker.running
                     }
                     RowLayout {
                         Layout.fillWidth: true

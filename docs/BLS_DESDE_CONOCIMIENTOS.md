@@ -108,7 +108,7 @@ contadores. Al retomar la misma selección con pendientes, el botón indica
 ## Observación por modalidad — 18/10/2026
 
 BLs presenta un resumen independiente por modalidad: guardados/total, Completado,
-Descargando o Con pendientes, además de pendientes, en curso, inválidos, filas
+Descargando, En espera o Con pendientes, además de pendientes, en curso, inválidos, filas
 confirmadas y BLs sin líneas. La modalidad procede del IDManifiesto de cada trabajo,
 también en entradas externas y lotes antiguos. Los identificadores desconocidos
 quedan visibles como Sin modalidad. Un modo está Completado solo cuando todos sus
@@ -123,6 +123,12 @@ parciales. `manifest_service.py` transporta `modeSummaries` al puente existente;
 el resumen no depende de la búsqueda, paginación ni límite de 200 filas. Una
 reserva interrumpida se muestra pendiente mientras el bot está detenido, sin
 modificar la recuperación del motor. La zona activa muestra también el modo.
+
+La presentación comparte `components/ProgressSummary.qml` con los demás bots:
+total y porcentaje destacados, barra por estados y modalidades lado a lado
+cuando caben, apiladas en anchos menores. Los datos siguen procediendo del mismo
+snapshot. En espera corresponde al bot ocupado sin BLs activos de esa modalidad;
+no implica una cola o reserva de trabajadores separada.
 
 Pasaron 11 pruebas offline enfocadas: lectura de 305 trabajos, invariancia ante
 búsqueda/paginación, reapertura sin escrituras, estados reales guardado/vacío/fallo,

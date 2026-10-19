@@ -63,9 +63,11 @@ class ManifestModesQMLTests(unittest.TestCase):
                     for _ in range(5):APP.processEvents()
                     summaries=find_all('manifestModeSummary')
                     self.assertEqual(len(summaries),2)
-                    self.assertIn('Marítimo   ·   250/250 BLs   ·   Completado',summaries[0].property('text'))
-                    self.assertIn('Aéreo   ·   80/120 BLs   ·   Descargando',summaries[1].property('text'))
-                    self.assertIn('39 pendientes',summaries[1].property('text'))
+                    self.assertEqual((summaries[0].property('title'),summaries[0].property('completed'),summaries[0].property('total'),summaries[0].property('statusText')),
+                                     ('Marítimo',250,250,'Completado'))
+                    self.assertEqual((summaries[1].property('title'),summaries[1].property('completed'),summaries[1].property('total'),summaries[1].property('statusText')),
+                                     ('Aéreo',80,120,'Descargando'))
+                    self.assertEqual(summaries[1].property('pending'),39)
                     for item in summaries:
                         self.assertTrue(item.property('visible'))
                         self.assertLessEqual(item.width(),width)
@@ -77,7 +79,8 @@ class ManifestModesQMLTests(unittest.TestCase):
                     self.assertTrue(window.grabWindow().save(str(path)))
                 modes[1].update(succeeded=120,pending=0,running=0)
                 bridge.changed.emit();APP.processEvents()
-                self.assertIn('120/120 BLs   ·   Completado',find_all('manifestModeSummary')[1].property('text'))
+                self.assertEqual(find_all('manifestModeSummary')[1].property('statusText'),'Completado')
+                self.assertEqual(find_all('manifestModeSummary')[1].property('completed'),120)
                 self.assertFalse(warnings,warnings)
             finally:
                 bridge.current().busy=False
@@ -120,9 +123,9 @@ class ManifestModesQMLTests(unittest.TestCase):
             try:
                 APP.processEvents()
                 self.assertEqual([item.property('text') for item in find_all('manifestJobMode')],['Marítimo','Aéreo'])
-                summaries=[item.property('text') for item in find_all('manifestModeSummary')]
-                self.assertTrue(any('Marítimo' in text and '1833 filas' in text for text in summaries),summaries)
-                self.assertTrue(any('Aéreo' in text and '257 filas' in text for text in summaries),summaries)
+                summaries=[(item.property('title'),item.property('rows')) for item in find_all('manifestModeSummary')]
+                self.assertIn(('Marítimo',1833),summaries)
+                self.assertIn(('Aéreo',257),summaries)
                 captured=[]
                 bridge._review.open=lambda request:captured.append(request)
                 buttons=find_all('batchOpenTica')

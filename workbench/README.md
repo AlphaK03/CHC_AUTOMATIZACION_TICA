@@ -28,6 +28,20 @@ deja de mantener la espera para permitir revisar el error y reconectarlo. Las
 descargas conservan sus controles normales, incluido **Detener**. El modo demo
 no activa esta espera.
 
+El progreso tiene el mismo diseño en los seis bots: cantidad confirmada y total
+en grande, porcentaje y una barra que distingue confirmados (verde), en curso
+(naranja), por revisar (dorado) y excluidos (gris). El fondo restante representa
+el trabajo sin confirmar. Debajo aparecen los contadores con sus etiquetas.
+En BLs y los cinco procedimientos de Manifiestos, las modalidades se comparan
+en columnas cuando hay espacio y se apilan al reducir el ancho. Cada una tiene
+su proporción y estado; **En espera** indica que el bot está ocupado sin trabajos
+activos de ese modo. La actividad y el historial conservan sus controles debajo.
+Los contenidos largos se desplazan verticalmente, con los números ajustados al
+ancho disponible. El diseño funciona en oscuro y claro.
+Los porcentajes conservan el significado anterior: XMovimientos cuenta sus vacíos
+confirmados; BLs ya los incluye en Guardado. Los excluidos se distinguen en la
+barra y no se presentan como guardados. No cambia el orden de consulta ni los hilos.
+
 Alternativa en PowerShell:
 
 ```powershell

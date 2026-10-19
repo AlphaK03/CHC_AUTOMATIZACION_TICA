@@ -2,6 +2,27 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- Progreso visual común en los seis bots y cinco procedimientos de Manifiestos:
+  `workbench/qml/components/ProgressSummary.qml` presenta cantidad/total destacados,
+  porcentaje, estado y barra con segmentos verde (confirmados), naranja (en curso),
+  dorado (por revisar) y gris (excluidos), más contadores alineados que ajustan
+  filas. El fondo conserva el trabajo sin confirmar. `DetallesPage.qml` lo usa
+  para los cuatro DUA; mantiene Reintentar mes, estado y tiempo restante.
+  `ManifiestosPage.qml` agrupa total y modalidades dentro de una sola sección,
+  con dos columnas desde 640 px interiores y una en anchos menores; actividad,
+  búsqueda, filtro e historial siguen disponibles debajo. Sin tarjetas por cifra.
+  Theme incorpora warning en ambos temas. Las modalidades sin actividad muestran
+  En espera si el bot está ocupado; no cambia planificación ni hilos.
+  Porcentaje = confirmados/total; vacíos DUA se agregan como antes, vacíos BLs
+  ya incluidos en Guardado y excluidos separados. No cambiar fuentes, estados,
+  datos ni reglas del backend por esta presentación. Cambio solo QML.
+  Pasaron 5 pruebas QML enfocadas y smoke visual aislado de las seis páginas y
+  cinco procedimientos, oscuro a 1280×820 y claro a 1000×600, sin avisos QML.
+  Doce capturas y report.json en `runtime/diagnostics/progress/`; script local
+  `runtime/diagnostics/preview_progress.py`, sin workers ni consultas.
+  Al finalizar la app estaba cerrada: se abrió actualizada en BLs antes de
+  documentar. No se interrumpió la revisión Edge existente ni se iniciaron consultas.
+
 - BLs muestra resúmenes independientes por modalidad: guardados/total y estado
   Completado/Descargando/Con pendientes, más pendientes, en curso, inválidos,
   filas confirmadas y vacíos. `bls_observation.py` deriva el modo del IDManifiesto
