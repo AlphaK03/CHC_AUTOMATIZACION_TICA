@@ -59,12 +59,16 @@ una ejecución **Finalizada con exclusiones** permite **Al día** o **Completado
 según su cobertura. El reintento normal no reabre estas exclusiones.
 [Uso de la bitácora](workbench/README.md#bitácora-mensual).
 
-**Cuenta y SharePoint** conecta opcionalmente una cuenta CHC y permite elegir una
+**SharePoint** conecta opcionalmente una cuenta CHC y permite elegir una
 carpeta madre local y una online para todos los bots. Los CSV públicos comparten
 nombres en mayúsculas y organización por bot, mes y modo cuando aplica.
 La subida se inicia solo mediante **Subir a SharePoint** o un reintento explícito.
 El selector recorre sitios, bibliotecas y subcarpetas; también permite elegir la
 raíz de una biblioteca o una carpeta sin subcarpetas. [Guía de SharePoint](docs/SHAREPOINT.md).
+El círculo de cuenta de la barra superior muestra la foto o las iniciales del
+usuario, con menú de conexión y perfil. SharePoint reúne Resultados, Archivos y
+Actividad: exploración con tamaño/fecha, creación explícita de carpetas y filtros
+del historial de envíos. Abrir o navegar conserva las subidas como acción manual.
 
 Los paneles de actividad conservan el mensaje y la posición al leer el historial.
 Solo siguen automáticamente las novedades cuando el lector está al inicio.
@@ -211,15 +215,16 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 
 ## Comprobar esta entrega
 
-**Cuenta y SharePoint** permite conectar opcionalmente una cuenta CHC y elegir
+**SharePoint** permite conectar opcionalmente una cuenta CHC y elegir
 una carpeta madre online para todos los bots. La carpeta madre local es también
 común; los CSV se organizan por bot, mes y modo, con nombres en mayúsculas.
 **Subir a SharePoint** envía únicamente resultados de bots completos, al día o
 cerrados manualmente en la bitácora, cuando el usuario lo solicita.
 Exportar localmente no inicia subidas. La aplicación conserva su funcionamiento
 y resultados locales sin cuenta. Registro OAuth2 de escritorio
-reutilizado de CHC REPORTES con `Sites.Read.All` y `Files.ReadWrite.All` delegados,
-para explorar sitios y guardar archivos según los permisos de la cuenta.
+reutilizado de CHC REPORTES con `Sites.Read.All`, `Files.ReadWrite.All` y `User.Read`
+delegados, para sitios/archivos y perfil/foto del usuario. La lectura opcional del
+perfil no bloquea la publicación si su sesión requiere renovar el permiso.
 Véase [configuración y uso](docs/SHAREPOINT.md).
 
 Los casos pendientes y guardados cuentan con **Abrir en TICA**, que abre un navegador visible

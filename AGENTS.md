@@ -210,7 +210,10 @@
 - SharePoint es opcional y exclusivo para copias CSV: leer `docs/SHAREPOINT.md`.
   Cliente público MSAL/PKCE, único directorio CHC y registro reutilizado
   `077e19a4-ab53-4e55-8286-ec02dc3cf36c`, solicitado por el usuario. Pedir solo
-  `Sites.Read.All` y `Files.ReadWrite.All` delegados; no usar `.default`, secretos
+  `Sites.Read.All`, `Files.ReadWrite.All` y `User.Read` delegados; el usuario autorizó
+  el 18/10 aprovechar User.Read ya concedido para nombre/foto de perfil. Mantener
+  su token opcional separado para no bloquear archivos con sesiones anteriores.
+  No usar `.default`, secretos
   ni permisos de correo/Power BI que también existen en ese registro.
   Caché DPAPI, configuración y cola solo en `runtime/workbench/sharepoint`.
   Los eventos `published` se emiten después del reemplazo atómico local, sin

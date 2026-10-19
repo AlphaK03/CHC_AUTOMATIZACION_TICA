@@ -22,7 +22,9 @@ Canvas {
         function line(x1,y1,x2,y2) { c.moveTo(x1,y1); c.lineTo(x2,y2) }
         function circle(x,y,r) { c.moveTo(x+r,y); c.arc(x,y,r,0,Math.PI*2) }
         c.beginPath()
-        if (name === "grid") {
+        if (name === "user") {
+            circle(12,8,4); c.moveTo(4,22); c.bezierCurveTo(4,12,20,12,20,22)
+        } else if (name === "grid") {
             c.rect(4,4,6,6); c.rect(14,4,6,6); c.rect(4,14,6,6); c.rect(14,14,6,6)
         } else if (name === "ship") {
             line(7,11,7,5); line(7,5,17,5); line(17,5,17,11); line(12,5,12,2)

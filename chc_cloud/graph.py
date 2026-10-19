@@ -57,13 +57,16 @@ class GraphClient:
             session = requests.Session()
         self.account, self.session, self.sleep = account, session, sleep
 
-    def request(self, method, path, **kwargs):
+    def request(self, method, path, *, scopes=None, photo=False, **kwargs):
         url = GRAPH + path if path.startswith('/') else path
         if not url.startswith(GRAPH + '/'):
             raise ValueError('Destino Microsoft Graph inválido.')
-        headers = {'Authorization': 'Bearer ' + self.account.token(), **kwargs.pop('headers', {})}
+        token = self.account.token(scopes) if scopes else self.account.token()
+        headers = {'Authorization': 'Bearer ' + token, **kwargs.pop('headers', {})}
         for attempt in range(3):
             response = self.session.request(method, url, headers=headers, timeout=30, allow_redirects=False, **kwargs)
+            if photo and response.status_code == 404:
+                return None
             if response.status_code == 401:
                 raise AuthenticationRequired('La sesión necesita renovarse. Vuelve a conectar la cuenta CHC.')
             if response.status_code in (429, 503, 504) and attempt < 2:
@@ -79,6 +82,11 @@ class GraphClient:
                 raise GraphError('El archivo ya existe o cambió en SharePoint. Se conservó la copia online; revisa el destino antes de reintentar.')
             if response.status_code >= 300:
                 raise GraphError(f'SharePoint no completó la operación (HTTP {response.status_code}). El archivo local se conserva.')
+            if photo:
+                mime=response.headers.get('Content-Type','').split(';')[0].lower()
+                if mime not in ('image/jpeg','image/png') or not response.content or len(response.content)>4*1024*1024:
+                    raise GraphError('La foto recibida no tiene un formato compatible.')
+                return response.content,mime
             return response.json() if response.content else {}
         raise GraphError('SharePoint sigue ocupado. La publicación queda pendiente.')
 
@@ -112,7 +120,19 @@ class GraphClient:
         current = self.request('GET', base)
         if 'folder' not in current:
             raise ValueError('El destino debe ser una carpeta.')
-        return {'folder': current, 'folders': [v for v in self.collection(base + '/children') if 'folder' in v]}
+        children=self.collection(base + '/children?$select=id,name,folder,file,size,lastModifiedDateTime,webUrl')
+        return {'folder':current,'folders':sorted([v for v in children if 'folder' in v],key=lambda v:v['name'].casefold()),
+                'files':sorted([v for v in children if 'file' in v],key=lambda v:v['name'].casefold())}
+
+    def profile(self):
+        return self.request('GET','/me?$select=displayName,mail,userPrincipalName,jobTitle',scopes=['User.Read'])
+
+    def photo(self):
+        return self.request('GET','/me/photo/$value',scopes=['User.Read'],photo=True)
+
+    def create_folder(self, drive, parent, name):
+        return self.request('POST','/drives/'+segment(drive)+'/items/'+segment(parent)+'/children',
+            json={'name':name,'folder':{},'@microsoft.graph.conflictBehavior':'fail'})
 
     def ensure_folder(self, drive, parent, name):
         base = '/drives/' + segment(drive) + '/items/' + segment(parent)

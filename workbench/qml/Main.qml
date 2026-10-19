@@ -117,7 +117,7 @@ ApplicationWindow {
                 Item { Layout.fillHeight: true }
                 Text { visible: window.sidebarExpanded; text: details.enabled ? "Módulos independientes" : "Modo demostración"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.leftMargin: 13; Layout.bottomMargin: 6 }
                 NavItem { Layout.fillWidth: true; label: "Acerca del Workbench"; iconName: "info"; expanded: window.sidebarExpanded; onClicked: aboutDialog.open() }
-                NavItem { objectName:"sharePointNavigation"; Layout.fillWidth:true; label:"Cuenta y SharePoint"; iconName:"folder"; expanded:window.sidebarExpanded; onClicked:sharePointDialog.open() }
+                NavItem { objectName:"sharePointNavigation"; Layout.fillWidth:true; label:"SharePoint"; iconName:"folder"; expanded:window.sidebarExpanded; onClicked:sharePointDialog.open() }
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; Layout.topMargin: 7; Layout.bottomMargin: 7 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -179,9 +179,28 @@ ApplicationWindow {
                         contentItem: Icon { name: Theme.dark ? "sun" : "moon"; tint: Theme.muted; width: 18; height: 18 }
                         onClicked: window.toggleTheme()
                     }
-                    Rectangle {
-                        implicitWidth: 32; implicitHeight: 32; radius: 16; color: Theme.raised; border.color: Theme.border
-                        Text { anchors.centerIn: parent; text: "CH"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 10; font.weight: Font.DemiBold }
+                    Button {
+                        id: profileButton; objectName:"accountProfileButton"; implicitWidth:36; implicitHeight:36
+                        hoverEnabled:true; padding:0; background:Item {}
+                        Accessible.name: window.cloudBridge && window.cloudBridge.connected ? "Cuenta de " + (window.cloudBridge.profile.displayName || window.cloudBridge.account) : "Conectar cuenta de SharePoint"
+                        ToolTip.visible:hovered; ToolTip.text:Accessible.name; ToolTip.delay:350
+                        contentItem:AccountAvatar {
+                            objectName:"headerAccountAvatar"
+                            connected:!!window.cloudBridge && window.cloudBridge.connected
+                            displayName:window.cloudBridge ? window.cloudBridge.profile.displayName || window.cloudBridge.account : ""
+                            photoUrl:window.cloudBridge ? window.cloudBridge.profile.photoUrl || "" : ""
+                        }
+                        onClicked: profileMenu.popup()
+                        Menu {
+                            id:profileMenu; objectName:"accountProfileMenu"; width:280
+                            MenuItem { text:window.cloudBridge && window.cloudBridge.connected ? window.cloudBridge.profile.displayName || window.cloudBridge.account : "Sin cuenta conectada"; enabled:false }
+                            MenuItem { visible:!!window.cloudBridge && window.cloudBridge.connected; text:window.cloudBridge ? window.cloudBridge.account : ""; enabled:false }
+                            MenuSeparator {}
+                            MenuItem { text:"SharePoint"; onTriggered:sharePointDialog.open() }
+                            MenuItem { text:window.cloudBridge && window.cloudBridge.connected ? "Cambiar cuenta…" : "Conectar cuenta…"; enabled:!!window.cloudBridge && window.cloudBridge.enabled && !window.cloudBridge.busy; onTriggered:window.cloudBridge.connectAccount() }
+                            MenuItem { text:"Actualizar perfil"; visible:!!window.cloudBridge && window.cloudBridge.connected; enabled:!!window.cloudBridge && !window.cloudBridge.busy; onTriggered:window.cloudBridge.refreshProfile() }
+                            MenuItem { text:"Desconectar"; visible:!!window.cloudBridge && window.cloudBridge.connected; enabled:!!window.cloudBridge && !window.cloudBridge.busy; onTriggered:window.cloudBridge.disconnectAccount() }
+                        }
                     }
                 }
                 Rectangle { height: 1; color: Theme.border; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom }

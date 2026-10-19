@@ -553,9 +553,9 @@ de la cobertura verificada automáticamente y se actualiza al cambiar la marca.
 BLs y Manifiestos usan **Vista general → Cierre manual…** por bot/procedimiento,
 pues sus motores no disponen del calendario diario DUA.
 
-## Cuenta y SharePoint
+## SharePoint
 
-La barra lateral ofrece **Cuenta y SharePoint**: conexión opcional con CHC,
+La barra lateral ofrece **SharePoint**: conexión opcional con CHC,
 una carpeta madre local y una carpeta madre online para todos los bots. El selector
 recorre sitios, bibliotecas y carpetas. Cada bot organiza sus CSV por mes; los
 nombres públicos están en mayúsculas e incluyen modo donde corresponde.
@@ -567,9 +567,25 @@ en la bitácora permite cerrar/reabrir la comprobación, sin alterar progreso ni
 borrar pendientes. Guardar o exportar no inicia subidas. Los bots
 y sus archivos locales siguen funcionando sin sesión o red. **Reintentar envíos**
 recupera publicaciones fallidas sin consultar TICA. El registro usa OAuth2/PKCE y
-el registro existente **OAuth2 par CHC REPORTES**, con `Sites.Read.All` y
-`Files.ReadWrite.All` delegados para explorar y guardar con los permisos de la
-cuenta; no utiliza secretos ni los otros permisos del registro.
+el registro existente **OAuth2 par CHC REPORTES**, con `Sites.Read.All`,
+`Files.ReadWrite.All` y `User.Read` delegados para explorar/guardar y mostrar
+el perfil/foto; no utiliza secretos ni permisos de correo/Power BI.
+
+El círculo junto al selector de tema abre el menú de cuenta: nombre, correo,
+conexión/cambio de cuenta, actualización del perfil y desconexión. Muestra la
+foto de Microsoft 365 cuando existe, o las iniciales. Si la sesión anterior no
+permite leer el perfil, **Cambiar cuenta…** renueva la conexión; los archivos
+siguen usando los permisos anteriores mientras tanto. No se abre el navegador
+de autenticación sin una acción del usuario.
+
+El diálogo tiene **Resultados**, **Archivos** y **Actividad**. Resultados reúne
+destino online, carpeta local y mes elegible, con conteos de CSV/bots. Archivos
+abre el destino o permite recorrer sitios/bibliotecas; muestra carpetas y archivos
+con tamaño/fecha. Pulsar un archivo lo abre en SharePoint. **Nueva carpeta** crea
+una subcarpeta solo tras escribir el nombre y pulsar **Crear carpeta**; no cambia
+el destino ni inicia subidas. Actividad muestra los últimos 50 envíos, filtrables
+por nombre y estado, con resumen global y reintento explícito de errores.
+Los controles se ajustan en oscuro/claro y se desplazan en ventanas pequeñas.
 [Registro, autorización de sitios, límites y pruebas](../docs/SHAREPOINT.md).
 
 Actualizar el entorno con `Instalar_Workbench.bat`. Pruebas independientes:

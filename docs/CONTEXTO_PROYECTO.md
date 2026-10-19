@@ -2,6 +2,30 @@
 
 ## Estado vigente — 18 de octubre de 2026
 
+- SharePoint rediseñado y acceso a cuenta en el avatar superior: navegación se
+  llama solo SharePoint; diálogo Resultados/Archivos/Actividad, destino + local,
+  selección mensual, exploración de archivos con tamaño/fecha y apertura, creación
+  explícita de subcarpetas y búsqueda/filtros de últimos 50 envíos. Totales de
+  toda la cola aparte. Conservar navegación desde funciones del diálogo, no desde
+  contextos de delegados destruidos; búsqueda reinicia sitio/biblioteca elegidos.
+  `AccountAvatar.qml` dibuja foto circular local o iniciales. Menú con nombre,
+  correo, conexión/cambio, actualizar perfil, desconectar y SharePoint.
+  Se revisó el registro OAuth2 par CHC REPORTES en Edge: mismo appId, 17 permisos
+  configurados y User.Read delegado concedido para CHC. El usuario autorizó usar
+  los necesarios: se añadió User.Read a `sharepoint_app.json`, sin cambiar Entra,
+  sumar correo/Power BI, secretos o .default. Actualizada la restricción de AGENTS.
+  `chc_cloud/profile.py` guarda nombre/foto opcionales ligados a hash de cuenta;
+  desconectar limpia, otro usuario nunca hereda foto. Errores no bloquean archivos.
+  Auth separa adquisición User.Read de Files/Sites para no romper sesiones previas;
+  reconectar por acción del usuario si falta perfil. JPEG/PNG ≤4 MiB, 404 sin foto,
+  sin redirecciones ni tokens en Qt. API nueva destination_contents valida cuenta;
+  create_folder valida padre consultado/nombre y usa fail en conflictos. No cambia
+  destino ni inicia envíos. Se conservan SQLite, CSV, eTag y propiedad de subidas.
+  Pasaron 31 pruebas offline + smoke seis vistas; capturas sintéticas en
+  `runtime/diagnostics/sharepoint-ui/`, oscuro 1280×820 y claro 1000×600 sin avisos.
+  Sin consultas de perfil/escrituras cloud reales como prueba. App activa conservada
+  antes de documentar; la interfaz se carga al próximo arranque.
+
 - Progreso visual común en los seis bots y cinco procedimientos de Manifiestos:
   `workbench/qml/components/ProgressSummary.qml` presenta cantidad/total destacados,
   porcentaje, estado y barra con segmentos verde (confirmados), naranja (en curso),

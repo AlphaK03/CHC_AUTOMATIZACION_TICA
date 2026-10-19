@@ -1,6 +1,6 @@
-﻿# Cuenta CHC y resultados en SharePoint
+﻿# SharePoint
 
-La conexión es opcional. **Cuenta y SharePoint**, en la barra lateral, conecta una
+La conexión es opcional. **SharePoint**, en la barra lateral, conecta una
 cuenta CHC, explora sitios/bibliotecas/carpetas y elige una sola carpeta madre
 para todos los bots. También permite elegir una carpeta madre local común.
 Solo **Subir a SharePoint**, al seleccionar un mes listo en la bitácora, inicia
@@ -17,13 +17,23 @@ Por indicación del usuario se reutiliza el registro existente:
 | Directorio CHC | `f7015bc9-c229-413a-ab08-e1e5a76a09f1` |
 | Lectura/exploración | `Sites.Read.All`, delegado |
 | Archivos de resultados | `Files.ReadWrite.All`, delegado |
+| Perfil y foto del usuario | `User.Read`, delegado, autorizado por el usuario el 18/10 |
 | Retornos de escritorio existentes | `http://localhost:62190/` y `http://localhost:5000` |
 
 Estos permisos y retornos ya existían. No se modificó ese registro. Se verificó
 OAuth real desde MSAL y acceso Graph con la cuenta del usuario. Workbench solicita
-solo los dos ámbitos indicados, sin usar `.default`; los otros permisos del
+solo los tres ámbitos indicados, sin usar `.default`; los otros permisos del
 registro (correo, Power BI y SharePoint) no se solicitan para esta integración.
 No usa secretos, certificados ni credenciales de aplicación.
+
+El 18/10 se revisó en el Edge abierto **Permisos de API** del mismo appId.
+Hay 17 permisos configurados (8 Graph, 2 Power BI y 7 SharePoint); User.Read
+aparece concedido para CHC Consultores. El usuario autorizó aprovecharlo para
+su perfil/foto. No se agregaron permisos ni se concedió consentimiento desde
+Entra: se añadió User.Read a la solicitud OAuth del Workbench. Las filas de
+Files/Sites no mostraban consentimiento para todo el inquilino; esto no descarta
+consentimiento delegado individual, ya utilizado en las comprobaciones anteriores.
+Referencia: [foto de perfil en Microsoft Graph](https://learn.microsoft.com/en-us/graph/api/profilephoto-get?view=graph-rest-1.0).
 
 La lectura y escritura delegadas están limitadas por los permisos de la cuenta
 conectada. Este registro permite elegir carpetas en sitios donde el usuario pueda
@@ -39,7 +49,7 @@ Microsoft del navegador ni cambia la configuración del registro reutilizado.
 
 ## Elegir carpetas
 
-1. Abrir **Cuenta y SharePoint** y conectar una cuenta CHC. Si estaba conectada
+1. Abrir **SharePoint** y conectar una cuenta CHC. Si estaba conectada
    antes de cambiar el registro, renovar la conexión con **Cambiar cuenta**.
 2. Pulsar **Elegir carpeta** en la tarjeta de SharePoint. Buscar un sitio si hace falta.
 3. Elegir sitio, biblioteca y carpeta; pulsar **Usar esta carpeta para todos**.
@@ -47,6 +57,47 @@ Microsoft del navegador ni cambia la configuración del registro reutilizado.
 5. Pulsar **Actualizar**, seleccionar el mes y accionar **Subir a SharePoint**.
    Solo entran bots/procedimientos completos, al día hasta la última fecha
    consultable, o cerrados manualmente en la bitácora mensual.
+
+## Perfil, archivos y actividad — 18/10/2026
+
+El círculo de la barra superior es el acceso a la cuenta: foto circular o
+iniciales, nombre/correo y acciones de conectar/cambiar cuenta, actualizar perfil,
+abrir SharePoint y desconectar. `AccountAvatar.qml` dibuja la imagen local en un
+recorte circular; Qt nunca recibe tokens ni consulta Graph directamente.
+
+SharePoint se organiza en Resultados, Archivos y Actividad. Resultados concentra
+carpetas madre, botones de abrir/explorar y selección mensual con CSV/bots listos.
+El explorador muestra carpetas y archivos (tamaño, fecha y apertura en navegador),
+con acceso al destino guardado sin volver a elegirlo. Nueva carpeta exige acción
+explícita y nombre válido; Graph usa conflicto fail, sin copias con sufijo ni
+sobrescritura. No modifica el destino ni la cola de envíos. Los clics siguen
+pasando primero identidad al diálogo para resistir la destrucción de delegados.
+Actividad muestra los últimos 50 envíos con búsqueda/filtros, fecha, estado y
+motivo de error; los contadores globales proceden de toda la cola SQLite.
+
+`CloudAccount.token` mantiene los ámbitos Files/Sites separados de User.Read
+para conservar sesiones anteriores. Conectar solicita los tres; si falta la
+sesión de perfil, Cambiar cuenta la renueva. `profile.py` obtiene `/me` y la foto
+solo con User.Read; 404 significa sin foto, no error de archivos. La caché local
+queda bajo `runtime/workbench/sharepoint/`, asociada al home_account_id mediante
+hash. Cambiar de usuario no muestra la foto anterior y desconectar limpia el
+perfil. Si falla actualizar foto conserva la copia de la misma cuenta; errores
+de red/consentimiento/perfil no abortan el estado ni las publicaciones. Foto solo
+JPEG/PNG de hasta 4 MiB; sin redirecciones ni tokens fuera de Graph.
+
+La navegación sigue limitada al sitio/biblioteca elegidos y crear carpetas al
+último padre consultado. El acceso directo al destino comprueba su cuenta
+propietaria. La app conserva reglas de propietario/eTag, CSV/mes listos y envíos
+exclusivamente explícitos. Ninguna de estas funciones envía correo o usa Power BI.
+
+Validación nueva: 31 pruebas offline (20 existentes cloud, 8 perfil/navegación
+y 3 Qt/worker/cifrado), más smoke de seis vistas. Cubren User.Read independiente,
+cache/reinicio/cambio de cuenta/404/fallo de red, MIME y redirecciones, paginación
+de archivos, creación explícita acotada, avatar y navegación QML, filtros y ausencia
+de subidas al abrir/navegar. Capturas con identidad/foto sintéticas a 1280×820
+oscuro y 1000×600 claro en `runtime/diagnostics/sharepoint-ui/`. No se usó la cuenta
+real ni se crearon carpetas/subidas reales para probar este cambio. La app activa
+se conservó antes de documentar; interfaz nueva al próximo arranque.
 
 **Completo no significa 100 % guardados en todos los bots.** La comprobación
 automática de Detalles exige todos sus DUAs confirmados. Tránsito, Talón y XMovimientos
