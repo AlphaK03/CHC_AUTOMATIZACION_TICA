@@ -13,6 +13,7 @@ import threading
 from zoneinfo import ZoneInfo
 
 from .job_store import JobStore, RunLock
+from .activity import observed, stage
 
 ZONE = ZoneInfo('America/Costa_Rica')
 MONTHS = ('enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
@@ -223,6 +224,7 @@ class DailyCoordinator:
             values['snapshot'] = self.service.snapshot()
         self.service.protocol.emit('daily', **values)
 
+    @observed('Descargando base automática del día', lambda self,day:day.isoformat())
     def download(self, day):
         database = self.service.root / 'data' / 'daily' / 'bases.sqlite3'
         if (self.service.profile['selection'] == 'importacion' and not self.offline
@@ -380,6 +382,7 @@ class DailyCoordinator:
                             db.execute(f"INSERT OR REPLACE INTO daily_automatic_attempts SELECT id,0 FROM jobs WHERE dua IN ({marks}) AND status IN ('pending','retry')",chunk)
                 finally:store.close()
 
+    @observed('Procesando día del calendario', lambda self,day:day.isoformat())
     def cycle(self, day):
         self.day = day.isoformat()
         self.month = day.strftime('%Y-%m')
@@ -445,7 +448,8 @@ class DailyCoordinator:
                         wake = next_midnight(now)
                         self.emit('waiting', f'Esperando al {wake:%d/%m} a las 00:01', wake.isoformat())
                         # Re-evaluate the wall clock so clock changes do not skip days.
-                        self.service.stop_event.wait(min(30, max(.1, (wake - now).total_seconds())))
+                        with stage(f'Esperando al {wake:%d/%m} a las 00:01 de Costa Rica'):
+                            self.service.stop_event.wait(min(30, max(.1, (wake - now).total_seconds())))
                         continue
                     try:
                         complete = self.cycle(day)
@@ -455,7 +459,8 @@ class DailyCoordinator:
                         complete = False
                     if not complete and not self.service.stop_event.is_set() and self.ledger.get(day)['state']!='omitted':
                         self.emit('retrying', 'Reintentando la base pendiente; máximo tres intentos.')
-                        self.service.stop_event.wait(min(2**self.ledger.get(day).get('retry_cycles',1),5))
+                        with stage('Pausa antes de reintentar la base pendiente'):
+                            self.service.stop_event.wait(min(2**self.ledger.get(day).get('retry_cycles',1),5))
             except Exception as error:
                 if self.day:
                     self.ledger.update(date.fromisoformat(self.day), state='pending', error=str(error))

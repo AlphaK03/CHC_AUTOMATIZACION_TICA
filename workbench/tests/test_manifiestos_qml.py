@@ -28,6 +28,10 @@ class ManifestQMLTests(unittest.TestCase):
                                    manifests=manifests,bls=bls,preferences=preferences).items():
                 engine.rootContext().setContextProperty(name,value)
             window=None
+            # La aplicación conecta todos los módulos al abrir. Preparar BLs
+            # también evita dejar su aviso global de carga activo en esta prueba.
+            bls.connectModule()
+            wait_until(lambda:bls.ready and not bls.busy)
             def click(name):
                 button=window.findChild(QObject,name)
                 self.assertIsNotNone(button,name)

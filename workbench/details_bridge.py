@@ -1,6 +1,7 @@
 """Adaptador Qt común por módulo; nunca importa los paquetes del motor."""
 import json
 import os
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Property, QProcess, QTimer, QUrl, Signal, Slot
@@ -8,6 +9,7 @@ from PySide6.QtGui import QDesktopServices
 from remaining_time import RemainingTime
 from process_guard import ProcessTreeGuard
 from activity_model import ActivityModel
+from live_activity import LiveActivity
 from manual_review import ManualReview
 from daily_marks import DailyMarks
 
@@ -50,7 +52,9 @@ class DetailsBridge(QObject):
         self._view = {'rows': [], 'offset': 0, 'total': 0}
         self._query = {'filter': 'all', 'search': '', 'offset': 0}
         self._events = []
+        self._last_daily_message = ''
         self._activity_model = ActivityModel(parent=self)
+        self._console = LiveActivity(self)
         self._error = ''
         self._error_command = ''
         self._ready = False
@@ -158,6 +162,8 @@ class DetailsBridge(QObject):
     def events(self): return self._events
     @Property(QObject, constant=True)
     def activityModel(self): return self._activity_model
+    @Property(QObject, constant=True)
+    def consoleMonitor(self): return self._console
     @Property(str, notify=changed)
     def outputFolder(self): return self._snapshot['outputFolder']
     @Property(str, notify=changed)
@@ -179,6 +185,7 @@ class DetailsBridge(QObject):
         self._stderr = ''
         self._error = ''
         self._status = 'Preparando módulo…'
+        self._console.begin('Cargando módulo…')
         self._process.setWorkingDirectory(str(self._bot))
         arguments = ['-u', str(self._bot / 'workbench_worker.py'), '--storage-root', self._storage_root]
         if self._offline_fixture:
@@ -199,6 +206,7 @@ class DetailsBridge(QObject):
         if command not in {'stop', 'shutdown'}:
             self._requests[self._sequence] = {'command': command, 'readonly': readonly, 'tableId': self.activeTable.get('id')}
         if command not in {'stop', 'shutdown'} and not readonly:
+            self._console.begin()
             self._busy = True
             self._error = ''
             self._error_command = ''
@@ -230,6 +238,9 @@ class DetailsBridge(QObject):
 
     def _receive(self, event):
         kind = event['event']
+        self._console.accept(event)
+        if kind == 'activity_state':
+            return
         if 'snapshot' in event:
             self._snapshot = event['snapshot']
             if 'daily' in self._snapshot:
@@ -258,6 +269,9 @@ class DetailsBridge(QObject):
             self._update_remaining()
             if event.get('message'):
                 self._status = event['message']
+                if self._last_daily_message != event['message']:
+                    self._last_daily_message = event['message']
+                    self._activity_model.prepend({'message':event['message'],'time':time.strftime('%H:%M:%S'),'level':'INFO'})
         elif kind == 'progress':
             self._snapshot['summary'] = {**EMPTY, **event['summary']}
             if self._running:
@@ -302,6 +316,8 @@ class DetailsBridge(QObject):
                 self._status = 'Resultados exportados'
                 self.toast.emit('CSV actualizado.')
         elif kind in {'error', 'fatal'}:
+            self._activity_model.prepend({'message':event['message'],'time':time.strftime('%H:%M:%S'),'level':'ERROR'})
+            if kind == 'fatal':self._console.finish()
             command = event.get('command', '')
             # Un lector tardío no debe ocultar un fallo real del motor.
             if command != 'view' or not self._error or self._error_command == 'view':
@@ -322,6 +338,7 @@ class DetailsBridge(QObject):
             self._requests.pop(event.get('requestId'), None)
             if not event.get('readonly'):
                 self._busy = False
+                self._console.finish()
         self.changed.emit()
         self.eventReceived.emit(event)
 
@@ -342,6 +359,7 @@ class DetailsBridge(QObject):
             self.remainingTimeChanged.emit()
 
     def _finished(self, exit_code, exit_status):
+        self._console.finish()
         self._shutdown_timer.stop()
         self._process_guard.close()
         self._busy = self._running = self._ready = self._daily_active = False
@@ -359,6 +377,7 @@ class DetailsBridge(QObject):
 
     def _process_error(self, error):
         if error == QProcess.FailedToStart:
+            self._console.finish()
             self._busy = False
             self._error = self._process.errorString()
             self.changed.emit()

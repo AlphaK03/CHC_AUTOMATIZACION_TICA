@@ -148,25 +148,12 @@ ScrollView {
                     }
                 }
             }
-            Panel {
-                Layout.fillWidth: true; implicitHeight: 150
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 16; spacing: 8
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text { text: "Actividad"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                        ActionButton { text: "Limpiar vista"; subtle: true; implicitHeight: 26; onClicked: worker.clearActivity() }
-                    }
-                    Text {
-                        objectName: "detailsActiveJobs"
-                        visible: worker.activeJobs.length > 0; text: "Descargando: " + worker.activeJobs.join("   ·   ")
-                        color: Theme.accent; font.family: "Consolas"; font.pixelSize: 11
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap
-                    }
-                    ActivityView {
-                        Layout.fillWidth: true; Layout.fillHeight: true; model: worker.activityModel
-                    }
-                }
+            ActivityConsole {
+                Layout.fillWidth: true
+                activityModel: worker.activityModel; monitor: worker.consoleMonitor
+                activeObjectName: "detailsActiveJobs"
+                activeText: worker.activeJobs.length ? "Descargando: " + worker.activeJobs.join("   ·   ") : ""
+                onClearRequested: worker.clearActivity()
             }
             Text { text: !worker.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? worker.dailyActive ? worker.status : worker.daily.waitingForDay && !page.dailyStartEdited && !page.dailyEndEdited ? "Al día. Al iniciar esperará hasta las 00:01 de Costa Rica." : "Retoma los días pendientes y continúa cada día a las 00:01." : !page.activeId ? "Elige un Excel o una tabla para empezar." : worker.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: worker.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
             RowLayout {

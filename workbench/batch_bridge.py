@@ -2,11 +2,14 @@
 import json
 from pathlib import Path
 import sys
+import time
 
 from PySide6.QtCore import QObject, Property, QProcess, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 from process_guard import ProcessTreeGuard
 from manual_review import ManualReview
+from activity_model import ActivityModel
+from live_activity import LiveActivity
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -31,6 +34,8 @@ class BatchChannel(QObject):
         self.stderr = ''
         self.pending = None
         self.active_command = ''
+        self.activity_model = ActivityModel(parent=self)
+        self.console = LiveActivity(self)
         self.process = QProcess(self)
         self.guard = ProcessTreeGuard()
         self.process.readyReadStandardOutput.connect(self.read)
@@ -66,6 +71,7 @@ class BatchChannel(QObject):
         if self.fixture:
             args.append('--offline-fixture')
         self.process.setWorkingDirectory(str(bot))
+        self.console.begin('Cargando módulo…')
         self.process.start(str(python),args)
         return True
 
@@ -92,6 +98,7 @@ class BatchChannel(QObject):
             return False
         if command not in ('stop','shutdown'):
             self.active_command = command
+            self.console.begin()
         self.changed.emit()
         return True
 
@@ -107,16 +114,23 @@ class BatchChannel(QObject):
             if 'snapshot' in event:
                 self.snapshot = event['snapshot']
             kind = event['event']
+            self.console.accept(event)
+            if kind == 'activity_state':
+                continue
+            if kind == 'log':
+                self.activity_model.prepend(event)
             if kind == 'ready':
                 self.ready = True
                 if self.pending:
                     self.process.write((json.dumps(self.pending,ensure_ascii=False)+'\n').encode())
                     self.pending = None
             elif kind == 'idle':
+                self.console.finish()
                 self.busy = False
                 self.active_command = ''
             elif kind == 'error':
                 self.error = event.get('message','Error del motor')
+                self.activity_model.prepend(dict(time=time.strftime('%H:%M:%S'),level='ERROR',message=self.error))
             self.changed.emit()
             self.eventReceived.emit(event)
 
@@ -124,6 +138,7 @@ class BatchChannel(QObject):
         self.stderr = (self.stderr+bytes(self.process.readAllStandardError()).decode('utf-8',errors='replace'))[-6000:]
 
     def finished(self, code, status):
+        self.console.finish()
         self.timer.stop()
         self.guard.close()
         self.ready = self.busy = False
@@ -135,6 +150,7 @@ class BatchChannel(QObject):
     def failed(self, error):
         self.error = self.process.errorString()
         if self.process.state() == QProcess.NotRunning:
+            self.console.finish()
             self.busy = False
             self.pending = None
         self.changed.emit()
@@ -280,6 +296,17 @@ class BatchBridge(QObject):
     def defaultBaseFolder(self): return str(self._root/'bases_bls')
     @Property(str, notify=changed)
     def activity(self): return self.current().stderr.splitlines()[-1] if self.current().stderr else ''
+    @Property(QObject, notify=changed)
+    def activityModel(self): return self.current().activity_model
+    @Property(QObject, notify=changed)
+    def consoleMonitor(self):
+        auxiliary=self.channels.get('bls_source' if self.isBls else 'bases')
+        if auxiliary and auxiliary.busy and not self.current().busy:
+            return auxiliary.console
+        return self.current().console
+
+    @Slot()
+    def clearActivity(self): self.current().activity_model.clear()
 
     @Slot()
     def connectModule(self):
@@ -394,6 +421,9 @@ class BatchBridge(QObject):
             self.current().send('configure',{'config':{'input':path,'sheet':'BLS','inputMode':'file'}})
 
     def receive(self, flow, event):
+        if flow in ('bls_source','bases') and event.get('event')=='log':
+            target=self.channels['bls'] if self.isBls else self.current()
+            target.activity_model.prepend({**event,'message':'Base BLs · '+event.get('message','')})
         if flow=='bls_source':
             if event.get('event')=='error':
                 self._knowledge_error=event.get('message','No se pudo preparar la base.')

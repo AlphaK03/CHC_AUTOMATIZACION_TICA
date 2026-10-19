@@ -326,6 +326,12 @@ ScrollView {
                 }
             }
         }
+        ActivityConsole {
+            visible: !page.optionsVisible
+            Layout.fillWidth: true
+            activityModel: moduleBridge.activityModel; monitor: moduleBridge.consoleMonitor
+            onClearRequested: moduleBridge.clearActivity()
+        }
         RowLayout {
             Layout.fillWidth:true
             Text { text:"Detalle de las consultas"; color:Theme.muted; font.family:Theme.family; font.pixelSize:12; Layout.fillWidth:true }

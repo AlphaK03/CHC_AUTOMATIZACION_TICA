@@ -15,6 +15,7 @@ import time
 from .manifest_names import manifest_scope, manifest_name, normalized_scope, cumulative_family
 from . import output_layout
 from .bls_observation import BlsModeProgress, manifest_mode, combine
+from .activity import observed, stage
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
@@ -363,6 +364,7 @@ class BatchService:
             self.export()
             self.message = 'Progreso importado; el original permanece intacto.'
 
+    @observed('Preparando lote y revisando resultados existentes')
     def prepare(self):
         c = self.index['config']
         selected_family=family_record=None
@@ -519,6 +521,8 @@ class BatchService:
         from playwright.async_api import async_playwright
         from resultados import output_paths
         from chc_runtime.manifest_adapters import WorkbenchManifestScraper
+        from .manifest_activity import install
+        install(WorkbenchManifestScraper)
         c, spec = self.index['config'], record['spec']
         if record.get('cumulative'):
             from chc_runtime.manifest_adapters import enable_incremental_stores
@@ -534,7 +538,8 @@ class BatchService:
         for option in ('concurrencia','fecha_inicio','fecha_fin','manifest_ids','limite_manifiestos','progress_callback'):
             config[self.flow+'_'+option] = config['conocimientos_'+option]
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=bool(c['headless']))
+            with stage('Iniciando navegador de consultas'):
+                browser = await pw.chromium.launch(headless=bool(c['headless']))
             try:
                 for mode in spec['modes']:
                     paths = output_paths(config,self.flow,mode,spec['month'],spec['year'])
@@ -564,7 +569,8 @@ class BatchService:
                     if self.stop.is_set():
                         raise asyncio.CancelledError()
             finally:
-                await browser.close()
+                with stage('Cerrando navegador de consultas'):
+                    await browser.close()
 
     async def run_bls(self, record, retry_empty=False):
         from config_manager import DEFAULTS
@@ -610,6 +616,7 @@ class BatchService:
         if result.get('export_error'):
             raise OSError(result['export_error'])
 
+    @observed('Leyendo progreso y resultados guardados')
     def inspect(self, search=None, offset=None, mode=None):
         if mode is not None:
             if mode not in ('',*MODES):
@@ -726,6 +733,7 @@ class BatchService:
             raise ValueError('El CSV ya existe fuera de este lote. Use otro nombre de tabla; el archivo anterior se conservó.')
         return destination,owner_path
 
+    @observed('Actualizando CSV en la carpeta local de resultados')
     def publish(self, source, record):
         source = Path(source)
         if not source.is_file():
@@ -749,6 +757,7 @@ class BatchService:
             if self.flow=='bls':
                 for path,_ in files:path.unlink(missing_ok=True)
 
+    @observed('Exportando CSV desde SQLite')
     def export(self):
         record = self.active()
         if not record:
@@ -798,6 +807,7 @@ class BatchService:
                     writer.writerows(db.execute(sql))
         return {'reviewFolder':str(root)}
 
+    @observed('Leyendo fuentes para la base BLs')
     def load_base(self, request):
         from .bls_identifiers import install_base_support
         install_base_support()
@@ -836,6 +846,7 @@ class BatchService:
                           'periods':periods,'message':f'{len(self.sources)} fuentes disponibles. Seleccione los meses.'}
         return {'snapshot':self.snapshot()}
 
+    @observed('Generando base BLs')
     def build_base(self, request):
         from .bls_identifiers import install_base_support
         install_base_support()

@@ -6,7 +6,8 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from .identifiers import normalize_dua
 from .multirow import MultiRowJobStore
-from .playwright_processor import PlaywrightDUAProcessor
+from .playwright_processor import PlaywrightDUAProcessor, dua_subject
+from .activity import observed, stage
 
 FIELDS = ['Item', 'Partida', 'Descripción_Comercial', 'Bultos', 'Tipo_de_Bulto',
           'Nombre_del_consignatario', 'Declaración_de_origen_de_China', 'numero_del_dua']
@@ -68,6 +69,7 @@ class TransitJobStore(MultiRowJobStore):
 
 
 class TransitProcessor(PlaywrightDUAProcessor):
+    @observed('Solicitando página de líneas de Tránsito')
     async def _click_result(self, page, selector, timeout_ms, current_rows=None):
         if selector == '[name="LINEAS"]':
             # Igual que v2: el POST puede preceder a otra navegación. Su respuesta
@@ -109,6 +111,7 @@ class TransitProcessor(PlaywrightDUAProcessor):
             if message.strip():
                 raise ValueError('TICA devolvió un mensaje al consultar líneas: ' + message.strip())
 
+    @observed('Extrayendo y validando todas las líneas de Tránsito', dua_subject)
     async def _extract_record(self, page, row):
         timeout_ms = int(self.machine.get('timeout', 30)) * 1000
         await self._fetch_page_result(page, row)
@@ -116,7 +119,8 @@ class TransitProcessor(PlaywrightDUAProcessor):
         await self._click_result(page, '[name="LINEAS"]', timeout_ms)
         rows, seen_pages = [], set()
         while True:
-            await page.wait_for_selector('#SeriesContainerTbl', state='attached', timeout=timeout_ms)
+            with stage(f'Esperando tabla de líneas · página {len(seen_pages)+1}'):
+                await page.wait_for_selector('#SeriesContainerTbl', state='attached', timeout=timeout_ms)
             signature = await page.locator('#SeriesContainerTbl').inner_html()
             if signature in seen_pages:
                 raise ValueError('SIGUIENTE devolvió la misma página; el DUA queda pendiente.')

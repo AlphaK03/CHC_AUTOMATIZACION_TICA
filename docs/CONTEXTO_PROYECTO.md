@@ -1,6 +1,29 @@
 # Contexto de CHC Workbench para una nueva sesión
 
-## Estado vigente — 18 de octubre de 2026
+## Estado vigente — 19 de octubre de 2026
+
+- Actividad convertida en consola común para los seis bots y cinco procedimientos
+  de Manifiestos. `chc_runtime/activity.py` observa etapas con contextvars, pilas
+  por tarea/hilo y un hilo de señal cada segundo (también durante exportaciones
+  síncronas); cada 15 s registra la etapa que sigue esperando. No impone plazos,
+  consulta bases ni confirma resultados. El cierre del supervisor retira también
+  etapas de tareas abandonadas para no mostrarlas como consultas vigentes.
+  `worker.py` y `batch_worker.py` envuelven inicialización/comandos de primer
+  plano; las lecturas Qt concurrentes no reinician el monitor. Batch transmite
+  también logging original por JSONL y conserva sus logs persistentes.
+  `manifest_activity.py` instrumenta métodos y funciones en memoria, sin editar
+  fuentes copiadas: HTTP, parser, formulario, modalidad y exportación. DUAs sigue
+  con timeout HTTP 0, un intento y sin recuperación de errores dentro de la misma
+  consulta. Los cuatro DUA observan formulario/CAPTCHA/respuesta, páginas, pausas,
+  diagnósticos y CSV; BLs búsqueda/identidad/HTTP/páginas/checkpoints. Diario muestra
+  proveedor base, día y espera de 00:01. Sin cambios de calendarios/colas/datos.
+  Qt usa `live_activity.py`, `ActivityConsole.qml` y `ActivityView.qml` incremental:
+  etapas, segundos, última señal real, ampliación y limpieza visual. El reloj
+  no acredita avance de TICA. Tras 10 s sin mensajes advierte falta de señales.
+  Historial y etapas conservan el desplazamiento manual; modelos no se resetean
+  en cada tick. Pruebas y límites en `docs/ACTIVIDAD_CONSOLA.md`. Capturas sintéticas
+  aisladas en `runtime/workbench/captures/activity-console/`. App abierta conservada
+  antes de documentar; cargar la nueva interfaz al próximo arranque voluntario.
 
 - SharePoint rediseñado y acceso a cuenta en el avatar superior: navegación se
   llama solo SharePoint; diálogo Resultados/Archivos/Actividad, destino + local,

@@ -418,16 +418,32 @@ IDs/límite/Courier no acreditan el mes entero.
 
 ## Interfaz y demostraciones
 
-Los paneles de **Actividad** de Detalles, Tránsito, Talón y XMovimientos conservan
+Los seis bots y los cinco procedimientos de Manifiestos usan la consola de
+**Actividad**: mensajes con hora y nivel, fondo oscuro y texto monoespaciado.
+Arriba aparecen las etapas que el motor está ejecutando, con DUA/manifiesto/BL
+cuando corresponde y segundos transcurridos. Incluye abrir formularios, CAPTCHA,
+esperar HTTP, paginar, validar, reintentar, leer bases/progreso y exportar CSV.
+Así se distingue la última consulta de las tareas de cierre que siguen después.
+
+**Última señal del motor** indica comunicación con el proceso. El reloj continúa
+durante una espera y no prueba que TICA haya respondido ni que un resultado esté
+guardado. Sin mensajes durante diez segundos aparece **Sin señales del motor**.
+DUAs por manifiesto identifica su espera HTTP **sin límite de tiempo**: conserva
+esa regla y la acción Detener. **Ampliar/Reducir** cambia la altura; **Limpiar**
+limpia solo los mensajes en pantalla. La lista superior también permite desplazar
+sus etapas cuando hay varios hilos. [Detalles técnicos y pruebas](../docs/ACTIVIDAD_CONSOLA.md).
+
+Los paneles de **Actividad** de todos los bots reales conservan
 la fila y su desplazamiento al bajar a leer mensajes anteriores, aunque lleguen
 logs o cambien los contadores. Solo siguen las novedades si estás al inicio;
 volver arriba restablece ese seguimiento. Arrastrar la barra o desplazar la lista
-interrumpe un seguimiento pendiente. **Limpiar vista** mantiene su comportamiento.
-La lista es incremental, con los mismos 2.000 mensajes por bot; al salir los más
+interrumpe un seguimiento pendiente.
+La lista es incremental, con hasta 2.000 mensajes por bot/procedimiento; al salir los más
 antiguos, permanece cerca del final en lugar de saltar arriba. Las seis vistas de
 demo usan el mismo componente, con su límite previo de 30 eventos y altura fija.
-BLs y Manifiestos reales conservan sus estados/listas de trabajos actuales;
-esta corrección no añade ni modifica consultas de esos motores.
+BLs y Manifiestos reales conservan sus estados/listas de trabajos actuales.
+La consola observa las operaciones existentes sin añadir consultas, rearmar
+pendientes ni modificar la confirmación de resultados.
 
 - Navegación lateral expandible y contraíble, con iconos y ayudas.
 - Vista general y acceso independiente a seis módulos; Manifiestos agrupa cinco procedimientos.

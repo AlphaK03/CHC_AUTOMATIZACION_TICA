@@ -13,7 +13,19 @@ from core.tica import TicaSession
 from .bls_pages import PageStore, parse_page, next_form, validate_lines
 from .bls_search import select_detail
 from .bls_incremental import install_engine_scope
+from .activity import observed, stage, CURRENT
 install_engine_scope()
+
+
+def observe_engine():
+    """Observar el motor aislado sin modificar sus fuentes ni sus transacciones."""
+    from core import engine
+    for name,label in {'prepare':'Leyendo entradas y progreso del lote BLs',
+                       'finish_run':'Actualizando estado final del lote BLs',
+                       'export':'Exportando CSV de BLs',
+                       'export_review':'Exportando revisión de BLs'}.items():
+        setattr(engine.JobStore,name,observed(label)(getattr(engine.JobStore,name)))
+    engine.launch_chromium=observed('Iniciando navegador de BLs')(engine.launch_chromium)
 
 
 class PagedTicaSession(TicaSession):
@@ -23,9 +35,11 @@ class PagedTicaSession(TicaSession):
         super().__init__(browser,{**config,'detail_strategy':'workbench_pages'},stats)
         self.checkpoint, self.progress, self.active = checkpoint, progress, active
 
+    @observed('Buscando y descargando BL',lambda self,record:record['IDManifiesto']+' · BL '+record['BL original'])
     async def query(self, record):
         try:
-            selected, manifests = await select_detail(self, record)
+            with stage('Enviando búsqueda y comprobando identidad del BL'):
+                selected, manifests = await select_detail(self, record)
             if selected is None:
                 if await self.next_button() is not None:
                     raise InvalidResponse('La búsqueda tiene más páginas; no se confirma una ausencia parcial')
@@ -49,6 +63,7 @@ class PagedTicaSession(TicaSession):
         if (target.scheme,target.netloc)!=(origin.scheme,origin.netloc) or not target.path.lower().endswith('/hcglineas.aspx'):
             raise InvalidResponse('Enlace de líneas ajeno al portal')
 
+        @observed('Esperando página HTTP y validando líneas del BL')
         async def fetch(form=None):
             self.active(job)
             self.stats['http_requests'] += 1
@@ -71,6 +86,9 @@ class PagedTicaSession(TicaSession):
             rows.extend(previous.rows)
         def notify(page_number, checkpoint_page):
             self.progress(record,page_number,checkpoint_page,len(rows))
+            reporter = CURRENT.get()
+            if reporter:
+                reporter.log(f"BL {record['BL original']} · página {page_number} · {checkpoint_page} páginas confirmadas · {len(rows)} filas acumuladas")
 
         if saved:
             notify(len(saved),len(saved))
@@ -135,6 +153,7 @@ class PagedTicaSession(TicaSession):
 
 class WorkbenchBLSProcessor(BLSProcessor):
     def __init__(self, config, stop_event):
+        observe_engine()
         super().__init__(config,stop_event)
         self.page_store = None
         self._empty_retry_started = False
@@ -146,7 +165,8 @@ class WorkbenchBLSProcessor(BLSProcessor):
         accumulation=self.config.get('workbench_bls_accumulation')
         if accumulation and accumulation.get('append',True) and extra.get('phase')=='prepare' and not self._accumulation_started:
             from .bls_incremental import append
-            self._accumulation_query=append(self.store,self._incoming_frame,accumulation)
+            with stage('Incorporando Conocimientos nuevos al lote BLs'):
+                self._accumulation_query=append(self.store,self._incoming_frame,accumulation)
             self._accumulation_started=True
         if self._accumulation_started and extra.get('phase')=='finished':
             from datetime import datetime,timezone
@@ -160,7 +180,8 @@ class WorkbenchBLSProcessor(BLSProcessor):
             self._empty_retry_started = True
         from .bls_observation import BlsModeProgress
         if extra.get('phase') in ('ready','finished'):
-            self._mode_progress = BlsModeProgress.read(self.store.db)
+            with stage('Leyendo avance de BLs por modalidad'):
+                self._mode_progress = BlsModeProgress.read(self.store.db)
         elif self._mode_progress is not None and extra.get('job'):
             self._mode_progress.update(extra['job'])
         if self._mode_progress is not None:

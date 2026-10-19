@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import threading
 import traceback
+from .activity import ActivityReporter, EventLog, COMMANDS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,17 +44,20 @@ def main(module='manifiestos'):
         with lock:
             print(json.dumps({'event': event, **data}, ensure_ascii=False), flush=True)
     stop = threading.Event()
-    service = BatchService(args.storage_root, flow, emit, stop, args.offline_fixture)
+    reporter = ActivityReporter(emit)
+    with reporter.session('Cargando bases de datos'):
+        service = BatchService(args.storage_root, flow, emit, stop, args.offline_fixture)
     log_folder = args.storage_root / 'data' / 'logs'
     log_folder.mkdir(parents=True,exist_ok=True)
-    logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stderr),
+    logging.basicConfig(level=logging.INFO, handlers=[EventLog(emit), logging.StreamHandler(sys.stderr),
                         logging.FileHandler(log_folder/(flow+'.log'),encoding='utf-8')],
                         format='%(asctime)s %(levelname)s %(message)s')
     active = None
     def execute(request):
         command = request['command']
         try:
-            result = service.execute(command, request)
+            with reporter.session(COMMANDS.get(command, 'Procesando solicitud')):
+                result = service.execute(command, request)
             emit('result', command=command, requestId=request.get('requestId'), **(result or {}))
         except asyncio.CancelledError:
             emit('result', command=command, requestId=request.get('requestId'), stopped=True)

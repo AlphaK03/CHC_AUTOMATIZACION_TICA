@@ -11,6 +11,10 @@ preparándose. Los controles se habilitan automáticamente al terminar la carga.
 Los seis bots comparten un resumen visual de progreso: cifras destacadas,
 porcentaje, barra por estados y contadores alineados. BLs y Manifiestos muestran
 las modalidades juntas para comparar su avance; se adapta a ambos temas y al ancho.
+Actividad funciona como consola en los seis bots: hora/nivel, consultas, páginas,
+reintentos, esperas HTTP, lectura de progreso y exportación de CSV. Muestra las
+etapas en curso, su duración y la última señal del proceso. Se puede ampliar y
+leer mensajes anteriores sin perder la posición. [Funcionamiento y límites](docs/ACTIVIDAD_CONSOLA.md).
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
 La preparación y el motor de BLs admiten números de manifiesto con una letra

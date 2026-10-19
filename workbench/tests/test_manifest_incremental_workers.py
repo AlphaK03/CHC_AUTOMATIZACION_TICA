@@ -45,6 +45,13 @@ class IncrementalWorkersTests(unittest.TestCase):
                                 workers=2,headless=True,timeout=5)
                     initial=call(flow,config);before=jobs(flow)
                     snapshot=bridge.current().snapshot
+                    messages=[event['message'] for event in bridge.current().activity_model.rows]
+                    self.assertTrue(any('Exportando CSV desde SQLite' in message for message in messages),flow)
+                    self.assertFalse(bridge.current().console.running)
+                    if flow in ('conocimientos','duas','movimientos'):
+                        self.assertTrue(any('Esperando HTTP' in message for message in messages),flow)
+                    if flow=='duas':
+                        self.assertTrue(any('sin límite de tiempo' in message for message in messages))
                     self.assertEqual({j['mode'] for j in snapshot['jobs']},{'maritimo','aereo'})
                     self.assertEqual({s['mode'] for s in snapshot['modeSummaries']},{'maritimo','aereo'})
                     self.assertEqual(snapshot['summary']['rows'],sum(s['rows'] for s in snapshot['modeSummaries']))

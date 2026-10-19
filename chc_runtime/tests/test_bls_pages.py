@@ -22,6 +22,7 @@ from playwright.async_api import async_playwright
 from chc_runtime.bls_page_fixture import BLSPagePortal
 from chc_runtime.bls_session import WorkbenchBLSProcessor, PagedTicaSession
 from chc_runtime.bls_pages import PageStore
+from chc_runtime.activity import ActivityReporter
 
 
 def frame():
@@ -56,7 +57,14 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
             return db.execute('SELECT state,attempts,result_count FROM jobs').fetchone(),db.execute('SELECT count(*) FROM results').fetchone()[0]
 
     async def test_partial_pages_resume_from_anchor_and_keep_original_signature(self):
-        first=await self.run_bot()
+        activity=[]
+        reporter=ActivityReporter(lambda kind,**data:activity.append(dict(event=kind,**data)))
+        with reporter.session('Consultando BLs'):
+            first=await self.run_bot()
+        messages=[event.get('message','') for event in activity]
+        self.assertTrue(any('Buscando y descargando BL' in message for message in messages))
+        self.assertTrue(any('Esperando página HTTP' in message for message in messages))
+        self.assertTrue(any('Exportando CSV de BLs' in message for message in messages))
         self.assertEqual((first['saved'],first['pending'],first['result_rows']),(0,1,0))
         self.assertEqual(self.counts(first['database']),(('Pendiente',1,0),0))
         pages=Path(first['database']).with_name('bls_pages.sqlite3')

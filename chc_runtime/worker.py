@@ -1,6 +1,7 @@
 """Servicio JSONL común: perfiles de extracción aislados, sin Tk ni Qt."""
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+from .activity import ActivityReporter, COMMANDS
 import json
 import logging
 import os
@@ -463,8 +464,10 @@ def main(module_id="detalles"):
     sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
     sys.stdin.reconfigure(encoding='utf-8')
     protocol = Protocol()
+    reporter = ActivityReporter(protocol.emit)
     try:
-        service = DetailsService(args.storage_root, protocol, offline=args.offline_fixture, module_id=module_id)
+        with reporter.session('Cargando bases de datos'):
+            service = DetailsService(args.storage_root, protocol, offline=args.offline_fixture, module_id=module_id)
     except Exception as error:
         protocol.emit('fatal', message=str(error))
         return 1
@@ -474,7 +477,9 @@ def main(module_id="detalles"):
 
     def execute(request, foreground=True):
         try:
-            result = service.execute(request['command'], request)
+            observation = reporter.session(COMMANDS.get(request['command'], 'Procesando solicitud')) if foreground else nullcontext()
+            with observation:
+                result = service.execute(request['command'], request)
             protocol.emit('result', requestId=request.get('requestId'), command=request['command'], **result)
         except Exception as error:
             # Un lector de la lista puede coincidir con el COMMIT del motor.
