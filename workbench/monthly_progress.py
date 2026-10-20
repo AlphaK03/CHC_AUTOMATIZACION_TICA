@@ -8,8 +8,8 @@ import os
 from pathlib import Path
 import re
 import sqlite3
-import time
 from chc_runtime.manifest_coverage import cumulative_days, day_ranges
+from chc_runtime.sqlite_read import prepare_reader
 
 if __package__:
     from .daily_marks import DailyMarks
@@ -32,9 +32,7 @@ def readonly(path, max_seconds=2.0):
     try:
         # timeout de SQLite solo limita esperar un bloqueo, no ejecutar SELECT.
         # Una lectura lenta no puede retener al escritor durante minutos.
-        deadline=time.monotonic()+max_seconds
-        db.set_progress_handler(lambda: time.monotonic()>=deadline,1000)
-        db.execute('PRAGMA query_only=ON')
+        prepare_reader(db,max_seconds)
         db.execute('BEGIN')
         yield db
     finally:db.close()

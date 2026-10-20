@@ -2,6 +2,31 @@
 
 ## Estado vigente — 20 de octubre de 2026
 
+- Revisión posterior **sobre el entorno real**, solicitada expresamente: logs
+  07:10–07:11 confirman COMMIT bloqueado en Detalles/Talón y claim de XMovimientos.
+  Se inspeccionó con py-spy la instancia 30412 y sus workers; Tránsito está en
+  automático esperando la siguiente fecha, se conserva abierto. No reiniciar
+  esta instancia sin autorización: los otros tres motores terminaron por error.
+  BLs reprodujo en sus SQLite originales una lectura >30 s: primero conteo de
+  resultados, después agregación de TODOS los checkpoints para mostrar 200 jobs.
+  Disco D: HDD, muestra de cola 4 y ~1,18 MB/s; no se identificó retrospectivamente
+  el PID lector exacto que causó cada COMMIT fallido. No atribuirlo a duplicación
+  de workers: los pares de PID son launcher venv + intérprete.
+  Correcciones: inspect BLs obtiene la página visible primero, agrega checkpoints
+  por claves exactas vigentes de esos jobs, preservando los filtros originales.
+  `sqlite_read.prepare_reader` aplica query_only/mmap 256 MiB por conexión, sin
+  cambiar archivo/journal; plazo comprobado cada 10 instrucciones (antes 1000).
+  Bitácora conserva 2 s; summary/lista DUA tienen 10 s; view interrumpida durante
+  descarga se difiere igual que SQLITE_BUSY. No cambian parsers ni motor escritor.
+  Validación real: worker BLs refresh 0,156 s; comparación antigua/nueva en caliente
+  0,422/0,172 s, snapshot idéntico en cuatro vistas (inicio, final, búsqueda, vacía),
+  hashes de todos sus SQLite intactos. Bitácora real de seis módulos idéntica,
+  cero errores, 1,500/1,235 s. Lecturas DUA 0,016–0,110 s y BEGIN EXCLUSIVE/ROLLBACK
+  inmediato sin DML/DDL en los tres archivos; no consultas TICA de prueba.
+  Evidencia local en `runtime/diagnostics/live-locks/`, detalles y límites en
+  `docs/BLOQUEOS_Y_CARGA.md`. Cambios requieren cargar de nuevo los procesos;
+  la instancia existente conserva código anterior y automático de Tránsito.
+
 - Incidente posterior: Conocimientos/DUAs permanecían en «Cargando». Con la app
   cerrada se copiaron sus cuatro SQLite y sesiones a almacenamiento de diagnóstico,
   reescribiendo rutas; pruebas sin consultas TICA. No se reprodujo la espera de

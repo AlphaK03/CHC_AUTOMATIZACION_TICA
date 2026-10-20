@@ -25,6 +25,7 @@ from .playwright_processor import PlaywrightDUAProcessor
 from .profiles import load_profile
 from .daily import DailyCoordinator, DailyJobStore, local_now
 from . import utils
+from .sqlite_read import prepare_reader
 
 
 class Protocol:
@@ -116,6 +117,7 @@ class DetailsService:
         db = sqlite3.connect(self.catalog.database(record).as_uri() + '?mode=ro', uri=True, timeout=2)
         db.row_factory = sqlite3.Row
         try:
+            prepare_reader(db,10)
             yield db
         finally:
             db.close()
@@ -493,7 +495,7 @@ def main(module_id="detalles"):
             code = getattr(error, 'sqlite_errorcode', 0)
             if (not foreground and request.get('command') == 'view'
                     and isinstance(error, sqlite3.OperationalError)
-                    and code & 0xff in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)):
+                    and code & 0xff in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED, sqlite3.SQLITE_INTERRUPT)):
                 protocol.emit('view_deferred', requestId=request.get('requestId'), command='view')
                 return
             logging.exception('Operación interrumpida: %s', error, extra={'technical_only': True})

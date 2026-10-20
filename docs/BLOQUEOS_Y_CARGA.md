@@ -140,3 +140,68 @@ la de comandos protegidos comprueba que nunca se detienen escritores/descargas.
 
 Se abrió la app actualizada en Vista general antes de documentar, sin iniciar
 descargas. Su log confirmó la carga local de Conocimientos en 0,063 s.
+
+## Diagnóstico en la instancia real, 20/10 por la mañana
+
+El usuario pidió expresamente revisar su entorno real y añadió que BLs no
+cargaba. Se conservaron la GUI y los motores originales abiertos. Los errores
+actuales son Detalles (07:11:01), Talón (07:10:47) y XMovimientos (07:10:37):
+los dos primeros fallan al confirmar resultados y luego al devolver reservas;
+XMovimientos falla al confirmar una reserva. Los fallos ocurren en COMMIT,
+compatibles con un lector que no libera su bloqueo compartido. Al inspeccionar,
+esos tres workers ya habían terminado sus operaciones. No hay traza del lector
+exacto durante esos COMMIT: no se afirma haber identificado ese PID.
+
+Se usó py-spy sobre la GUI y los workers reales, y SELECT de solo lectura
+directamente sobre sus SQLite. Los pares de procesos corresponden al launcher
+del venv y su intérprete, no a dos descargas del mismo bot. La GUI tenía su lector
+mensual recorriendo jobs. D: es un HDD; una muestra de contadores de Windows
+mostró cola de disco de 4 y aproximadamente 1,18 MB/s de lectura.
+
+La carga BLs sí se reprodujo en su base original, mediante un worker diagnóstico
+que recibió exclusivamente refresh y shutdown. Su proceso era independiente;
+solo se cerró ese diagnóstico. Primero permaneció en el conteo de results;
+después en la agregación de pages de todos los jobs. Los intentos originales de
+la app registraban inicio de carga pero no final y vencían el supervisor de 60 s.
+El lote tiene 27.890 jobs, 27.884 guardados, 6 pendientes y 47.839 filas.
+
+La corrección obtiene primero los 200 jobs visibles, consulta los checkpoints
+solo de sus claves/generaciones y conserva la comprobación de firma. Conserva
+orden, filtros (también para identificadores nulos), páginas antiguas y totales
+de todo el lote.
+
+Los lectores compartidos aplican `query_only` y `mmap_size=268435456` por conexión.
+SQLite conserva el bloqueo y la coherencia normal; la opción no modifica el
+journal ni el contenido. La bitácora comprueba su plazo de 2 s cada 10 instrucciones,
+en lugar de 1000; resumen/listado DUA tienen 10 s. Una lista interrumpida durante
+descarga se difiere, igual que una lista que encuentra SQLITE_BUSY. No hay cambio
+en los límites de consultas TICA, parsers ni confirmación del motor.
+
+Referencias técnicas: [lectura mapeada de SQLite](https://www.sqlite.org/mmap.html)
+y [progress handler](https://www.sqlite.org/c3ref/progress_handler.html).
+El plazo es cooperativo: no garantiza interrumpir una única llamada lenta al
+sistema operativo. Mmap tampoco garantiza acelerar todos los equipos.
+
+Comprobaciones efectuadas directamente sobre las bases reales, sin descargar:
+
+- Worker BLs actualizado: refresh terminado en 0,156 s. Comparación antigua/nueva
+  con caché caliente: 0,422/0,172 s. No presentar esa comparación caliente como
+  medición del primer acceso frío que se había bloqueado.
+- Snapshot BLs íntegro idéntico antes/después en cuatro vistas: primera página,
+  offset 27.600, búsqueda «139» y offset 30.000 sin resultados. Hashes de todos
+  los SQLite BLs intactos (incluidos checkpoints).
+- Bitácora de los seis módulos: 1,500/1,235 s, resultado completo idéntico y cero
+  fuentes con error en ambas versiones.
+- Detalles: 68.532 guardados, 5.625 pendientes y 2 reservas interrumpidas.
+  Talón: 32.299 guardados, 2.545 pendientes, 891 retry y 1 reserva.
+  XMovimientos: 20.706 guardados, 12.755 vacíos, 2.274 pendientes y 1 retry.
+  Lecturas entre 0,016 y 0,110 s. Una adquisición BEGIN EXCLUSIVE seguida de
+  ROLLBACK sin DML/DDL fue inmediata en cada uno: en ese momento estaban libres.
+  Se conservaron las reservas: solo el motor las recupera al iniciar.
+
+Los diagnósticos locales y snapshots están en `runtime/diagnostics/live-locks/`;
+no se versionan datos. No se iniciaron consultas TICA ni subidas para validar.
+Tránsito terminó 679 DUAs a las 07:19:05 y permanece en automático esperando
+la próxima fecha. Se conservó la instancia abierta antes de documentar.
+Los cambios están preparados, pero la GUI y los workers existentes aún ejecutan
+el código anterior: su recarga requiere autorización para interrumpir esa espera.

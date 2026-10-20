@@ -16,6 +16,7 @@ from .manifest_names import manifest_scope, manifest_name, normalized_scope, cum
 from . import output_layout
 from .bls_observation import BlsModeProgress, manifest_mode, combine
 from .activity import observed, stage
+from .sqlite_read import prepare_reader
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
@@ -657,6 +658,7 @@ class BatchService:
             if not path.is_file():
                 continue
             with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=3)) as db:
+                prepare_reader(db)
                 tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if 'jobs' not in tables:
                     continue
@@ -684,24 +686,30 @@ class BatchService:
                 if self.flow=='bls':
                     bls_modes.extend(BlsModeProgress.read(db).summaries(processing=self.processing))
                     summary['empty'] += db.execute("SELECT count(*) FROM jobs WHERE state='Guardado' AND result_count=0").fetchone()[0]
+                    records = db.execute('''SELECT id,ordinal,payload,state,attempts,result_count,error FROM jobs
+                        WHERE json_extract(payload,'$."IDManifiesto"') LIKE ?
+                           OR json_extract(payload,'$."BL original"') LIKE ?
+                        ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''',
+                        ('%'+search+'%','%'+search+'%',max(0,offset))).fetchall()
                     progress = {}
                     checkpoint = path.with_name('bls_pages.sqlite3')
                     if checkpoint.is_file():
                         with closing(sqlite3.connect(checkpoint.resolve().as_uri()+'?mode=ro',uri=True,timeout=3)) as pages:
+                            prepare_reader(pages)
                             signature = db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]
                             if pages.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]!=signature:
                                 raise ValueError('Las páginas guardadas pertenecen a otra selección BLs')
                             from .bls_empty_retry import generations,page_key
                             versions=generations(db)
                             aliases={page_key(key,versions):key for key in versions}
-                            progress = {ordinal:(number,count) for key,ordinal,number,count in pages.execute(
-                                'SELECT job,ordinal,MAX(page),SUM(count) FROM pages GROUP BY job')
-                                if key==page_key(aliases.get(key,key),versions) and ('@' not in key or key in aliases)}
-                    records = db.execute('''SELECT ordinal,payload,state,attempts,result_count,error FROM jobs
-                        WHERE json_extract(payload,'$."IDManifiesto"') LIKE ?
-                           OR json_extract(payload,'$."BL original"') LIKE ?
-                        ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''', ('%'+search+'%','%'+search+'%',max(0,offset)))
-                    for ordinal,payload,state,attempts,rows,error in records:
+                            keys=[page_key(row[0],versions) for row in records]
+                            if keys:
+                                with stage('Leyendo checkpoints de los trabajos visibles'):
+                                    marks=','.join('?' for _ in keys)
+                                    progress = {ordinal:(number,count) for key,ordinal,number,count in pages.execute(
+                                        f'SELECT job,ordinal,MAX(page),SUM(count) FROM pages WHERE job IN ({marks}) GROUP BY job',keys)
+                                        if key==page_key(aliases.get(key,key),versions) and ('@' not in key or key in aliases)}
+                    for identifier,ordinal,payload,state,attempts,rows,error in records:
                         row = bls_job(ordinal,payload,state,attempts,rows,error)
                         if ordinal in progress:
                             number,collected = progress[ordinal]

@@ -19,6 +19,10 @@ La preparación diaria agrupa el historial de intentos en una sola lectura.
 La bitácora limita sus lecturas largas para liberar SQLite y evitar que la vista
 de progreso retenga a los escritores; una lectura incompleta queda sin verificar.
 [Diagnóstico y comprobaciones de bloqueos](docs/BLOQUEOS_Y_CARGA.md).
+Revisión sobre el entorno real del 20/10: BLs consulta checkpoints solo para
+los trabajos visibles, conservando los totales del lote. Los lectores de
+progreso usan acceso mapeado de SQLite y comprueban con más frecuencia sus
+plazos para liberar los bloqueos de lectura; no se cambian bases ni journal.
 Los seis bots comparten un resumen visual de progreso: cifras destacadas,
 porcentaje, barra por estados y contadores alineados. BLs y Manifiestos muestran
 las modalidades juntas para comparar su avance; se adapta a ambos temas y al ancho.

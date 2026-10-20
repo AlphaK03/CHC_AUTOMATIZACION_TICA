@@ -41,6 +41,13 @@ fuerza una nueva lectura; el catálogo BLs también se actualiza cuando Conocimi
 termina o importa progreso. Los bots DUA calculan una sola vez el resumen de la
 tabla activa por petición, sin almacenar conteos entre peticiones. Se conservan
 las reglas de análisis, pendientes, resultados y recuperación.
+BLs carga los checkpoints de los trabajos de la página visible, no los del lote
+entero; el total y los resúmenes por modalidad siguen contando todos los BLs.
+Los lectores locales usan páginas compartidas de SQLite con Windows. La bitácora
+comprueba su plazo cada diez instrucciones SQL; resúmenes y listas DUA tienen
+un presupuesto de diez segundos. Una lista que supera el plazo durante una
+descarga se difiere hasta la próxima actualización, sin detener el motor.
+Estas opciones solo afectan conexiones lectoras; no migran bases ni resultados.
 La preparación del automático también evita recorrer todo el historial por cada
 DUA: conserva intentos previos y solo prepara los del día seleccionado. Actividad
 distingue «Incorporando la base del día al mes», «Preparando pendientes e intentos
