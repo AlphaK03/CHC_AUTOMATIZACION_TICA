@@ -24,7 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--smoke-test', action='store_true', help='Comprobar navegación y simulación; salir sin abrir bots.')
     parser.add_argument('--capture', type=Path, help='Guardar una captura del panel y salir.')
-    parser.add_argument('--page', default='detalles', help='Vista inicial: overview o ID de módulo.')
+    parser.add_argument('--page', default='overview', help='Vista para captura/demo: overview o ID de módulo. El inicio normal abre Vista general.')
     parser.add_argument('--collapsed', action='store_true', help='Iniciar con la barra lateral contraída.')
     parser.add_argument('--light', action='store_true', help='Iniciar en tema claro.')
     parser.add_argument('--sample', action='store_true', help='Preparar una simulación pausada en la vista de un módulo.')
@@ -90,7 +90,8 @@ def main():
     for bridge in bridges.values():
         bridge.toast.connect(backend.toast.emit)
     preferences.error.connect(backend.toast.emit)
-    backend.navigate(args.page)
+    initial_page = args.page if (args.capture or args.smoke_test or args.demo) else 'overview'
+    backend.navigate(initial_page)
     if args.sample and args.page != 'overview' and (args.page not in bridges or not details.enabled):
         backend.loadSample()
         backend.startDemo()
@@ -133,7 +134,9 @@ def main():
         QTimer.singleShot(0, select_daily)
     if details.enabled:
         for bridge in bridges.values():
-            bridge.connectModule()
+            # La ventana se crea primero. Cada QProcess prepara su propia base
+            # sin esperar a los demás ni cambiar la ruta cuando responde.
+            QTimer.singleShot(0, bridge.connectModule)
     if not args.smoke_test and not args.capture:
         available = app.primaryScreen().availableGeometry()
         window.setMinimumWidth(min(window.minimumWidth(), available.width() - 32))

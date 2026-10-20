@@ -81,8 +81,9 @@ ScrollView {
             Text { text: worker.error || worker.status; color: worker.error ? "#ef9ea2" : Theme.muted; font.family: Theme.family; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             ActionButton { visible: !worker.ready; text: "Reconectar"; enabled: !worker.busy; onClicked: worker.connectModule() }
         }
+        SectionLoading { Layout.fillWidth: true; loading: worker.loading; title: worker.moduleTitle }
         ColumnLayout {
-            visible: page.tab !== 2; Layout.fillWidth: true; spacing: 12
+            visible: page.tab !== 2 && !worker.loading; Layout.fillWidth: true; spacing: 12
             Panel {
                 Layout.fillWidth: true; implicitHeight: sourceColumn.implicitHeight + 32
                 ColumnLayout {
@@ -173,7 +174,7 @@ ScrollView {
             }
         }
         Panel {
-            visible: page.tab === 2
+            visible: page.tab === 2 && !worker.loading
             Layout.fillWidth: true; implicitHeight: configColumn.implicitHeight + 44
             ColumnLayout {
                 id: configColumn

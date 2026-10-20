@@ -2,6 +2,36 @@
 
 ## Estado vigente — 19 de octubre de 2026
 
+- Arranque y carga independientes por petición del usuario: el inicio normal
+  abre siempre Vista general, incluso si un acceso antiguo pasa `--page`.
+  Capturas, smoke y demo conservan la elección de vista. `app.py` crea QML antes
+  de encolar las conexiones; cada bot carga en su QProcess y la bitácora conserva
+  su lector en un hilo. No se esperan todos los motores para poder navegar.
+  `SectionLoading.qml` sustituye el bloqueo global anterior: animación local en
+  Detalles/Tránsito/Talón/XMovimientos y BLs/Manifiestos. Conserva la navegación
+  entre procedimientos y la ruta/pestaña al terminar cualquier carga. Las tarjetas
+  distinguen Cargando de Consultando. Error/cierre/descargas conservan sus controles.
+  `DetailsService.snapshot` reutiliza el resumen activo calculado en la misma
+  petición: no cambia SQL ni mantiene caché entre peticiones. Batch `connectModule`
+  es idempotente al navegar; `refreshModule` conserva la recarga explícita de
+  Más → Reconectar y `refreshKnowledge` sigue atendiendo cambios del productor,
+  incluso si llegan durante otra lectura. La preparación de BLs y sus firmas
+  no cambian. No se modificaron los motores copiados ni datos originales.
+  Comparación offline en `chc_runtime/tests/test_loading_snapshot.py`: dos SQLite
+  sintéticos de 18.000 trabajos cada uno, seis estados, revisiones y retenidos;
+  lectura anterior y nueva sobre los mismos archivos en los cuatro perfiles.
+  Resúmenes/tablas idénticos, hashes intactos y escrituras nuevas visibles en la
+  siguiente petición. Con dos tablas pasa de tres lecturas a dos; medición local
+  anterior/nueva en segundos: Detalles 0,0278/0,0223; Tránsito 0,0283/0,0215;
+  Talón 0,0265/0,0194; XMovimientos 0,0339/0,0250. No es una medición del arranque
+  con bases de producción ni una garantía de tiempos en otro equipo.
+  Validación: comparación con el Python de Detalles; 1 prueba de conexiones Qt
+  con proveedor real y fuentes temporales; 5 de carga/QML Manifiestos/Detalles;
+  2 de integración offline (cinco procedimientos, BLs y reanudación); 3 de
+  actividad/filas activas; smoke de las seis vistas. Capturas claro/oscuro en
+  `runtime/diagnostics/loading-independent/`, sin avisos QML. La app estaba cerrada:
+  se abrió la versión actualizada antes de documentar, sin iniciar consultas.
+
 - Actividad convertida en consola común para los seis bots y cinco procedimientos
   de Manifiestos. `chc_runtime/activity.py` observa etapas con contextvars, pilas
   por tarea/hilo y un hilo de señal cada segundo (también durante exportaciones
@@ -108,22 +138,11 @@
   App activa conservada antes de documentar, sin consultas reales ni cambios
   de bases del usuario. La mejora se carga al próximo arranque.
 
-- Espera visual de bases en los seis bots: `components/LoadingOverlay.qml`
-  presenta logo, indicador animado, módulos pendientes, fondo atenuado y
-  entrada/salida suave. `Main.qml` agrega los estados `loading`, bloquea controles
-  y atajos mientras se preparan bases y conserva el cierre normal de la ventana.
-  Los puentes Qt exponen ese estado a partir de inicialización y solicitudes de
-  lectura/selección/importación; BatchChannel conserva el comando activo hasta
-  idle. Esperar también al acuse idle después de ready/result. Demostración,
-  errores y cierre no quedan atrapados; run/retry_empty/diario y lecturas de
-  progreso durante las descargas conservan su interfaz habitual. Proveedor BLs
-  de preparación para iniciar una descarga no activa esta espera de lectura.
-  Cambio solo de presentación/estado Qt, sin modificar motores, protocolos,
-  bases ni comportamiento de consultas. Pasaron 5 pruebas locales (estados de
-  los seis bots, entrada modal/atajos y flujos QML Detalles/BLs) más el smoke de
-  seis vistas. Capturas en `runtime/diagnostics/loading/`: oscuro 1280×820 y
-  claro 1000×600, sin avisos QML. La instancia activa se conservó; la espera se
-  carga al próximo arranque.
+- La espera global anterior fue sustituida por carga local de cada sección
+  (véase el primer punto). Se conservan los estados `loading` de los puentes:
+  inicialización/lectura/selección/importación y acuse idle después de ready/result.
+  Demostración, errores, cierre, run/retry_empty/diario y las lecturas de progreso
+  durante descargas no activan la espera. Tampoco la preparación para iniciar BLs.
 
 - Identidad visual CHC actualizada desde las opciones proporcionadas en
   `SYS_CARGA_TRANSITO/Logos_CHC`. Copias propias en `workbench/assets/branding`:

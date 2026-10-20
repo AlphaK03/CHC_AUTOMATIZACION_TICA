@@ -14,19 +14,28 @@ La visión completa está en el [README principal](../README.md) y en el
 ## Abrir
 
 Desde la raíz del repositorio, hacer doble clic en `Abrir_Workbench.bat`.
-Abre directamente Detalles con dos pestañas: Procesamiento y Configuración.
-Base de datos abre una ventana aparte; las acciones secundarias están en Más.
+Abre siempre **Vista general**, sin esperar a que terminen de cargar los bots.
+En cada bot están Procesamiento y Configuración. Base de datos abre una ventana
+aparte; las acciones secundarias están en Más.
 El entorno local está preparado. En un equipo nuevo, ejecutar primero
 `Instalar_Workbench.bat` y los instaladores de los módulos que se utilizarán
 (Python 3.12); la lista completa está en el README principal.
 
-Al cargar las bases, una ventana de espera muestra el logo animado y los bots
-que siguen preparándose. La interfaz permanece bloqueada hasta terminar y se
-habilita automáticamente. También acompaña la selección/importación de tablas.
-Usa el estado real de carga, sin un tiempo de espera fijo. Si un módulo falla,
-deja de mantener la espera para permitir revisar el error y reconectarlo. Las
-descargas conservan sus controles normales, incluido **Detener**. El modo demo
-no activa esta espera.
+Cada bot prepara sus bases en su propio proceso, en segundo plano. Vista general
+muestra **Cargando** mientras se prepara. Si entras a ese bot, verás el logo con
+una animación dentro de la sección; puedes navegar y utilizar los bots listos.
+En Manifiestos también puedes cambiar de procedimiento mientras otro carga.
+Al terminar se habilitan sus datos sin cambiar tu vista ni pestaña actual.
+La selección/importación de tablas utiliza la misma espera local. Si una lectura
+falla, se muestra el error y puedes reconectar; las descargas conservan sus
+controles normales, incluido **Detener**. El modo demo no activa esta espera.
+
+Entrar otra vez a BLs/Manifiestos conserva los datos ya cargados. **Más → Reconectar**
+fuerza una nueva lectura; el catálogo BLs también se actualiza cuando Conocimientos
+termina o importa progreso. Los bots DUA calculan una sola vez el resumen de la
+tabla activa por petición, sin almacenar conteos entre peticiones. Se conservan
+las reglas de análisis, pendientes, resultados y recuperación.
+`--page` permite elegir vistas en capturas/demo; el arranque normal abre Vista general.
 
 El progreso tiene el mismo diseño en los seis bots: cantidad confirmada y total
 en grande, porcentaje y una barra que distingue confirmados (verde), en curso
@@ -140,7 +149,9 @@ una acción explícita. La recuperación queda registrada en Actividad y en el l
 Esta rama añade **Diario automático** en Modo: indicar Desde, pulsar Iniciar
 automático y revisar Calendario. No requiere Excel y conserva Manual. En un
 equipo nuevo ejecutar `Instalar_Base_Diaria.bat`. [Uso y límites](../docs/PILOTO_DETALLES_DIARIO.md).
-`--daily` abre esa vista sin iniciar descargas.
+Elige el bot desde Vista general y selecciona **Diario automático**; abrir la app
+no inicia descargas. `--daily` se conserva para seleccionar ese modo cuando su
+vista está abierta (por ejemplo, una captura con `--page detalles --daily`).
 
 Al reabrir la app basta pulsar **Iniciar automático**: retoma el primer día por
 atender y omite los días completados o ya omitidos del automático. Desde, Hasta

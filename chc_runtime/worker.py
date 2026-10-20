@@ -205,7 +205,13 @@ class DetailsService:
             except (OSError, sqlite3.Error):
                 item['summary'] = self.summary(None)
                 item['unavailable'] = True
-        return {'tables': tables, 'activeTable': record or {}, 'summary': self.summary(record),
+        # Reutilizar únicamente la lectura de ESTA instantánea. La siguiente
+        # petición vuelve a consultar SQLite y ve resultados nuevos de inmediato.
+        active_summary = next((dict(item['summary']) for item in tables
+                               if record and item['id']==record['id'] and not item.get('unavailable')), None)
+        if active_summary is None:
+            active_summary = self.summary(record)
+        return {'tables': tables, 'activeTable': record or {}, 'summary': active_summary,
                 'config': {**self.machine,'output_base_path':str(self.local_root())}, 'session': self.session, 'fields': self.fields, 'daily': self.daily.snapshot(),
                 'storageRoot': str(self.root),
                 'outputFolder': str(self.local_root().joinpath(*output_layout.dua_spec(self.module_id,record)['relativeFolders'])) if record else ''}

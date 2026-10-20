@@ -6,8 +6,11 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
 El panel utiliza el símbolo vectorial de CHC en la navegación y Acerca de,
 con icono propio de Windows y recursos incluidos en el repositorio.
-Durante la carga de bases aparece una espera animada con los bots que siguen
-preparándose. Los controles se habilitan automáticamente al terminar la carga.
+Al iniciar abre siempre **Vista general**, mientras cada bot carga sus bases en
+segundo plano. Solo la sección que sigue preparando datos muestra una animación;
+la navegación y los bots listos siguen disponibles. Terminar una carga conserva
+la vista actual. Se evitan lecturas duplicadas de la tabla DUA activa y recargas
+de BLs/Manifiestos por navegar, manteniendo el análisis y la actualización explícita.
 Los seis bots comparten un resumen visual de progreso: cifras destacadas,
 porcentaje, barra por estados y contadores alineados. BLs y Manifiestos muestran
 las modalidades juntas para comparar su avance; se adapta a ambos temas y al ancho.

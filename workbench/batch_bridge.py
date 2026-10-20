@@ -193,6 +193,7 @@ class BatchBridge(QObject):
         self._knowledge_error=''
         self._knowledge_status=''
         self._refresh_knowledge=False
+        self._knowledge_loaded=False
         if module_id=='bls':
             source_root=Path(knowledge_root or (self._root.parent/'manifiestos' if offline_fixture else ROOT/'bots/manifiestos')).resolve()
             self.channels['bls_source']=BatchChannel('manifiestos','bls_source',source_root,offline_fixture,self)
@@ -310,11 +311,14 @@ class BatchBridge(QObject):
 
     @Slot()
     def connectModule(self):
-        if self.enabled:
-            self.current().send('refresh')
+        if self.enabled and not self._closing:
+            if not self.current().ready and not self.current().busy:
+                self.current().send('refresh')
             if 'bases' in self.channels:
-                self.channels['bases'].send('refresh')
-            if self.isBls:
+                base=self.channels['bases']
+                if not base.ready and not base.busy:base.send('refresh')
+            if self.isBls and not self.channels['bls_source'].busy and (
+                    not self._knowledge_loaded or not self.channels['bls_source'].ready):
                 self.refreshKnowledge()
 
     @Slot(str)
@@ -324,6 +328,14 @@ class BatchBridge(QObject):
             if not self.current().ready and not self.current().busy:
                 self.current().send('refresh')
             self.changed.emit()
+
+    @Slot()
+    def refreshModule(self):
+        """Recarga explícita; navegar a una sección preparada no relee SQLite."""
+        if self.enabled and not self._closing:
+            self.current().send('refresh')
+            if 'bases' in self.channels:self.channels['bases'].send('refresh')
+            if self.isBls:self.refreshKnowledge()
 
     @Slot(str, 'QVariantMap', result=bool)
     def command(self, name, data):
@@ -425,6 +437,8 @@ class BatchBridge(QObject):
             target=self.channels['bls'] if self.isBls else self.current()
             target.activity_model.prepend({**event,'message':'Base BLs · '+event.get('message','')})
         if flow=='bls_source':
+            if event.get('event')=='result' and event.get('command')=='knowledge_catalog':
+                self._knowledge_loaded=True
             if event.get('event')=='error':
                 self._knowledge_error=event.get('message','No se pudo preparar la base.')
                 self._knowledge_status='No se iniciaron consultas de BLs.'

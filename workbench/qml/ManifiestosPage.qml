@@ -146,7 +146,7 @@ ScrollView {
                 MenuItem { text:"Importar progreso SQLite…"; visible:!page.isBls && ["conocimientos","duas","movimientos"].indexOf(moduleBridge.flow)>=0; enabled:!moduleBridge.busy; onTriggered:progressFile.open() }
                 MenuItem { text:"Dividir CSV para Excel"; enabled:!moduleBridge.busy; onTriggered:splitFile.open() }
                 MenuItem { objectName:"batchDeleteDatabase"; text:"Eliminar base de datos…"; enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running && moduleBridge.activeId!==""; onTriggered:page.requestDelete() }
-                MenuItem { text:"Reconectar"; enabled:!moduleBridge.busy; onTriggered:moduleBridge.connectModule() }
+                MenuItem { text:"Reconectar"; enabled:!moduleBridge.busy; onTriggered:moduleBridge.refreshModule() }
             } }
         }
         Rectangle {
@@ -178,6 +178,10 @@ ScrollView {
                 }
             }
         }
+        SectionLoading { Layout.fillWidth: true; loading: moduleBridge.loading; title: page.isBls ? "BLs" : page.titles[page.flows.indexOf(moduleBridge.flow)] || "Manifiestos" }
+        ColumnLayout {
+            objectName: "batchLoadedContent"
+            Layout.fillWidth: true; spacing: 12; visible: !moduleBridge.loading
         RowLayout {
             Layout.fillWidth: true
             Text { visible: !page.isBls; text: page.titles[page.flows.indexOf(moduleBridge.flow)] || ""; color: Theme.text; font.family: Theme.family; font.pixelSize: 20; font.weight: Font.DemiBold; Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight }
@@ -415,6 +419,7 @@ ScrollView {
             ActionButton { visible: !page.optionsVisible; text:"Siguiente"; enabled:!moduleBridge.busy && moduleBridge.jobs.length>=200; onClicked:{page.rowOffset+=200; moduleBridge.command("view",{search:search.text,offset:page.rowOffset,mode:moduleBridge.viewMode})} }
         }
         ReviewStatus { Layout.fillWidth:true; inspector:moduleBridge.manualReview }
+        }
     }
     FileDialog { id:inputFile; title:"Base de BLs"; nameFilters:["Bases BLs (*.xlsx *.sqlite3 *.sqlite *.db)"]; onAccepted:input.text=page.localPath(selectedFile) }
     AppDialog {
