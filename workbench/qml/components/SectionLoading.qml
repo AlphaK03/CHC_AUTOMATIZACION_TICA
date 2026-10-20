@@ -7,6 +7,7 @@ Panel {
     objectName: "sectionLoading"
     property bool loading: false
     property string title: ""
+    property QtObject monitor: null
     visible: loading
     implicitHeight: 270
     ColumnLayout {
@@ -21,5 +22,14 @@ Panel {
         }
         Text { text: "Cargando " + waiting.title; color: Theme.text; font.family: Theme.family; font.pixelSize: 20; font.weight: Font.DemiBold; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap; textFormat: Text.PlainText }
         Text { text: "Preparando las bases y el progreso guardado.\nPuedes seguir usando las demás secciones."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.WordWrap }
+        Text {
+            visible: waiting.monitor !== null
+            text: waiting.monitor ? (waiting.monitor.operations.length
+                ? waiting.monitor.operations[0].label + " · " + waiting.monitor.operations[0].elapsed + " s\n" : "")
+                + waiting.monitor.status : ""
+            color: Theme.muted; font.family: Theme.family; font.pixelSize: 12
+            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap; textFormat: Text.PlainText
+        }
     }
 }

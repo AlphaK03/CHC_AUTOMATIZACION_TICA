@@ -178,7 +178,7 @@ ScrollView {
                 }
             }
         }
-        SectionLoading { Layout.fillWidth: true; loading: moduleBridge.loading; title: page.isBls ? "BLs" : page.titles[page.flows.indexOf(moduleBridge.flow)] || "Manifiestos" }
+        SectionLoading { Layout.fillWidth: true; loading: moduleBridge.loading; monitor: moduleBridge.consoleMonitor; title: page.isBls ? "BLs" : page.titles[page.flows.indexOf(moduleBridge.flow)] || "Manifiestos" }
         ColumnLayout {
             objectName: "batchLoadedContent"
             Layout.fillWidth: true; spacing: 12; visible: !moduleBridge.loading

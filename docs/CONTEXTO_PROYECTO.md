@@ -2,6 +2,26 @@
 
 ## Estado vigente — 20 de octubre de 2026
 
+- Incidente posterior: Conocimientos/DUAs permanecían en «Cargando». Con la app
+  cerrada se copiaron sus cuatro SQLite y sesiones a almacenamiento de diagnóstico,
+  reescribiendo rutas; pruebas sin consultas TICA. No se reprodujo la espera de
+  minutos: refresh SQLite 0,03–0,08 s, primer proceso frío 10,6 s. En QML con
+  seis módulos concurrentes Conocimientos listo en 1,44 s y DUAs aproximadamente
+  1,8 s desde seleccionar; resúmenes, modalidades, trabajos visibles y hashes
+  antes/después idénticos (446.522 y 1.595.374 filas respectivamente).
+  Se corrigió un defecto comprobado de `BatchBridge.loading`: un auxiliar ocupado
+  ocultaba un procedimiento ya listo o su error. El auxiliar conserva sus propios
+  indicadores. Cargas locales refresh/select/knowledge_catalog tienen supervisor
+  Qt de 60 s; termina solo ese lector, descarta mensajes tardíos y permite
+  reconectar. Nunca aplicar a run/export/import/base_build/knowledge_build.
+  SectionLoading muestra etapas/señales y batch_worker registra inicio/fin y
+  duración de lecturas; inspect distingue estados y conteo de resultados.
+  11 pruebas pasaron, más smoke y recorrido QML de seis módulos/cinco procedimientos
+  con las copias, sin avisos. App actualizada abierta en Vista general antes
+  de documentar; carga real de Conocimientos registrada en 0,063 s. No atribuir
+  la demora histórica exclusivamente al defecto visual: no hubo traza del bloqueo.
+  Evidencia y límites en `docs/BLOQUEOS_Y_CARGA.md`.
+
 - Revisada la espera larga de Detalles tras regímenes: log 20/10 00:27:06 base
   completa; 00:31:30 `database is locked` al confirmar preparación diaria.
   El plan de solo lectura mostró conteo correlacionado del historial sin índice.

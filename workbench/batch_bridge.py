@@ -34,6 +34,7 @@ class BatchChannel(QObject):
         self.stderr = ''
         self.pending = None
         self.active_command = ''
+        self._load_expired = False
         self.activity_model = ActivityModel(parent=self)
         self.console = LiveActivity(self)
         self.process = QProcess(self)
@@ -47,6 +48,12 @@ class BatchChannel(QObject):
         self.timer.setSingleShot(True)
         self.timer.setInterval(25000)
         self.timer.timeout.connect(self.force_close)
+        # Solo cargas locales: nunca aplicar este límite a consultas, importación,
+        # generación de bases o exportaciones que pueden estar escribiendo.
+        self.load_timer = QTimer(self)
+        self.load_timer.setSingleShot(True)
+        self.load_timer.setInterval(60000)
+        self.load_timer.timeout.connect(self.load_timeout)
 
     def started(self):
         try:
@@ -67,6 +74,7 @@ class BatchChannel(QObject):
         self.ready = self.closing = False
         self.buffer = b''
         self.error = ''
+        self._load_expired = False
         args = ['-u',str(bot/'workbench_worker.py'),'--flow',self.flow,'--storage-root',str(self.root)]
         if self.fixture:
             args.append('--offline-fixture')
@@ -99,10 +107,17 @@ class BatchChannel(QObject):
         if command not in ('stop','shutdown'):
             self.active_command = command
             self.console.begin()
+            if command in {'refresh','select','knowledge_catalog'}:
+                self.load_timer.start()
+            else:
+                self.load_timer.stop()
         self.changed.emit()
         return True
 
     def read(self):
+        if self._load_expired:
+            self.process.readAllStandardOutput()
+            return
         self.buffer += bytes(self.process.readAllStandardOutput())
         while b'\n' in self.buffer:
             line,self.buffer = self.buffer.split(b'\n',1)
@@ -125,6 +140,7 @@ class BatchChannel(QObject):
                     self.process.write((json.dumps(self.pending,ensure_ascii=False)+'\n').encode())
                     self.pending = None
             elif kind == 'idle':
+                self.load_timer.stop()
                 self.console.finish()
                 self.busy = False
                 self.active_command = ''
@@ -138,6 +154,7 @@ class BatchChannel(QObject):
         self.stderr = (self.stderr+bytes(self.process.readAllStandardError()).decode('utf-8',errors='replace'))[-6000:]
 
     def finished(self, code, status):
+        self.load_timer.stop()
         self.console.finish()
         self.timer.stop()
         self.guard.close()
@@ -148,14 +165,17 @@ class BatchChannel(QObject):
         self.closed.emit()
 
     def failed(self, error):
-        self.error = self.process.errorString()
+        if not self._load_expired:
+            self.error = self.process.errorString()
         if self.process.state() == QProcess.NotRunning:
+            self.load_timer.stop()
             self.console.finish()
             self.busy = False
             self.pending = None
         self.changed.emit()
 
     def shutdown(self):
+        self.load_timer.stop()
         self.closing = True
         self.pending = None
         if self.process.state() != QProcess.NotRunning:
@@ -167,6 +187,18 @@ class BatchChannel(QObject):
     def force_close(self):
         self.guard.close()
         self.process.kill()
+
+    def load_timeout(self):
+        if self.closing or not self.busy or self.active_command not in {'refresh','select','knowledge_catalog'}:
+            return
+        self._load_expired = True
+        self.pending = None
+        self.error = ('La lectura local no terminó en 60 segundos. Se cerró este lector; '
+                      'los datos guardados se conservan. Use Más → Reconectar para intentarlo de nuevo.')
+        self.activity_model.prepend(dict(time=time.strftime('%H:%M:%S'),level='ERROR',message=self.error))
+        self.console.finish()
+        self.force_close()
+        self.changed.emit()
 
 
 class BatchBridge(QObject):
@@ -239,9 +271,9 @@ class BatchBridge(QObject):
         if not channel.error and (not channel.ready or
                 (channel.busy and channel.active_command in {'refresh','select','import_progress'})):
             return True
-        auxiliary = self.channels.get('bls_source' if self.isBls else 'bases')
-        return bool(auxiliary and not auxiliary.error and auxiliary.busy and
-                    auxiliary.active_command in {'refresh','knowledge_catalog','base_load'})
+        # Los auxiliares tienen su propio indicador en el diálogo/selector.
+        # No ocultar una sección lista por la carga de otra base.
+        return False
     @Property(bool, notify=changed)
     def running(self): return any(c.busy for c in self.channels.values())
     @Property(bool, notify=changed)

@@ -660,11 +660,13 @@ class BatchService:
                 tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if 'jobs' not in tables:
                     continue
-                counts = dict(db.execute('SELECT state,count(*) FROM jobs GROUP BY state'))
+                with stage('Leyendo estados de consultas', path.name):
+                    counts = dict(db.execute('SELECT state,count(*) FROM jobs GROUP BY state'))
                 summary['total'] += sum(counts.values())
                 for key, state in [('succeeded','Guardado'),('pending','Pendiente'),('running','Descargando'),('excluded','Excluido'),('invalid','Inválido')]:
                     summary[key] += counts.get(state,0)
-                result_rows = db.execute('SELECT count(*) FROM '+('results' if self.flow=='bls' else 'rows')).fetchone()[0]
+                with stage('Contando resultados guardados', path.name):
+                    result_rows = db.execute('SELECT count(*) FROM '+('results' if self.flow=='bls' else 'rows')).fetchone()[0]
                 summary['rows'] += result_rows
                 if self.flow!='bls':
                     scope = json.loads(db.execute('SELECT scope FROM metadata').fetchone()[0])

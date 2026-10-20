@@ -25,6 +25,12 @@ Cada bot prepara sus bases en su propio proceso, en segundo plano. Vista general
 muestra **Cargando** mientras se prepara. Si entras a ese bot, verás el logo con
 una animación dentro de la sección; puedes navegar y utilizar los bots listos.
 En Manifiestos también puedes cambiar de procedimiento mientras otro carga.
+La carga del generador de bases o del catálogo BLs tiene su propio indicador
+y no oculta un procedimiento que ya está listo. La animación de BLs/Manifiestos
+muestra la etapa y la última señal recibida. Si actualizar, seleccionar una
+tabla o leer el catálogo supera 60 segundos, se cierra únicamente ese lector
+y aparece el error: **Más → Reconectar** permite volver a cargarlo. No es un
+límite para consultas TICA, importaciones, generación de bases o exportaciones.
 Al terminar se habilitan sus datos sin cambiar tu vista ni pestaña actual.
 La selección/importación de tablas utiliza la misma espera local. Si una lectura
 falla, se muestra el error y puedes reconectar; las descargas conservan sus

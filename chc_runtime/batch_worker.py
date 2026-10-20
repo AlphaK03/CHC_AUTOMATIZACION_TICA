@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import sys
 import threading
+import time
 import traceback
 from .activity import ActivityReporter, EventLog, COMMANDS
 
@@ -55,7 +56,11 @@ def main(module='manifiestos'):
     active = None
     def execute(request):
         command = request['command']
+        started = time.monotonic()
+        reading = command in ('refresh','select','knowledge_catalog')
         try:
+            if reading:
+                logging.info('Inicio de carga local: %s / %s.', flow, command)
             with reporter.session(COMMANDS.get(command, 'Procesando solicitud')):
                 result = service.execute(command, request)
             emit('result', command=command, requestId=request.get('requestId'), **(result or {}))
@@ -65,6 +70,8 @@ def main(module='manifiestos'):
             logging.exception('Falló el comando %s de %s.', command, flow)
             emit('error', command=command, requestId=request.get('requestId'), message=str(exc))
         finally:
+            if reading:
+                logging.info('Fin de carga local: %s / %s en %.3f s.', flow, command, time.monotonic()-started)
             emit('idle', command=command, snapshot=service.snapshot())
     emit('ready', snapshot=service.snapshot())
     try:

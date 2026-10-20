@@ -11,6 +11,10 @@ segundo plano. Solo la sección que sigue preparando datos muestra una animació
 la navegación y los bots listos siguen disponibles. Terminar una carga conserva
 la vista actual. Se evitan lecturas duplicadas de la tabla DUA activa y recargas
 de BLs/Manifiestos por navegar, manteniendo el análisis y la actualización explícita.
+Los auxiliares de bases y catálogo BLs no ocultan procedimientos ya listos.
+La carga de BLs/Manifiestos muestra su etapa; una lectura local sin terminar
+en 60 segundos cierra únicamente ese lector y permite reconectar. Este límite
+no se aplica a descargas, generación de bases, importaciones ni exportaciones.
 La preparación diaria agrupa el historial de intentos en una sola lectura.
 La bitácora limita sus lecturas largas para liberar SQLite y evitar que la vista
 de progreso retenga a los escritores; una lectura incompleta queda sin verificar.

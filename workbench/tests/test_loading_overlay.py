@@ -57,6 +57,11 @@ class LoadingOverlayTests(unittest.TestCase):
                 channel.error='';channel.ready=True;channel.active_command='run'
                 auxiliary=bridge.channels['bls_source' if module=='bls' else 'bases']
                 auxiliary.busy=True;auxiliary.active_command='knowledge_catalog' if module=='bls' else 'refresh'
+                channel.busy=False;channel.active_command=''
+                self.assertFalse(bridge.loading,'Un auxiliar no puede ocultar la sección lista')
+                channel.error='Error de lectura'
+                self.assertFalse(bridge.loading,'El auxiliar no puede ocultar el error del procedimiento')
+                channel.error='';channel.busy=True;channel.active_command='run'
                 self.assertFalse(bridge.loading)
                 channel.active_command='retry_empty'
                 self.assertFalse(bridge.loading)

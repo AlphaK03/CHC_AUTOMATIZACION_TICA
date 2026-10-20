@@ -81,3 +81,62 @@ una mejora porcentual de carga a ese caso.
 
 La instancia abierta se conservó antes de documentar. Las correcciones requieren
 el siguiente arranque voluntario; no se reemplazaron procesos ni datos activos.
+
+## Revisión posterior: Manifiestos permanece cargando (20/10)
+
+El usuario cerró la app tras informar que Conocimientos y DUAs tardaban minutos.
+Se verificó que no hubiera app ni workers abiertos. Se copiaron las cuatro bases
+activas (aproximadamente 443 MB en total) y las sesiones a
+`runtime/diagnostics/batch-loading/copy`, con rutas y salida aisladas.
+No se iniciaron consultas TICA, reexportaciones ni cargas a SharePoint.
+
+La espera de minutos **no se reprodujo**. El primer arranque frío del proceso
+de Conocimientos tardó 10,6 s; su refresh, unos 0,03 s. DUAs abrió en 1,0 s,
+con lectura de unos 0,08 s. En el recorrido QML completo, con seis módulos
+iniciando a la vez, Conocimientos estuvo listo en 1,44 s; DUAs, aproximadamente
+1,8 s después de seleccionar su procedimiento. Estos tiempos corresponden
+a este equipo y estas copias; no garantizan un plazo para otros volúmenes.
+
+Se confirmó un defecto distinto de SQLite: `BatchBridge.loading` también
+dependía del generador de bases/catálogo auxiliar. Podía ocultar la sección lista
+o su error mientras el auxiliar siguiera ocupado. Ahora depende solo del
+procedimiento seleccionado; el diálogo/selector auxiliar conserva sus indicadores.
+No se dispone de una traza del incidente original para afirmar que este defecto
+explique por sí solo toda la espera reportada.
+
+Como protección, Qt supervisa durante 60 s exclusivamente `refresh`, `select`
+y `knowledge_catalog`, incluida su inicialización. Si vencen, cierra ese proceso,
+conserva los datos confirmados, descarta respuestas tardías y muestra el error
+con **Más → Reconectar**. `select` solo guarda la selección del catálogo mediante
+reemplazo atómico después de leer; no confirma resultados. No se aplica ese plazo
+a descargas, exportaciones, importación o generación de bases. Los procedimientos
+hermanos siguen funcionando. No cambia el timeout HTTP ilimitado de DUAs.
+
+El indicador muestra etapa, segundos y señal del proceso. El log persistente
+registra comienzo/fin/duración de cada lectura local; los estados y conteos
+SQLite tienen etapas separadas. Los parsers, SQL de conteo, resultados y formatos
+no cambiaron. Se compararon antes/después:
+
+- Conocimientos: 2.292 manifiestos guardados, 446.522 filas.
+- DUAs: 2.282 guardados de 2.292, 10 excluidos y 1.595.374 filas.
+- Resúmenes por modalidad, 200 trabajos visibles y hashes SQLite idénticos.
+  También se verificaron los hashes de los originales.
+
+Pasaron 11 pruebas:
+
+```powershell
+workbench/.venv/Scripts/python.exe -m unittest discover -s workbench/tests -p test_batch_loading_timeout.py -v
+workbench/.venv/Scripts/python.exe -m unittest discover -s workbench/tests -p test_loading_*.py -v
+workbench/.venv/Scripts/python.exe -m unittest discover -s workbench/tests -p test_manifest_modes*.py -v
+workbench/.venv/Scripts/python.exe workbench/app.py --smoke-test
+```
+
+Además, el recorrido QML con las copias abrió los seis módulos y los cinco
+procedimientos, conservó la navegación y terminó sin avisos QML. El diagnóstico
+local `runtime/diagnostics/batch-loading/` conserva scripts, capturas, snapshots
+y hashes; no se versionan datos del usuario. La prueba de lector sin respuesta
+verifica cierre, mensaje, conservación de datos y reconexión a un worker real;
+la de comandos protegidos comprueba que nunca se detienen escritores/descargas.
+
+Se abrió la app actualizada en Vista general antes de documentar, sin iniciar
+descargas. Su log confirmó la carga local de Conocimientos en 0,063 s.
