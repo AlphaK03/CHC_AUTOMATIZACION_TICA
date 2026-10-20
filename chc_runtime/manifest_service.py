@@ -33,9 +33,23 @@ def manifest_job_key(database, identifier):
 
 def write_json(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix('.new')
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
-    os.replace(temporary, path)
+    # En Windows un lector breve puede impedir os.replace. Reintentar solo esa
+    # operación, con límite y sin truncar nunca el historial vigente.
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w',encoding='utf-8',dir=path.parent,
+                                         prefix=path.stem+'-',suffix='.new',delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(value,stream,ensure_ascii=False,indent=2)
+        for attempt in range(5):
+            try:
+                os.replace(temporary,path)
+                break
+            except PermissionError:
+                if attempt==4:raise
+                time.sleep(.05*(attempt+1))
+    finally:
+        if temporary is not None:temporary.unlink(missing_ok=True)
 
 
 def name_checked(value):

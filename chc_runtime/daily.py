@@ -41,24 +41,32 @@ class DailyJobStore(JobStore):
     def __init__(self, path, duas, automatic=False):
         self.automatic = automatic
         super().__init__(path)
-        with self.transaction() as db:
-            db.execute('CREATE TEMP TABLE daily_scope (dua TEXT PRIMARY KEY)')
-            db.executemany('INSERT OR IGNORE INTO daily_scope VALUES (?)', ((dua,) for dua in duas))
-            db.execute('''CREATE TABLE IF NOT EXISTS daily_automatic_attempts (
-                job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
-                used INTEGER NOT NULL DEFAULT 0 CHECK(used>=0))''')
-            if automatic:
-                # Fallos históricos también agotaron oportunidades; no repetirlos
-                # indefinidamente al estrenar la actualización. Interrupciones no cuentan.
-                db.execute('''INSERT OR IGNORE INTO daily_automatic_attempts
-                    SELECT j.id,MIN(3,(SELECT count(*) FROM attempts a WHERE a.job_id=j.id AND a.outcome='retry'))
-                    FROM jobs j WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=j.dua)''')
+        try:
+            with stage('Preparando pendientes e intentos del día'):
+                with self.transaction() as db:
+                    db.execute('CREATE TEMP TABLE daily_scope (dua TEXT PRIMARY KEY)')
+                    db.executemany('INSERT OR IGNORE INTO daily_scope VALUES (?)', ((dua,) for dua in duas))
+                    db.execute('''CREATE TABLE IF NOT EXISTS daily_automatic_attempts (
+                        job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+                        used INTEGER NOT NULL DEFAULT 0 CHECK(used>=0))''')
+                    if automatic:
+                        # Una sola lectura del historial, no una por cada DUA.
+                        # Los presupuestos existentes (también los rearmados) prevalecen.
+                        db.execute('''INSERT OR IGNORE INTO daily_automatic_attempts
+                            SELECT j.id,MIN(3,COALESCE(a.used,0)) FROM jobs j
+                            LEFT JOIN (SELECT job_id,count(*) used FROM attempts
+                                       WHERE outcome='retry' GROUP BY job_id) a ON a.job_id=j.id
+                            WHERE j.dua IN (SELECT dua FROM daily_scope)
+                            AND NOT EXISTS (SELECT 1 FROM daily_automatic_attempts b WHERE b.job_id=j.id)''')
+        except BaseException:
+            self.close()
+            raise
 
     def claim(self, round_number):
         with self.transaction() as db:
             row = db.execute('''SELECT id,dua FROM jobs INDEXED BY jobs_ready
                 WHERE status IN ('pending','retry') AND run_attempts < ?
-                AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)
+                AND dua IN (SELECT dua FROM daily_scope)
                 AND (?=0 OR COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=jobs.id),0)<3)
                 ORDER BY run_attempts, rowid LIMIT 1''', (round_number,self.automatic)).fetchone()
             if row is None:
@@ -71,14 +79,14 @@ class DailyJobStore(JobStore):
 
     def summary(self):
         with self.lock:
-            counts = dict(self.db.execute('''SELECT status,COUNT(*) FROM jobs
-                WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua) GROUP BY status''').fetchall())
-            attempts = self.db.execute('''SELECT COALESCE(SUM(attempts),0) FROM jobs
-                WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)''').fetchone()[0]
+            grouped = self.db.execute('''SELECT status,COUNT(*),SUM(attempts) FROM jobs
+                WHERE dua IN (SELECT dua FROM daily_scope) GROUP BY status''').fetchall()
+            counts = {row[0]:row[1] for row in grouped}
+            attempts = sum(row[2] for row in grouped)
             total = self.db.execute('SELECT COUNT(*) FROM daily_scope').fetchone()[0]
-            active = [r[0] for r in self.db.execute("SELECT dua FROM jobs WHERE status='running' AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua) ORDER BY rowid LIMIT 20")]
+            active = [r[0] for r in self.db.execute("SELECT dua FROM jobs WHERE status='running' AND dua IN (SELECT dua FROM daily_scope) ORDER BY rowid LIMIT 20")]
             ready = self.db.execute('''SELECT count(*) FROM jobs WHERE status IN ('pending','retry')
-                AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)
+                AND dua IN (SELECT dua FROM daily_scope)
                 AND COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=jobs.id),0)<3''').fetchone()[0] if self.automatic else None
         return {**{state: counts.get(state, 0) for state in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'empty')},
                 'total': sum(counts.values()), 'attempts': attempts, 'source_rows': total,
@@ -283,6 +291,7 @@ class DailyCoordinator:
             raise DownloadPending(result.get('message') or 'Quedan regímenes pendientes de descarga.')
         return result['duas']
 
+    @observed('Incorporando la base del día al mes', lambda self,day,duas:day.isoformat())
     def append_day(self, day, duas):
         catalog = self.service.catalog
         period = day.strftime('%Y-%m')
@@ -319,6 +328,7 @@ class DailyCoordinator:
         self.service.protocol.emit('daily', daily=self.snapshot(), snapshot=self.service.snapshot())
         return catalog.get(table_id)
 
+    @observed('Verificando resultados del día')
     def confirmed(self, record, duas):
         success = set()
         verified = "status='succeeded'"

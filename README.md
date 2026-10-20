@@ -11,6 +11,10 @@ segundo plano. Solo la sección que sigue preparando datos muestra una animació
 la navegación y los bots listos siguen disponibles. Terminar una carga conserva
 la vista actual. Se evitan lecturas duplicadas de la tabla DUA activa y recargas
 de BLs/Manifiestos por navegar, manteniendo el análisis y la actualización explícita.
+La preparación diaria agrupa el historial de intentos en una sola lectura.
+La bitácora limita sus lecturas largas para liberar SQLite y evitar que la vista
+de progreso retenga a los escritores; una lectura incompleta queda sin verificar.
+[Diagnóstico y comprobaciones de bloqueos](docs/BLOQUEOS_Y_CARGA.md).
 Los seis bots comparten un resumen visual de progreso: cifras destacadas,
 porcentaje, barra por estados y contadores alineados. BLs y Manifiestos muestran
 las modalidades juntas para comparar su avance; se adapta a ambos temas y al ancho.

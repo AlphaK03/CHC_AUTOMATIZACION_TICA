@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import time
 from chc_runtime.manifest_coverage import cumulative_days, day_ranges
 
 if __package__:
@@ -26,9 +27,13 @@ LABELS = {'completed':'Completado','up_to_date':'Al día','ready':'Lote listo','
 
 
 @contextmanager
-def readonly(path):
+def readonly(path, max_seconds=2.0):
     db=sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True,timeout=0.5)
     try:
+        # timeout de SQLite solo limita esperar un bloqueo, no ejecutar SELECT.
+        # Una lectura lenta no puede retener al escritor durante minutos.
+        deadline=time.monotonic()+max_seconds
+        db.set_progress_handler(lambda: time.monotonic()>=deadline,1000)
         db.execute('PRAGMA query_only=ON')
         db.execute('BEGIN')
         yield db
@@ -167,8 +172,8 @@ class MonthlyReader:
                         if module!='detalles' or manual_days:
                             marks=','.join('?' for _ in manual_days) or 'NULL'
                             omitted=db.execute(f'''SELECT count(*) FROM jobs j WHERE j.status IN ('pending','retry','invalid')
-                                AND EXISTS (SELECT 1 FROM calendar.daily_duas d JOIN calendar.days c ON c.day=d.day
-                                WHERE d.dua=j.dua AND c.table_id=? AND c.day LIKE ? AND c.day<=?
+                                AND j.dua IN (SELECT d.dua FROM calendar.daily_duas d JOIN calendar.days c ON c.day=d.day
+                                WHERE c.table_id=? AND c.day LIKE ? AND c.day<=?
                                 AND ((? AND c.state='omitted') OR c.day IN ({marks})))''',
                                 (table_id,key+'-%',self.cutoff.isoformat(),module!='detalles',*sorted(manual_days))).fetchone()[0]
                 full=bool(self.coverage_status(key,days))

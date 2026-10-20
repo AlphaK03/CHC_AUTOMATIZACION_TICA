@@ -35,6 +35,14 @@ fuerza una nueva lectura; el catálogo BLs también se actualiza cuando Conocimi
 termina o importa progreso. Los bots DUA calculan una sola vez el resumen de la
 tabla activa por petición, sin almacenar conteos entre peticiones. Se conservan
 las reglas de análisis, pendientes, resultados y recuperación.
+La preparación del automático también evita recorrer todo el historial por cada
+DUA: conserva intentos previos y solo prepara los del día seleccionado. Actividad
+distingue «Incorporando la base del día al mes», «Preparando pendientes e intentos
+del día» y «Verificando resultados del día».
+La bitácora cierra lecturas SQLite excesivamente largas para dejar continuar a
+los bots. La fuente queda **Sin verificar** y puede volver a actualizarse; esto
+no borra resultados ni autoriza una subida incompleta. Véase el
+[diagnóstico de bloqueos y pruebas](../docs/BLOQUEOS_Y_CARGA.md).
 `--page` permite elegir vistas en capturas/demo; el arranque normal abre Vista general.
 
 El progreso tiene el mismo diseño en los seis bots: cantidad confirmada y total

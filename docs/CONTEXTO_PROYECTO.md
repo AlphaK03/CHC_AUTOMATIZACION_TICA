@@ -1,6 +1,25 @@
 # Contexto de CHC Workbench para una nueva sesión
 
-## Estado vigente — 19 de octubre de 2026
+## Estado vigente — 20 de octubre de 2026
+
+- Revisada la espera larga de Detalles tras regímenes: log 20/10 00:27:06 base
+  completa; 00:31:30 `database is locked` al confirmar preparación diaria.
+  El plan de solo lectura mostró conteo correlacionado del historial sin índice.
+  `DailyJobStore` ahora agrupa los intentos una sola vez, conserva presupuestos
+  existentes y consulta la selección diaria para resúmenes/reservas. Cierra su
+  conexión al fallar la preparación. Sin migración ni cambios de journal/formato.
+  Consola distingue incorporación, preparación de pendientes y verificación.
+  Bitácora compartida Qt/SharePoint: lectura limitada a 2 s por conexión mediante
+  progress handler; una consulta interrumpida queda sin verificar, nunca completa.
+  Conteo de omitidos sin subconsulta correlacionada. Reproducción aislada de lector
+  que impide COMMIT; el log no identifica al lector exacto del incidente histórico.
+  Se observaron también bloqueos en Talón/BLs y reemplazos JSON con WinError 5:
+  historial Batch con temporal único y hasta cinco intentos breves de reemplazo.
+  63 pruebas offline pasaron; preparación sintética anterior/nueva 5,461/0,038 s,
+  con presupuestos, resumen y exportaciones idénticos. Bitácora antes/después
+  idéntica sobre 10.000 DUAs/20 días; hashes SQLite intactos. Evidencia, comandos y
+  límites en `docs/BLOQUEOS_Y_CARGA.md`. App activa conservada antes de documentar;
+  cambios al próximo arranque voluntario, sin consultas reales de prueba.
 
 - Arranque y carga independientes por petición del usuario: el inicio normal
   abre siempre Vista general, incluso si un acceso antiguo pasa `--page`.
