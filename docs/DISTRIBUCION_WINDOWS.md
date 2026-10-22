@@ -23,6 +23,19 @@ y revisión de rutas persistidas; copiar solo el ejecutable no migra los datos.
 `CHC_WORKBENCH_HOME` permite un almacenamiento independiente para comprobaciones.
 En desarrollo, sin esa variable, se conservan las rutas actuales del repositorio.
 
+Migración local autorizada y completada el 22/10: se copiaron datos de los seis
+bots, configuración, resultados, caché de bases diarias y estado Workbench/SharePoint
+del mismo usuario hacia la carpeta de datos instalada de C. Los originales de D
+se conservaron; se ajustaron rutas internas de los lotes y registros de publicación.
+La carpeta anterior de C quedó como `Workbench.antes-migracion-20261022-003401`.
+No es una importación automática del instalador ni modifica el EXE entregado.
+35.542 archivos/13.487.958.875 bytes incluyen también los históricos de diagnósticos
+y resultados; esa cifra no corresponde únicamente a SQLite. Hashes e integridad
+verificados, seis bots y cinco procedimientos de Manifiestos cargados con los datos
+reales copiados, bitácora idéntica a D. Informe local en
+`runtime/diagnostics/migration/20261022-003401/migration.json`; comparación en
+`monthly-equal.json`. App instalada abierta sin iniciar consultas ni subidas.
+
 SharePoint conserva el registro público CHC y los permisos ya establecidos;
 cada usuario inicia sesión y elige su destino. Caché DPAPI y cola permanecen en
 su almacenamiento propio. No se incluyen sesiones del equipo de compilación.

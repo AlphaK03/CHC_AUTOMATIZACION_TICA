@@ -2,6 +2,27 @@
 
 ## Estado vigente — 22 de octubre de 2026
 
+- Migración de datos a la instalación C autorizada después por el usuario para
+  probar la carga. Instalada en `%LOCALAPPDATA%/Programs/CHC Workbench/20261022-002420-76a546`;
+  datos en `%LOCALAPPDATA%/CHC Consultores/Workbench`. Se cerró normalmente la
+  instancia D sin consultas activas. Copiados 35.542 archivos, 13.487.958.875 bytes,
+  incluidos diagnósticos, resultados, calendarios, configuraciones y SharePoint
+  del mismo usuario. Hashes originales intactos; SQLite de bots idénticos byte a
+  byte antes de abrir, 54 quick_check correctos. Ajustadas 46 entradas de metadatos
+  JSON/rutas de registros de publicación, conservando firmas y resultados.
+  Respaldo de los datos previos de C: carpeta hermana
+  `Workbench.antes-migracion-20261022-003401`. D permanece completo e independiente.
+  Prueba con intérprete instalado: seis bots listos en 11,4–14,3 s; todos los
+  procedimientos de Manifiestos cargan sin errores. Bitácora D/C idéntica: 60,203 s
+  frente a 1,766 s en esta lectura. Para leer D se amplió a 60 s únicamente el
+  plazo del diagnóstico; la app conserva 2 s. Sin descargas TICA ni subidas de prueba.
+  App instalada abierta al terminar, procesos con almacenamiento C comprobado.
+  Evidencia en `runtime/diagnostics/migration/20261022-003401/` y scripts puntuales
+  en `runtime/migrate_installed_data.py`, `verify_migrated_load.py` y
+  `compare_migrated_progress.py`. Quedó una copia temporal incompleta
+  `Workbench.migracion-20261022-003022`: revisión automática bloqueó su limpieza;
+  no es almacenamiento activo. No confundirla con el respaldo previo de C.
+
 - Distribución Windows x64 en `distribution/windows/`: lanzador e instalador C#,
   Python privado por motor, paquetes comunes deduplicados y un Chromium para
   Playwright/Selenium. Sin datos, sesiones ni rutas del equipo en el paquete.
@@ -14,7 +35,8 @@
   aceptación en otro equipo físico limpio. Instalador y mediciones finales en
   `runtime/releases/`; evidencia en `runtime/diagnostics/distribution/`.
   Recomendación solicitada: código/entornos/SQLite activos en C SSD y respaldos
-  en D HDD; no se autorizó ni realizó la migración del repositorio.
+  en D HDD. El repositorio sigue en D; posteriormente se migraron los datos a
+  la instalación C, según la nota anterior.
 
 - Revisión posterior **sobre el entorno real**, solicitada expresamente: logs
   07:10–07:11 confirman COMMIT bloqueado en Detalles/Talón y claim de XMovimientos.
