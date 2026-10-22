@@ -1,6 +1,20 @@
 # Contexto de CHC Workbench para una nueva sesión
 
-## Estado vigente — 20 de octubre de 2026
+## Estado vigente — 22 de octubre de 2026
+
+- Distribución Windows x64 en `distribution/windows/`: lanzador e instalador C#,
+  Python privado por motor, paquetes comunes deduplicados y un Chromium para
+  Playwright/Selenium. Sin datos, sesiones ni rutas del equipo en el paquete.
+  `chc_runtime/distribution.py` separa código y datos por usuario; desarrollo
+  conserva sus rutas. `selenium_browser.py` adapta solo el navegador del proveedor.
+  Ver `DISTRIBUCION_WINDOWS.md` para comandos, limitaciones y verificaciones.
+  Carpeta QA trasladada con espacios/acento: puentes Qt y BLs verificados offline.
+  App empaquetada abierta con almacenamiento vacío propio antes de documentar;
+  no se interrumpieron consultas ni se migraron bases actuales. Queda pendiente
+  aceptación en otro equipo físico limpio. Instalador y mediciones finales en
+  `runtime/releases/`; evidencia en `runtime/diagnostics/distribution/`.
+  Recomendación solicitada: código/entornos/SQLite activos en C SSD y respaldos
+  en D HDD; no se autorizó ni realizó la migración del repositorio.
 
 - Revisión posterior **sobre el entorno real**, solicitada expresamente: logs
   07:10–07:11 confirman COMMIT bloqueado en Detalles/Talón y claim de XMovimientos.

@@ -444,7 +444,8 @@ class DetailsService:
 
 
 def main(module_id="detalles"):
-    root = Path(__file__).resolve().parents[1] / "bots" / module_id
+    from .distribution import bot_data_root
+    root = bot_data_root(module_id)
     profile = load_profile(module_id)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--storage-root', type=Path, default=root)

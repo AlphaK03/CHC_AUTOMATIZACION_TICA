@@ -9,6 +9,7 @@ from PySide6.QtGui import QDesktopServices
 from process_guard import ProcessTreeGuard
 
 ROOT = Path(__file__).resolve().parents[1]
+from chc_runtime.distribution import data_root
 
 
 class SharePointBridge(QObject):
@@ -18,7 +19,7 @@ class SharePointBridge(QObject):
 
     def __init__(self, storage=None, enabled=True, parent=None):
         super().__init__(parent)
-        self.storage = Path(storage or ROOT/'runtime/workbench/sharepoint')
+        self.storage = Path(storage or data_root()/'runtime/workbench/sharepoint')
         self._enabled = enabled
         self._snapshot = {'connected':False,'account':'','destination':{},'tasks':[],'pending':0,'localRoot':'','months':[]}
         self._browse, self._queue, self._buffer = {}, [], b''

@@ -23,6 +23,7 @@ from chc_runtime.bls_page_fixture import BLSPagePortal
 from chc_runtime.bls_session import WorkbenchBLSProcessor, PagedTicaSession
 from chc_runtime.bls_pages import PageStore
 from chc_runtime.activity import ActivityReporter
+from chc_runtime.distribution import chromium_options
 
 
 def frame():
@@ -35,7 +36,7 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         self.temp=tempfile.TemporaryDirectory()
         self.root=Path(self.temp.name)
         self.pw=await async_playwright().start()
-        self.browser=await self.pw.chromium.launch(headless=True)
+        self.browser=await self.pw.chromium.launch(headless=True, **chromium_options())
         self.portal=BLSPagePortal(fail_offset=6)
         self.events=[]
         self.stop=Event()

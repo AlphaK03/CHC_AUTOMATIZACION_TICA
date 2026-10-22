@@ -1,4 +1,5 @@
 """Catálogo y adaptación de Manifiestos/BLs. Solo se importa dentro del worker."""
+from .distribution import chromium_options
 import asyncio
 from contextlib import closing
 from datetime import date, datetime
@@ -554,7 +555,7 @@ class BatchService:
             config[self.flow+'_'+option] = config['conocimientos_'+option]
         async with async_playwright() as pw:
             with stage('Iniciando navegador de consultas'):
-                browser = await pw.chromium.launch(headless=bool(c['headless']))
+                browser = await pw.chromium.launch(headless=bool(c['headless']), **chromium_options())
             try:
                 for mode in spec['modes']:
                     paths = output_paths(config,self.flow,mode,spec['month'],spec['year'])

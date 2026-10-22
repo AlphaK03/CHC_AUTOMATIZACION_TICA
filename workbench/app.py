@@ -9,6 +9,9 @@ from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from chc_runtime.distribution import data_root, bot_data_root
+
 from demo import DemoBackend
 from details_bridge import DetailsBridge
 from batch_bridge import BatchBridge
@@ -73,11 +76,11 @@ def main():
         event.get('command') in ('run','import_progress') else None)
     bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
                'manifiestos': manifests, 'bls': bls}
-    preferences = Preferences(HERE.parent / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
+    preferences = Preferences(data_root() / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
     storage={'detalles':args.details_storage,'duas_transito':args.transit_storage,
              'talon':args.talon_storage,'xmovimientos':args.movements_storage,
              'manifiestos':args.manifest_storage,'bls':args.bls_storage}
-    monthly=MonthlyProgress({key:root or HERE.parent/'bots'/key for key,root in storage.items()}
+    monthly=MonthlyProgress({key:root or bot_data_root(key) for key,root in storage.items()}
                             if not (args.demo or args.smoke_test) else {})
     backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls, monthly)
     cloud = SharePointBridge(enabled=not (args.demo or args.smoke_test or args.capture))

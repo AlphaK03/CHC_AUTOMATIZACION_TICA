@@ -10,6 +10,7 @@ import re
 import sqlite3
 from chc_runtime.manifest_coverage import cumulative_days, day_ranges
 from chc_runtime.sqlite_read import prepare_reader
+from chc_runtime.distribution import data_root
 
 if __package__:
     from .daily_marks import DailyMarks
@@ -98,7 +99,7 @@ class MonthlyReader:
                 self.calendar_marks[module]=set()
                 self.errors.append(str(marks.path))
             self.used_manual_days[module]=set()
-        project=Path(__file__).resolve().parents[1]
+        project=data_root()
         production=bool(self.roots) and all(root.resolve()==project/'bots'/module for module,root in self.roots.items())
         self.overrides_file=Path(overrides_file) if overrides_file else (project/'runtime/workbench/monthly_overrides.json' if production else next(iter(self.roots.values()),project/'runtime/workbench')/'data/monthly_overrides.json')
         try:self.overrides=json.loads(self.overrides_file.read_text(encoding='utf-8')) if self.overrides_file.exists() else {}

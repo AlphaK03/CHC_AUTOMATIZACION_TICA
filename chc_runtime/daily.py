@@ -14,10 +14,12 @@ from zoneinfo import ZoneInfo
 
 from .job_store import JobStore, RunLock
 from .activity import observed, stage
+from .distribution import data_root, bot_data_root, daily_driver, missing_driver_message
 
 ZONE = ZoneInfo('America/Costa_Rica')
 MONTHS = ('enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
           'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre')
+
 SOURCE = Path(__file__).resolve().parents[1] / 'integrations' / 'duas_source'
 
 
@@ -223,7 +225,7 @@ class DailyCoordinator:
                 'waitingForDay': pending is None and not self.bounded_end,
                 'monthLabel': f'{MONTHS[int(self.month[5:]) - 1].capitalize()} {self.month[:4]}',
                 'days': self.ledger.month(self.month, self.start_date(), self.now()),
-                'driverReady': (SOURCE / 'drivers' / 'msedgedriver.exe').is_file()}
+                'driverReady': daily_driver().is_file()}
 
     def emit(self, phase, message='', wake='', refresh=False):
         self.phase, self.wake = phase, wake
@@ -236,13 +238,13 @@ class DailyCoordinator:
     def download(self, day):
         database = self.service.root / 'data' / 'daily' / 'bases.sqlite3'
         if (self.service.profile['selection'] == 'importacion' and not self.offline
-                and self.service.root.resolve() == self.service.profile['root'].resolve()):
+                and self.service.root.resolve() == bot_data_root(self.service.module_id).resolve()):
             # Ambos consumidores reutilizan descargas verificadas. Sus colas,
             # calendarios y resultados siguen perteneciendo a cada bot.
-            database = SOURCE / 'data' / 'importacion' / 'bases.sqlite3'
-        driver = SOURCE / 'drivers' / 'msedgedriver.exe'
+            database = data_root() / 'integrations/duas_source/data/importacion/bases.sqlite3'
+        driver = daily_driver()
         if not self.offline and not driver.is_file():
-            raise RuntimeError('Ejecuta Instalar_Base_Diaria.bat para preparar el navegador de descarga.')
+            raise RuntimeError(missing_driver_message())
         args = [sys.executable, '-u', str(SOURCE / 'worker.py'), '--day', day.isoformat(),
                 '--database', str(database), '--driver', str(driver), '--selection', self.service.profile['selection']]
         if self.offline:
@@ -435,8 +437,8 @@ class DailyCoordinator:
             raise ValueError('El rango debe terminar entre Desde y ayer.')
         if not self.service.local_root():
             raise ValueError('Elige la carpeta de resultados antes de iniciar.')
-        if not self.offline and not (SOURCE / 'drivers' / 'msedgedriver.exe').is_file():
-            raise ValueError('Ejecuta Instalar_Base_Diaria.bat antes de iniciar el modo diario.')
+        if not self.offline and not daily_driver().is_file():
+            raise ValueError(missing_driver_message())
         with RunLock(self.ledger.path):
             if manual:self.reset_manual_range(start,end)
             # Preserve the initial date across restarts; "yesterday" is only

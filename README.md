@@ -3,6 +3,11 @@
 Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón,
 XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada.
 
+Disponible distribución para **Windows 10/11 x64** con instalador, Python y
+navegador incluidos. No lleva bases ni credenciales del desarrollo; guarda los
+datos por usuario separados del programa. [Instalación, construcción y límites
+de verificación](docs/DISTRIBUCION_WINDOWS.md).
+
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
 El panel utiliza el símbolo vectorial de CHC en la navegación y Acerca de,
 con icono propio de Windows y recursos incluidos en el repositorio.

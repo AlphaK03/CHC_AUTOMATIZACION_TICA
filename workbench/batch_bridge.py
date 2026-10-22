@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 from chc_runtime.manifest_names import manifest_scope, manifest_name
+from chc_runtime.distribution import bot_data_root
 EMPTY = {'config':{}, 'history':[], 'activeId':'', 'jobs':[], 'outputFolder':'', 'lastBase':'', 'baseInfo':{},
          'summary':{k:0 for k in ('total','succeeded','pending','running','excluded','rows','invalid')}}
 
@@ -211,14 +212,14 @@ class BatchBridge(QObject):
 
     def __init__(self, module_id='manifiestos', enabled=True, storage_root=None, offline_fixture=False, knowledge_root=None):
         super().__init__()
-        self._review = ManualReview(module_id, storage_root or ROOT/'bots'/module_id, offline_fixture, self)
+        self._review = ManualReview(module_id, storage_root or bot_data_root(module_id), offline_fixture, self)
         self._review.toast.connect(self.toast.emit)
         self._review.closed.connect(self.check_closed)
         self._module = module_id
         self._enabled = enabled
         self._closing = False
         self._flow = 'bls' if module_id=='bls' else 'conocimientos'
-        self._root = Path(storage_root or ROOT/'bots'/module_id).resolve()
+        self._root = Path(storage_root or bot_data_root(module_id)).resolve()
         flows = ['bls'] if module_id=='bls' else ['tabla','conocimientos','duas','movimientos','contenedores','bases']
         self.channels = {flow:BatchChannel(module_id,flow,self._root,offline_fixture,self) for flow in flows}
         self._knowledge_request=None
@@ -227,7 +228,7 @@ class BatchBridge(QObject):
         self._refresh_knowledge=False
         self._knowledge_loaded=False
         if module_id=='bls':
-            source_root=Path(knowledge_root or (self._root.parent/'manifiestos' if offline_fixture else ROOT/'bots/manifiestos')).resolve()
+            source_root=Path(knowledge_root or (self._root.parent/'manifiestos' if offline_fixture else bot_data_root('manifiestos'))).resolve()
             self.channels['bls_source']=BatchChannel('manifiestos','bls_source',source_root,offline_fixture,self)
         for flow,channel in self.channels.items():
             channel.changed.connect(self.changed.emit)

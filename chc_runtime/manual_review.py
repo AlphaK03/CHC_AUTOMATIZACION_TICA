@@ -1,4 +1,5 @@
 """Un intento visible; deja el navegador abierto y nunca escribe en la cola."""
+from .distribution import chromium_options, bot_data_root
 import argparse
 import asyncio
 from datetime import datetime
@@ -173,7 +174,7 @@ async def review(root, module, request, stop, emit, fixture=False):
         if stop.is_set():return
         pw = await bounded_result(manager.start(),timeout=30)
         if stop.is_set():return
-        browser = await bounded_result(pw.chromium.launch(headless=fixture),timeout=30)
+        browser = await bounded_result(pw.chromium.launch(headless=fixture, **chromium_options()),timeout=30)
         if stop.is_set():return
         async def navigate():
             if module in DUA_MODULES:return await navigate_dua(browser,selection,fixture)
@@ -235,7 +236,7 @@ def main():
         pending_input+=chunk
     first,pending_input=pending_input.split(b'\n',1)
     request=json.loads(first)
-    if args.offline_fixture and args.storage_root.resolve()==(ROOT/'bots'/args.module).resolve():
+    if args.offline_fixture and args.storage_root.resolve()==bot_data_root(args.module).resolve():
         raise ValueError('El portal local exige almacenamiento separado.')
     stop=Event()
     def commands():

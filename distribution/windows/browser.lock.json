@@ -1,0 +1,9 @@
+{
+  "version": "153.0.8010.12",
+  "chromium_revision": "1243",
+  "playwright": "1.63.0",
+  "downloads": {
+    "chromedriver": "https://storage.googleapis.com/chrome-for-testing-public/153.0.8010.12/win64/chromedriver-win64.zip"
+  },
+  "sha256": "d54ba85891c4772b09d64fcba85ee1204727e435fdb8ee48e55a193b15cbab15"
+}

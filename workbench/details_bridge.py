@@ -12,6 +12,7 @@ from activity_model import ActivityModel
 from live_activity import LiveActivity
 from manual_review import ManualReview
 from daily_marks import DailyMarks
+from chc_runtime.distribution import bot_data_root, packaged
 
 ROOT = Path(__file__).resolve().parents[1]
 BOT = ROOT / 'bots' / 'detalles'
@@ -38,7 +39,7 @@ class DetailsBridge(QObject):
         self._module_id = module_id
         self._bot = ROOT / 'bots' / module_id
         self._enabled = enabled
-        self._storage_root = str(storage_root or self._bot)
+        self._storage_root = str(storage_root or bot_data_root(module_id))
         self._day_marks = DailyMarks(self._storage_root)
         self._offline_fixture = offline_fixture
         self._review = ManualReview(module_id, self._storage_root, offline_fixture, self)
@@ -101,7 +102,7 @@ class DetailsBridge(QObject):
     @Property(bool, constant=True)
     def supportsLightweight(self): return self._module_id == 'detalles'
     @Property(bool, constant=True)
-    def supportsClassic(self): return self._module_id == 'detalles'
+    def supportsClassic(self): return self._module_id == 'detalles' and not packaged()
     @Property(bool, notify=changed)
     def ready(self): return self._ready
     @Property(bool, notify=changed)

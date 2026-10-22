@@ -1,4 +1,5 @@
 """Navegación concurrente con cola durable y reintentos por rondas completas."""
+from .distribution import chromium_options
 import asyncio
 import logging
 import os
@@ -92,7 +93,7 @@ class PlaywrightDUAProcessor:
         try:
             with stage('Iniciando navegador de consultas'):
                 playwright = await bounded_result(manager.start(), timeout=timeout)
-                browser = await bounded_result(playwright.chromium.launch(headless=self.machine.get('headless', True)), timeout=timeout)
+                browser = await bounded_result(playwright.chromium.launch(headless=self.machine.get('headless', True), **chromium_options()), timeout=timeout)
             try:
                 for round_number in range(1, int(self.machine.get('max_retries', 3)) + 1):
                     if self.stop_event.is_set():

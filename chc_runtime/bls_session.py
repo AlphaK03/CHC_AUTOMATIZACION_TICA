@@ -14,6 +14,7 @@ from .bls_pages import PageStore, parse_page, next_form, validate_lines
 from .bls_search import select_detail
 from .bls_incremental import install_engine_scope
 from .activity import observed, stage, CURRENT
+from .distribution import chromium_options
 install_engine_scope()
 
 
@@ -25,7 +26,12 @@ def observe_engine():
                        'export':'Exportando CSV de BLs',
                        'export_review':'Exportando revisión de BLs'}.items():
         setattr(engine.JobStore,name,observed(label)(getattr(engine.JobStore,name)))
-    engine.launch_chromium=observed('Iniciando navegador de BLs')(engine.launch_chromium)
+    if not getattr(engine.launch_chromium, '_workbench_distribution', False):
+        original_launch = engine.launch_chromium
+        async def launch(*args, **kwargs):
+            return await original_launch(*args, **{**chromium_options(), **kwargs})
+        launch._workbench_distribution = True
+        engine.launch_chromium = observed('Iniciando navegador de BLs')(launch)
 
 
 class PagedTicaSession(TicaSession):

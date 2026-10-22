@@ -13,6 +13,12 @@ La visión completa está en el [README principal](../README.md) y en el
 
 ## Abrir
 
+Para la distribución Windows x64, ejecutar **Instalar CHC Workbench x64.exe**.
+Incluye los componentes necesarios y crea accesos en escritorio/Inicio. Las bases
+nuevas se guardan en `%LOCALAPPDATA%\CHC Consultores\Workbench`; la instalación no
+copia las bases ni las cuentas del repositorio. Ver [distribución y migración](../docs/DISTRIBUCION_WINDOWS.md).
+Las instrucciones siguientes corresponden al entorno de desarrollo.
+
 Desde la raíz del repositorio, hacer doble clic en `Abrir_Workbench.bat`.
 Abre siempre **Vista general**, sin esperar a que terminen de cargar los bots.
 En cada bot están Procesamiento y Configuración. Base de datos abre una ventana

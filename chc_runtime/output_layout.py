@@ -11,7 +11,9 @@ import sqlite3
 import tempfile
 import unicodedata
 
-ROOT=Path(__file__).resolve().parents[1]
+from .distribution import data_root
+
+ROOT=data_root()
 MONTHS=('ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE')
 BOTS={'detalles':'DETALLES','duas_transito':'DUAS_TRANSITO','talon':'TALON','xmovimientos':'XMOVIMIENTOS','bls':'BLS'}
 FLOWS={'tabla':'LISTADO','conocimientos':'CONOCIMIENTOS','duas':'DUAS','movimientos':'MOVIMIENTOS','contenedores':'CONTENEDORES'}
