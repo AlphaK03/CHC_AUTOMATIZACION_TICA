@@ -9,6 +9,10 @@ datos por usuario separados del programa. [Instalación, construcción y límite
 de verificación](docs/DISTRIBUCION_WINDOWS.md).
 
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
+XMovimientos guarda evidencia resumida de vacíos y errores, limitada a 32 KiB
+por HTML. `Resumir_Evidencias_XMovimientos.bat` revisa y convierte diagnósticos
+anteriores con confirmación `BORRAR`, conservando sus rutas, SQLite y CSV.
+[Formato, conversión y límites](docs/INTEGRACION_IMPORTACION.md#evidencia-resumida-de-xmovimientos).
 El panel utiliza el símbolo vectorial de CHC en la navegación y Acerca de,
 con icono propio de Windows y recursos incluidos en el repositorio.
 Al iniciar abre siempre **Vista general**, mientras cada bot carga sus bases en

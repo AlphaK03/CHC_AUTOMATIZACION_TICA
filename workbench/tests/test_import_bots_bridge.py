@@ -77,6 +77,9 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                     call('detail', {'jobId':'001-2026-999997'})
                     self.assertTrue(bridge.jobDetail['emptyCheckedAt'])
                     self.assertEqual(bridge.jobDetail['last_error'], '')
+                    evidence = Path(bridge.jobDetail['evidence'])
+                    self.assertLess(evidence.stat().st_size, 32768)
+                    self.assertIn('id="chc-movement-evidence"', evidence.read_text(encoding='utf-8'))
                     before = bridge.summary['attempts']
                     call('retry_empty', {'ids':['001-2026-999997']})
                     self.assertEqual(bridge.summary['attempts'], before + 1)

@@ -4,29 +4,15 @@ import json
 from pathlib import Path
 import sqlite3
 
-from bs4 import BeautifulSoup
-
 from .identifiers import normalize_dua
 from .job_store import atomic_output
+from .movement_evidence import observe_html, verified_empty_observation
 
 
 def verified_empty_html(html, dua):
-    soup = BeautifulSoup(html, 'html.parser')
     try:
-        actual = '-'.join(soup.select_one('#span_' + key).get_text(strip=True)
-                          for key in ('CODI_ADUAN', 'ANO_PRESE', 'NUME_CORRE'))
-        if normalize_dua(actual) != normalize_dua(dua):
-            return False
-        table = soup.select_one('#SubstkContainerTbl')
-        rows = table.find_all('tr')
-        if len(rows) != 1 or len(rows[0].find_all('th')) < 5:
-            return False
-        if any(el.get_text(strip=True) for el in soup.select('#ERROR, .gx-error-message')):
-            return False
-        if any(not el.has_attr('disabled') for el in soup.select('[name="SIGUIENTE"]')):
-            return False
-        return True
-    except (AttributeError, ValueError):
+        return verified_empty_observation(observe_html(html, dua), dua)
+    except (AttributeError, ValueError, TypeError):
         return False
 
 

@@ -208,6 +208,17 @@ El visor permite seleccionar cada fila. Instalar con `Instalar_Talon.bat` o
 `Instalar_XMovimientos.bat`, más el proveedor para bases automáticas.
 [Uso, formato, compatibilidad y evidencia](../docs/INTEGRACION_IMPORTACION.md).
 
+**Abrir evidencia** de XMovimientos muestra una ficha HTML pequeña con DUA,
+fecha, tabla, conteos, mensajes y paginación. Conserva la comprobación de vacíos;
+no guarda GXState ni las tablas ajenas a movimientos. Los HTML anteriores siguen
+siendo compatibles. Para reducirlos, abrir `Resumir_Evidencias_XMovimientos.bat`
+en la raíz del repositorio: muestra el destino y una muestra sin cambios; solo
+convierte todos al escribir `BORRAR` exacto. Prefiere los datos de la instalación
+en C si existen; otras copias requieren indicar su raíz al script Python.
+Mantiene las rutas/fechas, no abre SQLite ni cambia resultados. Si hay un lote
+descargando, se detiene sin interrumpirlo. La página completa original se descarta
+al confirmar. [Comandos y límites](../docs/INTEGRACION_IMPORTACION.md#evidencia-resumida-de-xmovimientos).
+
 ## Manifiestos y BLs
 
 En los cinco procedimientos de Manifiestos, la columna **Modalidad** identifica

@@ -66,6 +66,12 @@ class MovementsJobStore(MultiRowJobStore):
 
 
 class ImportRowsProcessor(PlaywrightDUAProcessor):
+    def _evidence_document(self, html, dua, snapshot, url):
+        if self._flow.module_id != 'xmovimientos':
+            return super()._evidence_document(html, dua, snapshot, url)
+        from .movement_evidence import summarize_html, compact_form
+        return summarize_html(html, dua, snapshot, url), compact_form(snapshot)
+
     @observed('Extrayendo y validando todas las filas del DUA', dua_subject)
     async def _extract_record(self, page, row):
         timeout = int(self.machine.get('timeout', 30)) * 1000
@@ -89,7 +95,7 @@ class ImportRowsProcessor(PlaywrightDUAProcessor):
             if self._flow.module_id == 'xmovimientos' and merged is None:
                 from .movement_empty import verified_empty_html, empty_record
                 if verified_empty_html(html, row['NroDUA']):
-                    evidence = await self._save_evidence(page, row['NroDUA'])
+                    evidence = await self._save_evidence(page, row['NroDUA'], source_html=html)
                     return empty_record(row['NroDUA'], html, evidence)
             # El parser original comprueba identidad y ausencia de registros.
             data = self._flow.extract_data(html)

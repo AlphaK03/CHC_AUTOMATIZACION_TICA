@@ -2,6 +2,27 @@
 
 ## Estado vigente — 22 de octubre de 2026
 
+- XMovimientos: 11,84 GB de HTML de diagnóstico frente a 36,9 MB de SQLite mensual
+  en los datos instalados de C. Guardaba páginas completas para Vacío, incluidas
+  tablas de manifiestos ajenas a movimientos. Ahora `movement_evidence.py`
+  conserva fichas HTML verificables de hasta 32 KiB, con identidad/fecha,
+  encabezados/conteos/errores/paginación, tres filas de muestra y firma/tamaño
+  originales. El lector acepta resúmenes y HTML antiguos; formatos corruptos o
+  incompletos nunca confirman Vacío. No cambia parsers copiados, resultados,
+  calendario ni los diagnósticos de los otros bots.
+  `tools/compact_movement_evidence.py` y `Resumir_Evidencias_XMovimientos.bat`
+  convierten históricos tras `BORRAR` exacto; revisión por defecto sin cambios,
+  bloqueos compatibles, reemplazo atómico, rutas/fechas conservadas, diario con
+  hashes y operación repetible. No abre SQLite ni elimina CSV.
+  Históricos aún intactos: conversiones probadas en almacenamiento temporal y
+  ejemplos existentes solo en lectura. Mayor HTML: 14.145.681 → 1.746 bytes con
+  la misma comprobación de vacío. Pasaron 13 pruebas evidencia/vacíos, 21 de
+  puentes/bitácora y smoke de seis vistas. Ver `INTEGRACION_IMPORTACION.md`.
+  Antes de documentar se abrió la app del repositorio usando datos C mediante
+  `CHC_WORKBENCH_HOME`, sin consultas. No había instancia previa.
+  No se modificó la instalación ni se reconstruyó el instalador anterior: ese
+  acceso usará su runtime previo cuando cierre esta instancia.
+
 - Migración de datos a la instalación C autorizada después por el usuario para
   probar la carga. Instalada en `%LOCALAPPDATA%/Programs/CHC Workbench/20261022-002420-76a546`;
   datos en `%LOCALAPPDATA%/CHC Consultores/Workbench`. Se cerró normalmente la

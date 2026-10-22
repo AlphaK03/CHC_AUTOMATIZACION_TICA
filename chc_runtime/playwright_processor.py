@@ -293,16 +293,22 @@ class PlaywrightDUAProcessor:
     def _validate(data, dua_number):
         return validate_result(data, dua_number)
 
-    @observed('Guardando diagnóstico del intento', lambda self,page,dua:dua)
-    async def _save_evidence(self, page, dua):
+    def _evidence_document(self, html, dua, snapshot, url):
+        return html, snapshot
+
+    @observed('Guardando diagnóstico del intento', lambda self,page,dua,**kwargs:dua)
+    async def _save_evidence(self, page, dua, *, source_html=None):
         if page is None or 'diagnostics' not in self.output_paths:
             return ''
         folder = Path(self.output_paths['diagnostics'])
         try:
             folder.mkdir(parents=True, exist_ok=True)
-            html = await bounded_result(page.content(), timeout=3)
-            (folder / f'{dua}.html').write_text(html, encoding='utf-8')
+            html = source_html if source_html is not None else await bounded_result(page.content(), timeout=3)
             snapshot = getattr(page, '_dua_form_snapshot', None)
+            html, snapshot = self._evidence_document(html, dua, snapshot, getattr(page, 'url', ''))
+            from .job_store import atomic_output
+            with atomic_output(folder / f'{dua}.html', newline='') as stream:
+                stream.write(html)
             if snapshot:
                 (folder / f'{dua}.json').write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding='utf-8')
             return str(folder / f'{dua}.html')
