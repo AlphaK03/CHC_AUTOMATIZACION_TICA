@@ -22,6 +22,8 @@ from playwright.async_api import async_playwright
 from chc_runtime.bls_page_fixture import BLSPagePortal
 from chc_runtime.bls_session import WorkbenchBLSProcessor, PagedTicaSession
 from chc_runtime.bls_pages import PageStore
+from chc_runtime.activity import ActivityReporter
+from chc_runtime.distribution import chromium_options
 
 
 def frame():
@@ -34,7 +36,7 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         self.temp=tempfile.TemporaryDirectory()
         self.root=Path(self.temp.name)
         self.pw=await async_playwright().start()
-        self.browser=await self.pw.chromium.launch(headless=True)
+        self.browser=await self.pw.chromium.launch(headless=True, **chromium_options())
         self.portal=BLSPagePortal(fail_offset=6)
         self.events=[]
         self.stop=Event()
@@ -56,7 +58,14 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
             return db.execute('SELECT state,attempts,result_count FROM jobs').fetchone(),db.execute('SELECT count(*) FROM results').fetchone()[0]
 
     async def test_partial_pages_resume_from_anchor_and_keep_original_signature(self):
-        first=await self.run_bot()
+        activity=[]
+        reporter=ActivityReporter(lambda kind,**data:activity.append(dict(event=kind,**data)))
+        with reporter.session('Consultando BLs'):
+            first=await self.run_bot()
+        messages=[event.get('message','') for event in activity]
+        self.assertTrue(any('Buscando y descargando BL' in message for message in messages))
+        self.assertTrue(any('Esperando página HTTP' in message for message in messages))
+        self.assertTrue(any('Exportando CSV de BLs' in message for message in messages))
         self.assertEqual((first['saved'],first['pending'],first['result_rows']),(0,1,0))
         self.assertEqual(self.counts(first['database']),(('Pendiente',1,0),0))
         pages=Path(first['database']).with_name('bls_pages.sqlite3')
@@ -76,6 +85,34 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         await self.run_bot()
         self.assertEqual(self.portal.offsets,[])
         self.assertEqual(self.counts(second['database']),(('Guardado',2,7),7))
+
+    async def test_growing_knowledge_keeps_legacy_pages_and_signature_for_pending_bl(self):
+        from core.inputs import batch_scope
+        from chc_runtime.bls_incremental import family
+        first=await self.run_bot()
+        with closing(sqlite3.connect(first['database'])) as db:
+            metadata=dict(db.execute('SELECT key,value FROM metadata'))
+        data=pd.concat([frame(),frame()],ignore_index=True)
+        data.loc[1,['Secuencia Tica','BL original']]=['2','0000002']
+        self.portal.sequences={'0000002':'2'}
+        self.portal.fail_offset=None;self.portal.offsets.clear()
+        scope=json.loads(metadata['scope'])
+        signature,_=batch_scope(data,self.config)
+        backups=tempfile.TemporaryDirectory();self.addCleanup(backups.cleanup)
+        self.config['workbench_bls_accumulation']=dict(signature=metadata['signature'],scope=scope,
+            input_signature=signature,backups=backups.name,
+            family=family({'inputMode':'knowledge','knowledgePeriods':['2026-09|maritimo']},scope))
+        second=await self.run_bot(data)
+        self.assertEqual(second['database'],first['database'])
+        self.assertEqual(self.portal.offsets,[0,4,6,0,2,4,6])
+        self.assertEqual((second['saved'],second['result_rows']),(2,14))
+        with closing(sqlite3.connect(second['database'])) as db:
+            self.assertEqual(db.execute('SELECT ordinal,attempts FROM jobs ORDER BY ordinal').fetchall(),[(1,2),(2,1)])
+            self.assertEqual(db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0],metadata['signature'])
+        self.portal.offsets.clear()
+        await self.run_bot(data)
+        self.assertEqual(self.portal.offsets,[])
+        self.assertEqual(self.counts(second['database']),(('Guardado',2,7),14))
 
     async def test_changed_anchor_keeps_partial_pages_and_never_confirms(self):
         first=await self.run_bot()
@@ -114,6 +151,31 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         with closing(sqlite3.connect(Path(result['database']).with_name('bls_pages.sqlite3'))) as db:
             self.assertEqual(db.execute('SELECT count(*),sum(count),max(eof) FROM pages').fetchone(),(3,6,1))
 
+    async def test_suffix_manifest_resumes_verified_pages_and_preserves_full_identity(self):
+        mid = '4-1-0002601287L-P001-13/10/26'
+        self.portal.manifest = mid
+        self.portal.search_get = True
+        data = frame()
+        data.loc[0, ['IDManifiesto', 'Fecha Manifiesto', 'Mes']] = [mid, '13/10/2026', '2026-10']
+        first = await self.run_bot(data)
+        self.assertEqual(self.counts(first['database']), (('Pendiente',1,0),0))
+        self.portal.fail_offset = None
+        self.portal.offsets.clear()
+        second = await self.run_bot(data)
+        self.assertEqual(first['database'], second['database'])
+        self.assertEqual(self.portal.offsets, [0,4,6])
+        self.assertEqual(self.counts(second['database']), (('Guardado',2,7),7))
+        with closing(sqlite3.connect(second['database'])) as db:
+            payload = json.loads(db.execute('SELECT payload FROM jobs').fetchone()[0])
+            rows = [json.loads(r[0]) for r in db.execute('SELECT data FROM results')]
+        self.assertEqual(payload['ID3'], '0002601287L')
+        self.assertEqual(payload['IDManifiesto'], mid)
+        self.assertTrue(all(row[-2:] == [mid, data.iloc[0]['BL original']] for row in rows))
+        self.portal.offsets.clear()
+        await self.run_bot(data)
+        self.assertEqual(self.portal.offsets, [])
+        self.assertEqual(self.counts(second['database']), (('Guardado',2,7),7))
+
     async def test_empty_bl_is_confirmed_with_one_verified_page(self):
         self.portal.fail_offset=None
         self.portal.empty=True
@@ -121,6 +183,61 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.counts(result['database']),(('Guardado',1,0),0))
         with closing(sqlite3.connect(Path(result['database']).with_name('bls_pages.sqlite3'))) as db:
             self.assertEqual(db.execute('SELECT page,count,eof FROM pages').fetchall(),[(1,0,1)])
+
+    def empty_retry(self, database):
+        backups = tempfile.TemporaryDirectory()
+        self.addCleanup(backups.cleanup)
+        self.config['workbench_empty_retry'] = {'database':str(database),'backups':backups.name}
+
+    async def test_requery_empty_fetches_new_pages_and_keeps_the_old_empty_checkpoint(self):
+        self.portal.empty = True
+        first = await self.run_bot()
+        self.empty_retry(first['database'])
+        self.portal.empty = False
+        self.portal.fail_offset = None
+        self.portal.offsets.clear()
+        second = await self.run_bot()
+        self.assertEqual(second['database'],first['database'])
+        self.assertEqual(self.portal.offsets,[0,2,4,6])
+        self.assertEqual(self.counts(second['database']),(('Guardado',2,7),7))
+        with closing(sqlite3.connect(Path(second['database']).with_name('bls_pages.sqlite3'))) as db:
+            self.assertEqual(db.execute('SELECT count(*),sum(count) FROM pages').fetchone(),(5,7))
+            self.assertEqual(db.execute("SELECT count,eof FROM pages WHERE instr(job,'@')=0").fetchone(),(0,1))
+        with closing(sqlite3.connect(second['database'])) as db:
+            self.assertEqual(db.execute('SELECT previous_attempts FROM workbench_empty_requery_jobs').fetchall(),[(1,)])
+            self.assertEqual(db.execute('SELECT count(*) FROM attempts').fetchone()[0],2)
+        self.config.pop('workbench_empty_retry')
+        self.portal.offsets.clear()
+        await self.run_bot()
+        self.assertFalse(self.portal.offsets)
+
+    async def test_requery_still_empty_can_be_requested_again_with_fresh_history(self):
+        self.portal.empty = True
+        first = await self.run_bot()
+        self.empty_retry(first['database'])
+        for _ in range(2):
+            self.portal.offsets.clear()
+            await self.run_bot()
+            self.assertEqual(self.portal.offsets,[0])
+        self.assertEqual(self.counts(first['database']),(('Guardado',3,0),0))
+        with closing(sqlite3.connect(first['database'])) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM workbench_empty_requeries').fetchone()[0],2)
+        with closing(sqlite3.connect(Path(first['database']).with_name('bls_pages.sqlite3'))) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM pages').fetchone()[0],3)
+
+    async def test_requery_partial_failure_resumes_its_new_generation_on_normal_start(self):
+        self.portal.empty = True
+        first = await self.run_bot()
+        self.empty_retry(first['database'])
+        self.portal.empty = False
+        second = await self.run_bot()
+        self.assertEqual(self.counts(second['database']),(('Pendiente',2,0),0))
+        self.config.pop('workbench_empty_retry')
+        self.portal.fail_offset = None
+        self.portal.offsets.clear()
+        third = await self.run_bot()
+        self.assertEqual(self.portal.offsets,[0,4,6])
+        self.assertEqual(self.counts(third['database']),(('Guardado',3,7),7))
 
     async def test_get_refresh_before_confirm_does_not_timeout_or_repeat_lookup(self):
         self.portal.fail_offset=None

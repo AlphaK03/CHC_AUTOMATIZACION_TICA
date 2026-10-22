@@ -162,6 +162,21 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual([item[0] for item in self.graph.sent],['TALON_OCTUBRE_2026.CSV'])
         self.assertEqual(self.service.snapshot()['pending'],1)
 
+    def test_cumulative_export_retires_partial_from_upload_without_removing_file(self):
+        self.destination()
+        base=self.root/'RESULTADOS'
+        self.service.execute({'command':'local_root','path':str(base)})
+        target='manifiestos:conocimientos'
+        partial=output_layout.specification(target,'2026-09','maritimo','DEL_01_AL_15')
+        old=output_layout.publish(self.source,base,partial,'month',self.service.exports_registry)
+        self.service.enqueue({'target':target,'path':old['path'],'name':'2026-09','owner':'month','spec':partial})
+        complete=output_layout.specification(target,'2026-09','maritimo')
+        output_layout.publish(self.source,base,complete,'month',self.service.exports_registry,supersede=True)
+        self.assertEqual(Path(old['path']).read_bytes(),self.source.read_bytes())
+        self.service.upload_month('2026-09')
+        self.assertEqual([item[0] for item in self.graph.sent],[complete['filename']])
+        self.assertEqual(self.service.db.execute("SELECT state FROM jobs WHERE filename=?",(partial['filename'],)).fetchone()[0],'paused')
+
 
 class Response:
     def __init__(self,code,data):self.status_code=code;self.data=data;self.content=b'x';self.headers={}

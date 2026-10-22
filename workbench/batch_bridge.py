@@ -2,16 +2,20 @@
 import json
 from pathlib import Path
 import sys
+import time
 
 from PySide6.QtCore import QObject, Property, QProcess, QTimer, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 from process_guard import ProcessTreeGuard
 from manual_review import ManualReview
+from activity_model import ActivityModel
+from live_activity import LiveActivity
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 from chc_runtime.manifest_names import manifest_scope, manifest_name
+from chc_runtime.distribution import bot_data_root
 EMPTY = {'config':{}, 'history':[], 'activeId':'', 'jobs':[], 'outputFolder':'', 'lastBase':'', 'baseInfo':{},
          'summary':{k:0 for k in ('total','succeeded','pending','running','excluded','rows','invalid')}}
 
@@ -30,6 +34,10 @@ class BatchChannel(QObject):
         self.buffer = b''
         self.stderr = ''
         self.pending = None
+        self.active_command = ''
+        self._load_expired = False
+        self.activity_model = ActivityModel(parent=self)
+        self.console = LiveActivity(self)
         self.process = QProcess(self)
         self.guard = ProcessTreeGuard()
         self.process.readyReadStandardOutput.connect(self.read)
@@ -41,6 +49,12 @@ class BatchChannel(QObject):
         self.timer.setSingleShot(True)
         self.timer.setInterval(25000)
         self.timer.timeout.connect(self.force_close)
+        # Solo cargas locales: nunca aplicar este límite a consultas, importación,
+        # generación de bases o exportaciones que pueden estar escribiendo.
+        self.load_timer = QTimer(self)
+        self.load_timer.setSingleShot(True)
+        self.load_timer.setInterval(60000)
+        self.load_timer.timeout.connect(self.load_timeout)
 
     def started(self):
         try:
@@ -61,10 +75,12 @@ class BatchChannel(QObject):
         self.ready = self.closing = False
         self.buffer = b''
         self.error = ''
+        self._load_expired = False
         args = ['-u',str(bot/'workbench_worker.py'),'--flow',self.flow,'--storage-root',str(self.root)]
         if self.fixture:
             args.append('--offline-fixture')
         self.process.setWorkingDirectory(str(bot))
+        self.console.begin('Cargando módulo…')
         self.process.start(str(python),args)
         return True
 
@@ -89,10 +105,20 @@ class BatchChannel(QObject):
                 self.error = ''
         else:
             return False
+        if command not in ('stop','shutdown'):
+            self.active_command = command
+            self.console.begin()
+            if command in {'refresh','select','knowledge_catalog'}:
+                self.load_timer.start()
+            else:
+                self.load_timer.stop()
         self.changed.emit()
         return True
 
     def read(self):
+        if self._load_expired:
+            self.process.readAllStandardOutput()
+            return
         self.buffer += bytes(self.process.readAllStandardOutput())
         while b'\n' in self.buffer:
             line,self.buffer = self.buffer.split(b'\n',1)
@@ -104,15 +130,24 @@ class BatchChannel(QObject):
             if 'snapshot' in event:
                 self.snapshot = event['snapshot']
             kind = event['event']
+            self.console.accept(event)
+            if kind == 'activity_state':
+                continue
+            if kind == 'log':
+                self.activity_model.prepend(event)
             if kind == 'ready':
                 self.ready = True
                 if self.pending:
                     self.process.write((json.dumps(self.pending,ensure_ascii=False)+'\n').encode())
                     self.pending = None
             elif kind == 'idle':
+                self.load_timer.stop()
+                self.console.finish()
                 self.busy = False
+                self.active_command = ''
             elif kind == 'error':
                 self.error = event.get('message','Error del motor')
+                self.activity_model.prepend(dict(time=time.strftime('%H:%M:%S'),level='ERROR',message=self.error))
             self.changed.emit()
             self.eventReceived.emit(event)
 
@@ -120,6 +155,8 @@ class BatchChannel(QObject):
         self.stderr = (self.stderr+bytes(self.process.readAllStandardError()).decode('utf-8',errors='replace'))[-6000:]
 
     def finished(self, code, status):
+        self.load_timer.stop()
+        self.console.finish()
         self.timer.stop()
         self.guard.close()
         self.ready = self.busy = False
@@ -129,13 +166,17 @@ class BatchChannel(QObject):
         self.closed.emit()
 
     def failed(self, error):
-        self.error = self.process.errorString()
+        if not self._load_expired:
+            self.error = self.process.errorString()
         if self.process.state() == QProcess.NotRunning:
+            self.load_timer.stop()
+            self.console.finish()
             self.busy = False
             self.pending = None
         self.changed.emit()
 
     def shutdown(self):
+        self.load_timer.stop()
         self.closing = True
         self.pending = None
         if self.process.state() != QProcess.NotRunning:
@@ -148,6 +189,18 @@ class BatchChannel(QObject):
         self.guard.close()
         self.process.kill()
 
+    def load_timeout(self):
+        if self.closing or not self.busy or self.active_command not in {'refresh','select','knowledge_catalog'}:
+            return
+        self._load_expired = True
+        self.pending = None
+        self.error = ('La lectura local no terminó en 60 segundos. Se cerró este lector; '
+                      'los datos guardados se conservan. Use Más → Reconectar para intentarlo de nuevo.')
+        self.activity_model.prepend(dict(time=time.strftime('%H:%M:%S'),level='ERROR',message=self.error))
+        self.console.finish()
+        self.force_close()
+        self.changed.emit()
+
 
 class BatchBridge(QObject):
     changed = Signal()
@@ -159,22 +212,23 @@ class BatchBridge(QObject):
 
     def __init__(self, module_id='manifiestos', enabled=True, storage_root=None, offline_fixture=False, knowledge_root=None):
         super().__init__()
-        self._review = ManualReview(module_id, storage_root or ROOT/'bots'/module_id, offline_fixture, self)
+        self._review = ManualReview(module_id, storage_root or bot_data_root(module_id), offline_fixture, self)
         self._review.toast.connect(self.toast.emit)
         self._review.closed.connect(self.check_closed)
         self._module = module_id
         self._enabled = enabled
         self._closing = False
         self._flow = 'bls' if module_id=='bls' else 'conocimientos'
-        self._root = Path(storage_root or ROOT/'bots'/module_id).resolve()
+        self._root = Path(storage_root or bot_data_root(module_id)).resolve()
         flows = ['bls'] if module_id=='bls' else ['tabla','conocimientos','duas','movimientos','contenedores','bases']
         self.channels = {flow:BatchChannel(module_id,flow,self._root,offline_fixture,self) for flow in flows}
         self._knowledge_request=None
         self._knowledge_error=''
         self._knowledge_status=''
         self._refresh_knowledge=False
+        self._knowledge_loaded=False
         if module_id=='bls':
-            source_root=Path(knowledge_root or (self._root.parent/'manifiestos' if offline_fixture else ROOT/'bots/manifiestos')).resolve()
+            source_root=Path(knowledge_root or (self._root.parent/'manifiestos' if offline_fixture else bot_data_root('manifiestos'))).resolve()
             self.channels['bls_source']=BatchChannel('manifiestos','bls_source',source_root,offline_fixture,self)
         for flow,channel in self.channels.items():
             channel.changed.connect(self.changed.emit)
@@ -209,6 +263,19 @@ class BatchBridge(QObject):
     @Property(bool, notify=changed)
     def busy(self): return self.current().busy or self._knowledge_request is not None or (self.isBls and self.channels['bls_source'].busy)
     @Property(bool, notify=changed)
+    def loading(self):
+        if not self.enabled or self._closing or self._knowledge_request is not None:
+            return False
+        channel = self.current()
+        if channel.busy and channel.active_command in {'run','retry_empty'}:
+            return False
+        if not channel.error and (not channel.ready or
+                (channel.busy and channel.active_command in {'refresh','select','import_progress'})):
+            return True
+        # Los auxiliares tienen su propio indicador en el diálogo/selector.
+        # No ocultar una sección lista por la carga de otra base.
+        return False
+    @Property(bool, notify=changed)
     def running(self): return any(c.busy for c in self.channels.values())
     @Property(bool, notify=changed)
     def dailyActive(self): return False
@@ -224,6 +291,14 @@ class BatchBridge(QObject):
     def config(self): return self.current().snapshot['config']
     @Property('QVariantMap', notify=changed)
     def summary(self): return self.current().snapshot['summary']
+    @Property('QVariantList', notify=changed)
+    def modeSummaries(self): return self.current().snapshot.get('modeSummaries',[])
+    @Property(str, notify=changed)
+    def viewMode(self): return self.current().snapshot.get('viewMode','')
+    @Property(str, notify=changed)
+    def viewSearch(self): return self.current().snapshot.get('viewSearch','')
+    @Property(int, notify=changed)
+    def viewOffset(self): return self.current().snapshot.get('viewOffset',0)
     @Property('QVariantList', notify=changed)
     def jobs(self): return self.current().snapshot['jobs']
     @Property('QVariantList', notify=changed)
@@ -255,14 +330,28 @@ class BatchBridge(QObject):
     def defaultBaseFolder(self): return str(self._root/'bases_bls')
     @Property(str, notify=changed)
     def activity(self): return self.current().stderr.splitlines()[-1] if self.current().stderr else ''
+    @Property(QObject, notify=changed)
+    def activityModel(self): return self.current().activity_model
+    @Property(QObject, notify=changed)
+    def consoleMonitor(self):
+        auxiliary=self.channels.get('bls_source' if self.isBls else 'bases')
+        if auxiliary and auxiliary.busy and not self.current().busy:
+            return auxiliary.console
+        return self.current().console
+
+    @Slot()
+    def clearActivity(self): self.current().activity_model.clear()
 
     @Slot()
     def connectModule(self):
-        if self.enabled:
-            self.current().send('refresh')
+        if self.enabled and not self._closing:
+            if not self.current().ready and not self.current().busy:
+                self.current().send('refresh')
             if 'bases' in self.channels:
-                self.channels['bases'].send('refresh')
-            if self.isBls:
+                base=self.channels['bases']
+                if not base.ready and not base.busy:base.send('refresh')
+            if self.isBls and not self.channels['bls_source'].busy and (
+                    not self._knowledge_loaded or not self.channels['bls_source'].ready):
                 self.refreshKnowledge()
 
     @Slot(str)
@@ -273,8 +362,22 @@ class BatchBridge(QObject):
                 self.current().send('refresh')
             self.changed.emit()
 
+    @Slot()
+    def refreshModule(self):
+        """Recarga explícita; navegar a una sección preparada no relee SQLite."""
+        if self.enabled and not self._closing:
+            self.current().send('refresh')
+            if 'bases' in self.channels:self.channels['bases'].send('refresh')
+            if self.isBls:self.refreshKnowledge()
+
     @Slot(str, 'QVariantMap', result=bool)
     def command(self, name, data):
+        if self.isBls and name == 'retry_empty':
+            if self.busy or self._closing or self._review.running:
+                return False
+            self._knowledge_error=self._knowledge_status=''
+        if name == 'delete' and (self.busy or self._closing or self._review.running):
+            return False
         if self.isBls and name=='run' and self.enabled:
             config=dict(data.get('config',self.config))
             if 'inputMode' not in config and config.get('input'):
@@ -293,6 +396,13 @@ class BatchBridge(QObject):
                 return accepted
             self._knowledge_error=self._knowledge_status=''
         return self.current().send(name,data) if self.enabled else False
+
+    @Slot(str, str, str, str, result=bool)
+    def deleteDatabase(self, flow, table_id, table_name, confirmation):
+        if flow != self._flow:
+            return False
+        return self.command('delete', {'confirmTableId': table_id,
+            'confirmTableName': table_name, 'confirmation': confirmation})
 
     @Slot()
     def refreshKnowledge(self):
@@ -343,9 +453,12 @@ class BatchBridge(QObject):
     def openResults(self): self.openPath(self.current().snapshot.get('outputFolder',''))
 
     @Slot(str, int)
-    def openInTica(self, job_id, ordinal):
+    @Slot(str, int, str)
+    def openInTica(self, job_id, ordinal, database=''):
         if self.enabled and not self.closing and self.activeId:
-            self._review.open({'flow':self.flow, 'recordId':self.activeId, 'jobId':job_id, 'ordinal':ordinal})
+            request = {'flow':self.flow, 'recordId':self.activeId, 'jobId':job_id, 'ordinal':ordinal}
+            if database:request['database'] = database
+            self._review.open(request)
 
     @Slot(str)
     def useBase(self, path):
@@ -353,7 +466,12 @@ class BatchBridge(QObject):
             self.current().send('configure',{'config':{'input':path,'sheet':'BLS','inputMode':'file'}})
 
     def receive(self, flow, event):
+        if flow in ('bls_source','bases') and event.get('event')=='log':
+            target=self.channels['bls'] if self.isBls else self.current()
+            target.activity_model.prepend({**event,'message':'Base BLs · '+event.get('message','')})
         if flow=='bls_source':
+            if event.get('event')=='result' and event.get('command')=='knowledge_catalog':
+                self._knowledge_loaded=True
             if event.get('event')=='error':
                 self._knowledge_error=event.get('message','No se pudo preparar la base.')
                 self._knowledge_status='No se iniciaron consultas de BLs.'

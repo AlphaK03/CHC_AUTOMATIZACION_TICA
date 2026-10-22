@@ -5,9 +5,12 @@ from pathlib import Path
 import sys
 
 from PySide6.QtCore import QObject, QTimer, QUrl
-from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
+from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from chc_runtime.distribution import data_root, bot_data_root
 
 from demo import DemoBackend
 from details_bridge import DetailsBridge
@@ -24,7 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--smoke-test', action='store_true', help='Comprobar navegación y simulación; salir sin abrir bots.')
     parser.add_argument('--capture', type=Path, help='Guardar una captura del panel y salir.')
-    parser.add_argument('--page', default='detalles', help='Vista inicial: overview o ID de módulo.')
+    parser.add_argument('--page', default='overview', help='Vista para captura/demo: overview o ID de módulo. El inicio normal abre Vista general.')
     parser.add_argument('--collapsed', action='store_true', help='Iniciar con la barra lateral contraída.')
     parser.add_argument('--light', action='store_true', help='Iniciar en tema claro.')
     parser.add_argument('--sample', action='store_true', help='Preparar una simulación pausada en la vista de un módulo.')
@@ -40,9 +43,13 @@ def main():
     if args.smoke_test or args.capture:
         os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
         os.environ.setdefault('QT_QUICK_BACKEND', 'software')
+    if sys.platform == 'win32':
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('CHC.Consultores.Workbench')
     app = QGuiApplication([sys.argv[0]])
     app.setApplicationName('CHC Workbench')
     app.setOrganizationName('CHC Consultores')
+    app.setWindowIcon(QIcon(str(HERE / 'assets/branding/chc.ico')))
     instance = SingleInstance()
     if not (args.smoke_test or args.capture) and not instance.acquire():
         return 0
@@ -69,14 +76,15 @@ def main():
         event.get('command') in ('run','import_progress') else None)
     bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
                'manifiestos': manifests, 'bls': bls}
-    preferences = Preferences(HERE.parent / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
+    preferences = Preferences(data_root() / 'runtime' / 'workbench' / 'preferences.json', persist=not (args.smoke_test or args.capture))
     storage={'detalles':args.details_storage,'duas_transito':args.transit_storage,
              'talon':args.talon_storage,'xmovimientos':args.movements_storage,
              'manifiestos':args.manifest_storage,'bls':args.bls_storage}
-    monthly=MonthlyProgress({key:root or HERE.parent/'bots'/key for key,root in storage.items()}
+    monthly=MonthlyProgress({key:root or bot_data_root(key) for key,root in storage.items()}
                             if not (args.demo or args.smoke_test) else {})
     backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls, monthly)
     cloud = SharePointBridge(enabled=not (args.demo or args.smoke_test or args.capture))
+    monthly.changed.connect(lambda: cloud.refreshMonthlyStatus() if not monthly.busy else None)
     cloud.toast.connect(backend.toast.emit)
     if cloud.storage.joinpath('destinations.json').exists() and cloud.enabled:
         cloud.refresh()
@@ -85,7 +93,8 @@ def main():
     for bridge in bridges.values():
         bridge.toast.connect(backend.toast.emit)
     preferences.error.connect(backend.toast.emit)
-    backend.navigate(args.page)
+    initial_page = args.page if (args.capture or args.smoke_test or args.demo) else 'overview'
+    backend.navigate(initial_page)
     if args.sample and args.page != 'overview' and (args.page not in bridges or not details.enabled):
         backend.loadSample()
         backend.startDemo()
@@ -128,7 +137,9 @@ def main():
         QTimer.singleShot(0, select_daily)
     if details.enabled:
         for bridge in bridges.values():
-            bridge.connectModule()
+            # La ventana se crea primero. Cada QProcess prepara su propia base
+            # sin esperar a los demás ni cambiar la ruta cuando responde.
+            QTimer.singleShot(0, bridge.connectModule)
     if not args.smoke_test and not args.capture:
         available = app.primaryScreen().availableGeometry()
         window.setMinimumWidth(min(window.minimumWidth(), available.width() - 32))

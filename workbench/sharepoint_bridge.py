@@ -2,11 +2,14 @@
 import json
 from pathlib import Path
 import sys
+from urllib.parse import urlsplit
 
-from PySide6.QtCore import QObject, Property, QProcess, QTimer, Signal, Slot
+from PySide6.QtCore import QObject, Property, QProcess, QTimer, Signal, Slot, QUrl
+from PySide6.QtGui import QDesktopServices
 from process_guard import ProcessTreeGuard
 
 ROOT = Path(__file__).resolve().parents[1]
+from chc_runtime.distribution import data_root
 
 
 class SharePointBridge(QObject):
@@ -16,7 +19,7 @@ class SharePointBridge(QObject):
 
     def __init__(self, storage=None, enabled=True, parent=None):
         super().__init__(parent)
-        self.storage = Path(storage or ROOT/'runtime/workbench/sharepoint')
+        self.storage = Path(storage or data_root()/'runtime/workbench/sharepoint')
         self._enabled = enabled
         self._snapshot = {'connected':False,'account':'','destination':{},'tasks':[],'pending':0,'localRoot':'','months':[]}
         self._browse, self._queue, self._buffer = {}, [], b''
@@ -44,6 +47,12 @@ class SharePointBridge(QObject):
     def connected(self): return self._snapshot['connected']
     @Property(str, notify=changed)
     def account(self): return self._snapshot['account']
+    @Property('QVariantMap', notify=changed)
+    def profile(self): return self._snapshot.get('profile',{})
+    @Property(str, notify=changed)
+    def profileWarning(self): return self._snapshot.get('profileWarning','')
+    @Property('QVariantMap', notify=changed)
+    def queueCounts(self): return self._snapshot.get('queueCounts',{})
     @Property('QVariantMap', notify=changed)
     def destination(self): return self._snapshot['destination']
     @Property(str, notify=changed)
@@ -111,6 +120,7 @@ class SharePointBridge(QObject):
                 if 'browse' in event:self._browse=event['browse']
                 self._status=f"{self.pending} publicaciones pendientes." if self.pending else 'Sin envíos pendientes.' if self.connected else 'Guardado local; cuenta desconectada.'
                 if event.get('command')=='save':self.toast.emit('Carpeta común guardada para todos los bots.')
+                if event.get('command')=='create_folder':self.toast.emit('Carpeta creada en SharePoint.')
             elif kind=='error':
                 self._error=event['message']
                 self._status='El trabajo local continúa.'
@@ -143,9 +153,27 @@ class SharePointBridge(QObject):
     @Slot()
     def refresh(self): self.send('status')
     @Slot()
+    def refreshMonthlyStatus(self):
+        if self.connected and not self.busy and not self._closing:
+            self.refresh()
+    @Slot()
     def connectAccount(self): self.send('connect')
     @Slot()
     def disconnectAccount(self): self.send('disconnect')
+    @Slot()
+    def refreshProfile(self): self.send('profile')
+    @Slot()
+    def openDestination(self): self.send('destination_contents')
+    @Slot(str, str, str)
+    def createFolder(self, drive, item, name): self.send('create_folder',{'drive':drive,'item':item,'name':name})
+    @Slot(str)
+    def openOnline(self, url):
+        parsed=urlsplit(url)
+        if parsed.scheme=='https' and parsed.hostname and parsed.hostname.endswith('.sharepoint.com') and not parsed.username and not parsed.password:
+            QDesktopServices.openUrl(QUrl(url))
+    @Slot()
+    def openLocalRoot(self):
+        if self.localRoot and Path(self.localRoot).is_dir():QDesktopServices.openUrl(QUrl.fromLocalFile(self.localRoot))
     @Slot(str)
     def openSite(self, url): self.send('site',{'url':url})
     @Slot(str, str)

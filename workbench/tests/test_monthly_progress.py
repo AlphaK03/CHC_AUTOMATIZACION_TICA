@@ -111,13 +111,13 @@ class MonthlyTests(unittest.TestCase):
         result=MonthlyReader({'xmovimientos':self.root},self.today).read()
         self.assertNotEqual(self.cell(result,'xmovimientos')['status'],'completed')
 
-    def manifest(self,name,start='',end='',mode='maritimo',pending=False,limit=0):
-        folder=self.root/'data/jobs/conocimientos'/name;folder.mkdir(parents=True)
+    def manifest(self,name,start='',end='',mode='maritimo',pending=False,limit=0,month=9,flow='conocimientos'):
+        folder=self.root/'data/jobs'/flow/name;folder.mkdir(parents=True)
         path=folder/'progress.sqlite3'
         with write(path) as db:
             db.executescript('CREATE TABLE metadata(scope);CREATE TABLE jobs(id,state);CREATE TABLE manifests(id);'
                 'CREATE TABLE selection(id);CREATE TABLE partial_pages(manifest);CREATE TABLE runs(state,finished);')
-            db.execute('INSERT INTO metadata VALUES (?)',(json.dumps(dict(year=2026,month=9,mode=mode,desde=start,hasta=end,limit=limit)),))
+            db.execute('INSERT INTO metadata VALUES (?)',(json.dumps(dict(year=2026,month=month,mode=mode,desde=start,hasta=end,limit=limit)),))
             db.execute('INSERT INTO selection VALUES (1)')
             db.execute('INSERT INTO jobs VALUES (?,?)',('1','Pendiente' if pending else 'Guardado'))
             if not pending:db.execute("INSERT INTO manifests VALUES ('1')")
@@ -224,11 +224,15 @@ class MonthlyTests(unittest.TestCase):
         with write(path) as db:db.execute("INSERT INTO jobs VALUES ('nuevo','pending',NULL)")
         self.assertFalse(self.cell(MonthlyReader({'talon':self.root},self.today).read(),'talon')['manual'])
 
-    def test_details_manual_close_cannot_bypass_unsaved_duas(self):
-        self.dua_table(done=False);self.ledger()
+    def test_details_explicit_manual_close_accepts_pending_without_changing_them(self):
+        path=self.dua_table(done=False);self.ledger()
         reader=self.reader();reader.read()
-        with self.assertRaisesRegex(ValueError,'todos los DUAs'):reader.mark_complete('2026-09','detalles',True)
-        self.assertFalse(reader.overrides_file.exists())
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+        reader.mark_complete('2026-09','detalles',True)
+        cell=self.cell(self.reader().read())
+        self.assertEqual(cell['status'],'completed')
+        self.assertEqual(cell['label'],'Completado manual')
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),digest)
 
     def test_manifest_exclusions_and_exhausted_attempts_close_only_finalized_runs(self):
         path=self.manifest('full',pending=True)
@@ -240,6 +244,52 @@ class MonthlyTests(unittest.TestCase):
         with write(path) as db:db.execute("UPDATE runs SET state='Detenida'")
         reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
         self.assertNotEqual(reader.cell('2026-09','manifiestos','conocimientos')['status'],'completed')
+
+    def test_manifest_finished_with_exclusions_accepts_legacy_coverage_without_writes(self):
+        path=self.manifest('air',mode='aereo',flow='duas')
+        with write(path) as db:
+            db.execute("INSERT INTO jobs VALUES ('excluded','Excluido')")
+            db.execute("UPDATE runs SET state='Finalizada con exclusiones'")
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertEqual(reader.cell('2026-09','manifiestos','duas')['status'],'completed')
+        self.assertEqual(reader.entries[0]['omitted'],1)
+        self.assertIn('1 omitidos fuera del resultado final',reader.entries[0]['scope'])
+        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),digest)
+        for change in ("UPDATE runs SET finished=NULL",
+                       "UPDATE runs SET state='Detenida',finished='date'",
+                       "UPDATE runs SET state='Finalizada con exclusiones'; INSERT INTO jobs VALUES ('pending','Pendiente')"):
+            with write(path) as db:db.executescript(change)
+            reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+            self.assertNotEqual(reader.cell('2026-09','manifiestos','duas')['status'],'completed')
+
+    def test_manifest_current_month_with_ten_exclusions_is_up_to_date_for_both_modes(self):
+        paths=[]
+        for mode in ('maritimo','aereo'):
+            path=self.manifest(mode,'2026-10-01','2026-10-12',mode=mode,month=10,flow='duas')
+            paths.append(path)
+            with write(path) as db:
+                db.execute('ALTER TABLE jobs ADD COLUMN attempts INTEGER DEFAULT 1')
+                if mode=='aereo':
+                    db.executemany("INSERT INTO jobs VALUES (?,'Excluido',1)",[(str(n),) for n in range(2,12)])
+                    db.execute("UPDATE runs SET state='Finalizada con exclusiones'")
+                ids=[r[0] for r in db.execute('SELECT id FROM jobs')]
+                signature=hashlib.sha256(json.dumps(sorted(ids),ensure_ascii=False,separators=(',',':')).encode()).hexdigest()
+                db.executescript('CREATE TABLE workbench_queries(id,start,end,expected,signature,finished);'
+                                'CREATE TABLE workbench_query_jobs(query_id,manifest);')
+                db.execute('INSERT INTO workbench_queries VALUES (1,?,?,?,?,?)',
+                    ('2026-10-01','2026-10-12',len(ids),signature,'date'))
+                db.executemany('INSERT INTO workbench_query_jobs VALUES (1,?)',[(mid,) for mid in ids])
+        hashes={p:hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        cell=reader.cell('2026-10','manifiestos','duas')
+        self.assertEqual(cell['status'],'up_to_date')
+        self.assertEqual(cell['displayDays'],12)
+        self.assertEqual(sum(e['omitted'] for e in reader.entries),10)
+        self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in paths},hashes)
+        with write(paths[1]) as db:db.execute('UPDATE workbench_queries SET finished=NULL')
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertNotEqual(reader.cell('2026-10','manifiestos','duas')['status'],'up_to_date')
 
 
 if __name__=='__main__':unittest.main()

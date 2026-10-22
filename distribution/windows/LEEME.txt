@@ -1,0 +1,22 @@
+CHC Workbench - Windows 10/11 de 64 bits
+
+Ejecuta "Instalar CHC Workbench x64.exe" y pulsa "Instalar y abrir".
+Incluye Python, Qt, navegador y los seis bots. No necesitas instalar Python,
+Edge, ChromeDriver ni herramientas de desarrollo. Requiere Windows actualizado.
+La conexión a Internet es necesaria para consultar TICA y usar SharePoint.
+
+El instalador crea accesos en el escritorio y en el menú Inicio.
+Los datos se guardan en:
+%LOCALAPPDATA%\CHC Consultores\Workbench
+El programa se instala en:
+%LOCALAPPDATA%\Programs\CHC Workbench
+
+La instalación comienza sin bases, resultados ni cuentas del equipo de desarrollo.
+Para SharePoint, inicia sesión y elige el destino desde la app.
+Las actualizaciones conservan los datos; nunca borres la carpeta de datos para
+actualizar. Una migración de datos anteriores debe hacerse por separado,
+con los bots cerrados, respaldo y comprobación de rutas.
+
+Conserva toda la carpeta de la aplicación: CHC Workbench.exe necesita los
+archivos incluidos a su lado. No muevas únicamente ese ejecutable.
+Esta versión no tiene firma digital de editor.

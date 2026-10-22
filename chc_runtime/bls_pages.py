@@ -52,7 +52,8 @@ def page_digest(columns, rows):
 
 
 class PageStore:
-    def __init__(self, path, signature):
+    def __init__(self, path, signature, job_generations=None):
+        self.job_generations = job_generations or {}
         self.path = Path(path)
         self.path.parent.mkdir(parents=True,exist_ok=True)
         self.db = sqlite3.connect(self.path)
@@ -70,6 +71,8 @@ class PageStore:
             raise
 
     def load(self, job):
+        from .bls_empty_retry import page_key
+        job = page_key(job,self.job_generations)
         from core.tables import InvalidResponse
         saved, offset, line_ids = [], 0, set()
         for page_number,position,eof,columns,rows,count,digest in self.db.execute(
@@ -85,12 +88,16 @@ class PageStore:
         return saved
 
     def save(self, job, ordinal, number, page):
+        from .bls_empty_retry import page_key
+        job = page_key(job,self.job_generations)
         with self.db:
             self.db.execute('INSERT INTO pages VALUES (?,?,?,?,?,?,?,?,?)',
                 (job,ordinal,number,page.offset,int(page.eof),json.dumps(page.columns,ensure_ascii=False),
                  json.dumps(page.rows,ensure_ascii=False),len(page.rows),page_digest(page.columns,page.rows)))
 
     def finish_repeated_page(self, job, number):
+        from .bls_empty_retry import page_key
+        job = page_key(job,self.job_generations)
         with self.db:
             self.db.execute('UPDATE pages SET eof=1 WHERE job=? AND page=?',(job,number))
 

@@ -16,6 +16,68 @@ from PySide6.QtGui import QFontDatabase
 
 
 class MonthlyQMLTests(unittest.TestCase):
+    def test_calendar_mark_refreshes_monthly_completion_and_removal_without_manual_refresh(self):
+        from PySide6.QtQml import QQmlExpression
+        from sharepoint_bridge import SharePointBridge
+        from unittest.mock import patch
+        data=fixtures.MonthlyTests();data.setUp()
+        monthly=None;window=None
+        try:
+            data.dua_table(done=False);data.ledger()
+            monthly=MonthlyProgress({'detalles':data.root})
+            bridge=DetailsBridge(storage_root=data.root)
+            bridge.connectModule=lambda:None
+            bridge._ready=True
+            bridge._daily.update(startDate='2026-09-01',month='2026-09',monthLabel='Septiembre 2026',
+                days=[dict(day=30,date='2026-09-30',available=True,state='pending',total=1,succeeded=0)])
+            other=[DetailsBridge(enabled=False,storage_root=data.root/module,module_id=module)
+                   for module in ('duas_transito','talon','xmovimientos')]
+            here=Path(__file__).resolve().parents[1]
+            if sys.platform=='win32':
+                fonts=Path(os.environ.get('WINDIR','C:/Windows'))/'Fonts'
+                for name in ('segoeui.ttf','segoeuib.ttf','seguisb.ttf'):
+                    QFontDatabase.addApplicationFont(str(fonts/name))
+            backend=DemoBackend(here/'modules.json',bridge,*other,monthly=monthly)
+            cloud=SharePointBridge(storage=data.root/'cloud')
+            cloud._snapshot['connected']=True
+            backend.navigate('detalles')
+            engine=QQmlApplicationEngine();warnings=[]
+            engine.warnings.connect(lambda values:warnings.extend(w.toString() for w in values))
+            preferences=Preferences(data.root/'prefs.json',persist=False)
+            for name,value in dict(demo=backend,details=bridge,transit=other[0],talon=other[1],movements=other[2],preferences=preferences).items():
+                engine.rootContext().setContextProperty(name,value)
+            engine.load(QUrl.fromLocalFile(str(here/'qml/Main.qml')))
+            self.assertTrue(engine.rootObjects(),warnings)
+            window=engine.rootObjects()[0]
+            wait_until(lambda:monthly.rows and not monthly.busy)
+            self.assertEqual(backend.monthlyRows[0]['cells'][0]['status'],'partial')
+            calendar=window.findChild(QObject,'detailsDailyCalendar')
+            engine.rootContext().setContextProperty('testCalendar',calendar)
+            expression=QQmlExpression(engine.rootContext(),calendar,'testCalendar.chooseDay(testCalendar.worker.daily.days[0])')
+            expression.evaluate();self.assertFalse(expression.hasError(),expression.error().toString())
+            button=calendar.findChild(QObject,'markCalendarDay')
+            with patch.object(cloud,'send') as send:
+                monthly.changed.connect(lambda:cloud.refreshMonthlyStatus() if not monthly.busy else None)
+                QMetaObject.invokeMethod(button,'clicked',Qt.DirectConnection)
+                wait_until(lambda:not monthly.busy and backend.monthlyRows[0]['cells'][0]['status']=='completed')
+                cell=backend.monthlyRows[0]['cells'][0]
+                self.assertEqual((cell['label'],cell['manualDays'],cell['coveredDays']),('Completado manual',1,30))
+                self.assertEqual(cell['displayDays'],30)
+                self.assertTrue(send.called)
+                self.assertTrue(all(call.args==('status',) for call in send.call_args_list))
+                backend.navigate('overview');APP.processEvents()
+                capture=os.environ.get('CHC_MANUAL_MONTH_CAPTURE')
+                if capture:
+                    path=Path(capture);path.parent.mkdir(parents=True,exist_ok=True)
+                    self.assertTrue(window.grabWindow().save(str(path)))
+                bridge.markCalendarDay('2026-09-30',False)
+                wait_until(lambda:not monthly.busy and backend.monthlyRows[0]['cells'][0]['status']=='partial')
+            self.assertFalse(warnings,warnings)
+        finally:
+            if monthly:monthly.timer.stop();monthly.debounce.stop()
+            if window:window.close();APP.processEvents()
+            data.tearDown()
+
     def test_async_refresh_expansion_navigation_and_responsive_display(self):
         data=fixtures.MonthlyTests();data.setUp()
         monthly=None
@@ -69,11 +131,25 @@ class MonthlyQMLTests(unittest.TestCase):
             reader.add('2026-09','talon','','septiembre26',1000,650,scope='650 / 1,000 DUAs confirmados')
             reader.add('2026-09','bls','','BLs septiembre',2500,1400,running=2,scope='1,400 / 2,500 BL confirmados')
             reader.add('2026-09','manifiestos','conocimientos','Conocimientos',500,500,days=month_days('2026-09'),scope='Marítimo · 500 / 500 confirmados')
-            reader.add('2026-10','detalles','','octubre26',350,350,scope='350 / 350 DUAs confirmados · 12 / 31 días verificados',status='partial')
+            reader.add('2026-10','detalles','','octubre26',350,350,days={f'2026-10-{day:02d}' for day in range(1,17)},scope='350 / 350 DUAs confirmados · 16 / 31 días verificados',status='partial')
             monthly.rows=reader.read()['rows'];monthly.changed.emit()
             log.setProperty('expandedMonth','2026-09')
             for width in (1000,1280):
                 window.setWidth(width);APP.processEvents()
+            # Repeater expone sus delegados por el árbol visual.
+            from PySide6.QtQml import QQmlExpression
+            engine.rootContext().setContextProperty('testLog',log)
+            expression=QQmlExpression(engine.rootContext(),log,'''
+                function find(item) {
+                    if(item.objectName === "monthlyDays_2026-10_detalles") return item;
+                    for(let child of (item.children || [])) { let found=find(child); if(found) return found; }
+                    return null;
+                }
+                const counter=find(testLog);
+                counter.text + "|" + counter.color + "|" + counter.font.pixelSize
+            ''')
+            self.assertEqual(expression.evaluate()[0],'16/31|#ffffff|22')
+            self.assertFalse(expression.hasError(),expression.error().toString())
             capture=os.environ.get('CHC_MONTHLY_CAPTURE')
             if capture:
                 path=Path(capture);path.parent.mkdir(parents=True,exist_ok=True)

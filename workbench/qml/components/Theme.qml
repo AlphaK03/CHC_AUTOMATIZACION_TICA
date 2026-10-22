@@ -15,5 +15,6 @@ QtObject {
     readonly property color accent: dark ? "#f2aa83" : "#bc6339"
     readonly property color accentTint: dark ? "#332b29" : "#faece4"
     readonly property color success: dark ? "#7ed3b6" : "#258267"
+    readonly property color warning: dark ? "#e0bd77" : "#89651c"
     readonly property string family: "Segoe UI"
 }

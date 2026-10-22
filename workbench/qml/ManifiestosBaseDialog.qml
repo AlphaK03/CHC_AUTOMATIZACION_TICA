@@ -4,8 +4,9 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import "components"
 
-Dialog {
+AppDialog {
     id:dialog
+    parent:Overlay.overlay
     objectName:"manifestBaseDialog"
     required property QtObject moduleBridge
     property var chosenPeriods: []

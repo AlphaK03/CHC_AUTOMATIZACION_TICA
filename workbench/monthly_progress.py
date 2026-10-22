@@ -8,6 +8,14 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+from chc_runtime.manifest_coverage import cumulative_days, day_ranges
+from chc_runtime.sqlite_read import prepare_reader
+from chc_runtime.distribution import data_root
+
+if __package__:
+    from .daily_marks import DailyMarks
+else:
+    from daily_marks import DailyMarks
 
 MODULES = [('detalles','Detalles'),('duas_transito','Tránsito'),('talon','Talón'),
            ('xmovimientos','XMovimientos'),('bls','BLs'),('manifiestos','Manifiestos')]
@@ -20,10 +28,12 @@ LABELS = {'completed':'Completado','up_to_date':'Al día','ready':'Lote listo','
 
 
 @contextmanager
-def readonly(path):
+def readonly(path, max_seconds=2.0):
     db=sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True,timeout=0.5)
     try:
-        db.execute('PRAGMA query_only=ON')
+        # timeout de SQLite solo limita esperar un bloqueo, no ejecutar SELECT.
+        # Una lectura lenta no puede retener al escritor durante minutos.
+        prepare_reader(db,max_seconds)
         db.execute('BEGIN')
         yield db
     finally:db.close()
@@ -76,7 +86,20 @@ class MonthlyReader:
         self.cutoff=self.today-timedelta(days=2 if today is None and now.hour==0 and now.minute==0 else 1)
         self.entries=[]
         self.errors=[]
-        project=Path(__file__).resolve().parents[1]
+        self.calendar_marks={}
+        self.used_manual_days={}
+        for module,root in self.roots.items():
+            if module not in ('detalles','duas_transito','talon','xmovimientos'):continue
+            marks=DailyMarks(root)
+            try:
+                if marks.error:raise ValueError(marks.error)
+                dates={date.fromisoformat(day).isoformat() for day in marks.values}
+                self.calendar_marks[module]={day for day in dates if day<=self.cutoff.isoformat()}
+            except (ValueError,TypeError):
+                self.calendar_marks[module]=set()
+                self.errors.append(str(marks.path))
+            self.used_manual_days[module]=set()
+        project=data_root()
         production=bool(self.roots) and all(root.resolve()==project/'bots'/module for module,root in self.roots.items())
         self.overrides_file=Path(overrides_file) if overrides_file else (project/'runtime/workbench/monthly_overrides.json' if production else next(iter(self.roots.values()),project/'runtime/workbench')/'data/monthly_overrides.json')
         try:self.overrides=json.loads(self.overrides_file.read_text(encoding='utf-8')) if self.overrides_file.exists() else {}
@@ -90,13 +113,14 @@ class MonthlyReader:
         if not required or not required<=set(days):return ''
         return 'completed' if max(month_days(key))<=self.cutoff.isoformat() else 'up_to_date'
 
-    def add(self,key,module,flow,label,total,saved,running=0,days=(),scope='',status=None,group='',omitted=0,revision=None):
+    def add(self,key,module,flow,label,total,saved,running=0,days=(),scope='',status=None,group='',omitted=0,revision=None,manual_days=()):
         if not period(key):return
         days=set(days)
         complete=self.coverage_status(key,days)=='completed'
         self.entries.append(dict(period=key,module=module,flow=flow,name=label,total=total,
             saved=saved,omitted=omitted,revision=revision,running=running,days=days,scope=scope,group=group,
             status=status or state(total,saved+omitted,running,complete)))
+        if manual_days:self.entries[-1]['manualDays']=sorted(manual_days)
 
     def failed(self,path,key='',module='',flow='',label=''):
         self.errors.append(str(path))
@@ -128,6 +152,8 @@ class MonthlyReader:
                         empties=db.execute("SELECT count(*) FROM jobs j JOIN empty_observations o ON o.job_id=j.id WHERE j.status='empty'").fetchone()[0]
                         verified="("+verified+") OR (j.status='empty' AND EXISTS (SELECT 1 FROM empty_observations o WHERE o.job_id=j.id))"
                     days=set()
+                    manual_days=set()
+                    running=counts.get('running',0)
                     if ledger.exists():
                         db.execute('ATTACH DATABASE ? AS calendar',(ledger.resolve().as_uri()+'?mode=ro',))
                         details=db.execute(f'''SELECT c.day,c.state,c.base_ready,c.total,count(d.dua),
@@ -138,18 +164,27 @@ class MonthlyReader:
                         days={day for day,status,base,expected,actual,confirmed in details
                               if day<self.today.isoformat() and base and expected==actual and
                               ((status=='completed' and actual==confirmed) or (module!='detalles' and status=='omitted'))}
-                        if module!='detalles':
+                        manual_days={row[0] for row in details}&self.calendar_marks.get(module,set())
+                        self.used_manual_days[module].update(manual_days)
+                        days.update(manual_days)
+                        running=max(running,sum(row[1] in ('downloading','processing') for row in details))
+                        if module!='detalles' or manual_days:
+                            marks=','.join('?' for _ in manual_days) or 'NULL'
                             omitted=db.execute(f'''SELECT count(*) FROM jobs j WHERE j.status IN ('pending','retry','invalid')
-                                AND EXISTS (SELECT 1 FROM calendar.daily_duas d JOIN calendar.days c ON c.day=d.day
-                                WHERE d.dua=j.dua AND c.table_id=? AND c.state='omitted' AND c.day LIKE ? AND c.day<?)''',
-                                (table_id,key+'-%',self.today.isoformat())).fetchone()[0]
+                                AND j.dua IN (SELECT d.dua FROM calendar.daily_duas d JOIN calendar.days c ON c.day=d.day
+                                WHERE c.table_id=? AND c.day LIKE ? AND c.day<=?
+                                AND ((? AND c.state='omitted') OR c.day IN ({marks})))''',
+                                (table_id,key+'-%',self.cutoff.isoformat(),module!='detalles',*sorted(manual_days))).fetchone()[0]
                 full=bool(self.coverage_status(key,days))
                 detail=f'{saved:,} guardados · {empties:,} vacíos / {total:,} DUAs consultados' if module=='xmovimientos' else f'{saved:,} / {total:,} DUAs confirmados'
-                detail+=f' · {len(days)} / {len(month_days(key))} días verificados' if source.startswith('daily://') or days else ' · cobertura del archivo sin verificar'
+                if manual_days:
+                    detail+=f' · {len(days)} / {len(month_days(key))} días completos ({len(days-manual_days)} verificados · {len(manual_days)} manuales)'
+                else:
+                    detail+=f' · {len(days)} / {len(month_days(key))} días verificados' if source.startswith('daily://') or days else ' · cobertura del archivo sin verificar'
                 if omitted:detail+=f' · {omitted:,} omitidos fuera del resultado final, disponibles para reintento'
-                self.add(key,module,'',name,total,saved+empties,counts.get('running',0),days,detail,
-                    status='partial' if saved+empties+omitted==total and source.startswith('daily://') and not full else None,
-                    omitted=omitted,revision=revision)
+                self.add(key,module,'',name,total,saved+empties,running,days,detail,
+                    status='running' if running else 'partial' if saved+empties+omitted==total and source.startswith('daily://') and not full else None,
+                    omitted=omitted,revision=revision,manual_days=manual_days)
             except (OSError,sqlite3.Error,ValueError,TypeError):self.failed(path,key,module,'',name)
 
     def missing_bases(self,module,root):
@@ -162,9 +197,23 @@ class MonthlyReader:
             for day,status in rows:groups.setdefault(day[:7],[]).append((day,status))
             for key,items in groups.items():
                 omitted={day for day,status in items if status=='omitted' and module!='detalles'}
-                self.add(key,module,'','Días sin base',len(items),0,days=omitted,omitted=len(omitted),
-                         scope=f'{len(items)-len(omitted)} días pendientes de base · {len(omitted)} días omitidos; se pueden reintentar manualmente.')
+                manual_days={day for day,status in items}&self.calendar_marks.get(module,set())
+                self.used_manual_days[module].update(manual_days)
+                accepted=omitted|manual_days
+                detail=f'{len(items)-len(accepted)} días pendientes de base · {len(omitted-manual_days)} días omitidos'
+                if manual_days:detail+=f' · {len(manual_days)} días completados manualmente'
+                self.add(key,module,'','Días sin base',len(items),0,days=accepted,omitted=len(accepted),
+                         running=sum(status in ('downloading','processing') for day,status in items),
+                         manual_days=manual_days,scope=detail+'; se pueden reintentar manualmente.')
         except (OSError,sqlite3.Error,ValueError):self.failed(ledger)
+
+    def manual_only_days(self,module):
+        # El usuario también puede aceptar días aún sin base/calendario persistido.
+        remaining=self.calendar_marks.get(module,set())-self.used_manual_days.get(module,set())
+        for key in sorted({day[:7] for day in remaining}):
+            days={day for day in remaining if day.startswith(key+'-')}
+            self.add(key,module,'','Días marcados manualmente',0,0,days=days,manual_days=days,
+                     scope=f'{len(days)} días completados manualmente; base no verificada, disponibles para reintento.')
 
     def manifests(self,root):
         for flow,label in FLOWS:
@@ -187,12 +236,17 @@ class MonthlyReader:
                         selected=db.execute('SELECT 1 FROM selection WHERE id=1').fetchone()
                         partial=db.execute('SELECT count(*) FROM partial_pages WHERE manifest NOT IN (SELECT id FROM jobs WHERE '+excluded+')').fetchone()[0]
                         last=db.execute('SELECT state,finished FROM runs ORDER BY rowid DESC LIMIT 1').fetchone()
-                        confirmed=bool(selected and not partial and last and last[0]=='Finalizada' and last[1] and saved+omitted==total)
-                        days=covered(scope,key) if confirmed else set()
+                        confirmed=bool(selected and not partial and last and
+                            last[0] in ('Finalizada','Finalizada con exclusiones') and last[1] and saved+omitted==total)
+                        accumulated=cumulative_days(db,allow_omitted=True)
+                        unfiltered=not scope.get('ids') and not scope.get('limit') and scope.get('courier') in (None,'todos')
+                        days=(accumulated if unfiltered else set()) if accumulated is not None else covered(scope,key) if confirmed else set()
                     detail=f"{scope.get('mode','')} · {saved:,} / {total:,} confirmados"
                     detail+=f" · {scope.get('desde') or min(month_days(key))} a {scope.get('hasta') or max(month_days(key))}"
+                    if accumulated is not None:
+                        detail+=' · cobertura acumulada: '+(', '.join(a+' a '+b for a,b in day_ranges(days)) or 'sin consultas completas')
                     if scope.get('ids') or scope.get('limit') or scope.get('courier') not in (None,'todos'):detail+=' · selección filtrada'
-                    if omitted:detail+=f' · {omitted} omitidos, disponibles para reintento'
+                    if omitted:detail+=f' · {omitted} omitidos fuera del resultado final'
                     status=state(total,saved+omitted,counts.get('Descargando',0),self.coverage_status(key,days)=='completed')
                     if status=='ready' and not confirmed:status='pending'
                     self.add(key,'manifiestos',flow,label,total,saved,counts.get('Descargando',0),days,detail,status,scope.get('mode',''),omitted,revision)
@@ -266,15 +320,26 @@ class MonthlyReader:
             else:
                 status=next((s for s in ('running','unknown','partial','pending','ready') if any(e['status']==s for e in entries)),'ready')
         detail='\n'.join(e['name']+': '+LABELS[e['status']]+' · '+e['scope'] for e in entries) or 'No hay una descarga guardada para este mes.'
+        manual_days=set().union(*(set(e.get('manualDays',[])) for e in entries))
+        accepted_days=set().union(*(e['days'] for e in entries))
+        if manual_days:
+            detail=f'{len(accepted_days)} / {len(month_days(key))} días completos ({len(accepted_days-manual_days)} verificados · {len(manual_days)} manuales).\n'+detail
         target=module+(':'+flow if flow else '')
         marker=self.overrides.get(key+'|'+target,{})
         manual=bool(entries and marker.get('fingerprint')==self.fingerprint(key,target) and not any(e['running'] or e['status']=='unknown' for e in entries))
         if manual:
             status='completed'
             detail='Cierre manual: pendientes excluidos del resultado final; siguen disponibles para reintento.\n'+detail
-        if status=='completed' and not manual:detail='Mes completo verificado para las modalidades seleccionadas.\n'+detail
+        calendar_complete=bool(manual_days and status in ('completed','up_to_date'))
+        if calendar_complete:
+            detail=f'{len(manual_days)} días aceptados manualmente; pendientes conservados para reintento.\n'+detail
+        if status=='completed' and not manual and not calendar_complete:detail='Mes completo verificado para las modalidades seleccionadas.\n'+detail
         if status=='up_to_date':detail='Descargas terminadas hasta '+self.cutoff.isoformat()+'. El mes sigue abierto.\n'+detail
-        return dict(module=module,status=status,label='Completado manual' if manual else LABELS[status],detail=detail,manual=manual)
+        label='Completado manual' if manual or (calendar_complete and status=='completed') else 'Al día (manual)' if calendar_complete else LABELS[status]
+        display_days=self.required_days(key) if manual else set.intersection(*groups.values()) if module=='manifiestos' and groups else accepted_days
+        return dict(module=module,status=status,label=label,detail=detail,manual=manual,
+                    manualDays=len(manual_days),verifiedDays=len(accepted_days-manual_days),coveredDays=len(accepted_days),
+                    displayDays=len(display_days),displayDates=sorted(display_days))
 
     def fingerprint(self,key,target):
         module,_,flow=target.partition(':')
@@ -292,8 +357,6 @@ class MonthlyReader:
             entries=[e for e in self.entries if e['period']==key and e['module']==module and (not flow or e['flow']==flow)]
             if not entries or any(e['running'] or e['status']=='unknown' for e in entries):
                 raise ValueError('Primero termina la descarga y verifica sus resultados guardados.')
-            if module=='detalles' and any(e['saved']!=e['total'] for e in entries):
-                raise ValueError('Detalles exige que todos los DUAs estén descargados; sus pendientes no pueden omitirse.')
             self.overrides[entry_key]={'fingerprint':self.fingerprint(key,target),'markedAt':datetime.now(timezone.utc).isoformat()}
         else:self.overrides.pop(entry_key,None)
         self.overrides_file.parent.mkdir(parents=True,exist_ok=True)
@@ -308,6 +371,7 @@ class MonthlyReader:
             else:
                 self.duas(module,root)
                 self.missing_bases(module,root)
+                self.manual_only_days(module)
         keys=sorted({e['period'] for e in self.entries},reverse=True)
         rows=[]
         for key in keys:
@@ -317,8 +381,10 @@ class MonthlyReader:
             current=sum(c['status'] in ('completed','up_to_date') for c in flows)
             status='completed' if completed==5 else 'up_to_date' if current==5 else 'running' if any(c['status']=='running' for c in flows) else 'partial' if any(c['status']!='missing' for c in flows) else 'missing'
             cells.append(dict(module='manifiestos',status=status,label=f'{completed}/5 completos' if completed else LABELS[status],
+                displayDays=len(set.intersection(*(set(c['displayDates']) for c in flows))),
                 detail='\n\n'.join(label+': '+cell['label']+'\n'+cell['detail'] for (_,label),cell in zip(FLOWS,flows))))
             year,month=map(int,key.split('-'))
             rows.append(dict(period=key,label=MONTHS[month-1].capitalize()+' '+str(year),cells=cells,
+                             daysInMonth=len(month_days(key)),
                              completed=sum(c['status']=='completed' for c in cells),upToDate=sum(c['status']=='up_to_date' for c in cells),procedures=flows))
         return dict(rows=rows,errors=len(self.errors))

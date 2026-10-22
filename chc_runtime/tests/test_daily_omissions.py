@@ -58,6 +58,7 @@ class OmissionsTests(unittest.TestCase):
             stop_event=QuickEvent(),protocol=SimpleNamespace(emit=lambda *a,**k:None))
         service.catalog=TableCatalog(self.root/'data/queues')
         service.snapshot=lambda:{}
+        service.local_root=lambda:self.root/'out'
         service.configure=lambda values:service.machine.update(values)
         service.select=lambda table_id:setattr(service,'active_id',table_id)
         service.read_database=lambda record:closing(sqlite3.connect(service.catalog.database(record)))
@@ -77,7 +78,7 @@ class OmissionsTests(unittest.TestCase):
                         else:store.complete(job,{'numero_del_dua':job['dua']})
             finally:store.close()
         service.execute=execute
-        result=daily.run()
+        result=daily.run(bounded=True)
         self.assertEqual(result['runStatus'],'pending')
         self.assertEqual(daily.ledger.get(date(2026,9,1))['state'],'omitted')
         self.assertEqual(daily.ledger.get(date(2026,9,2))['state'],'completed')
@@ -85,7 +86,7 @@ class OmissionsTests(unittest.TestCase):
         with closing(sqlite3.connect(path)) as db:
             before=db.execute('SELECT dua,attempts,status FROM jobs ORDER BY dua').fetchall()
         self.assertEqual(before,[(A,3,'retry'),(B,1,'succeeded'),(C,1,'succeeded')])
-        daily.run()
+        daily.run(bounded=True)
         with closing(sqlite3.connect(path)) as db:self.assertEqual(db.execute('SELECT dua,attempts,status FROM jobs ORDER BY dua').fetchall(),before)
         service.machine.update(daily_start_date='2026-10-05',daily_end_date='2026-10-06')
         config=dict(service.machine);recover=True
@@ -104,12 +105,12 @@ class OmissionsTests(unittest.TestCase):
             if day.day==1:raise DownloadPending('No se confirmó la base')
             return []
         daily.download=download;service.execute=lambda *a,**k:None
-        self.assertEqual(daily.run()['runStatus'],'pending')
+        self.assertEqual(daily.run(bounded=True)['runStatus'],'pending')
         self.assertEqual(calls.count(date(2026,9,1)),3)
         self.assertEqual(calls.count(date(2026,9,2)),1)
         self.assertEqual(daily.ledger.get(date(2026,9,1))['base_ready'],0)
         self.assertEqual(daily.ledger.get(date(2026,9,1))['state'],'omitted')
-        before=list(calls);daily.run();self.assertEqual(calls,before)
+        before=list(calls);daily.run(bounded=True);self.assertEqual(calls,before)
 
 
 if __name__=='__main__':unittest.main()

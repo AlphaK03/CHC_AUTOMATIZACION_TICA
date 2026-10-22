@@ -52,16 +52,22 @@ class FixturePortal:
         # Variante positiva para integración mensual. El portal negativo conserva
         # su tercer manifiesto inválido; solo existe en el fixture HTTP local.
         numbers = range(1,3) if os.environ.get('CHC_MANIFEST_FIXTURE_COMPLETE')=='1' else range(1,4)
+        if os.environ.get('CHC_MANIFEST_FIXTURE_APPEND')=='1':
+            numbers=[1,2]+([4] if int(self.spec['end'][-2:])>=20 else [])
         grid = {'GridName':'Grid1','Count':len(numbers)}
         rows = []
         for n in numbers:
-            parts = [code,'0',f"{self.spec['year']}000{n}",'P027',f"01/{self.spec['month']:02d}/{str(self.spec['year'])[-2:]}"]
+            day=20 if n==4 and os.environ.get('CHC_MANIFEST_FIXTURE_APPEND')=='1' else 1
+            if os.environ.get('CHC_MANIFEST_FIXTURE_APPEND')=='1' and not int(self.spec['start'][-2:])<=day<=int(self.spec['end'][-2:]):continue
+            parts = [code,'0',f"{self.spec['year']}000{n}",'P027',f"{day:02d}/{self.spec['month']:02d}/{str(self.spec['year'])[-2:]}"]
             mid = '-'.join(parts)
             links = [endpoint+'?'+urlencode({'id':mid,'n':n}) for endpoint in
                      ['hcgcons.aspx','hcgduama.aspx','hcgmovi.aspx','hcgkonte.aspx']]
             row = parts+links
             rows.append(row)
             grid[str(n-1)] = {'Props':[[field+'_0001',value] for field,value in zip(fields,row)]}
+        if os.environ.get('CHC_MANIFEST_FIXTURE_APPEND')=='1':
+            grid={'GridName':'Grid1','Count':len(rows),**{str(index):{'Props':[[field+'_0001',value] for field,value in zip(fields,row)]} for index,row in enumerate(rows)}}
         return grid, rows
 
     def response(self,path,query,post,form):
@@ -128,6 +134,7 @@ class FixturePortal:
 
 def configure_scraper(scraper, flow, mode, spec, portal=None):
     portal = portal or FixturePortal(mode,spec)
+    portal.spec=spec
     scraper.URL = portal.url
     scraper.fixture_portal = portal
     return portal

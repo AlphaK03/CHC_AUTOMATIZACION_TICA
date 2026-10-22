@@ -30,11 +30,15 @@ class CloudAccount:
         accounts = self.client().get_accounts()
         return accounts[0] if len(accounts) == 1 else None
 
-    def token(self):
+    def token(self, scopes=None):
+        # Añadir perfil no debe bloquear archivos ya consentidos en instalaciones anteriores.
+        scopes = scopes or [s for s in self.settings['scopes'] if s != 'User.Read']
         account = self.current()
-        result = self.client().acquire_token_silent(self.settings['scopes'], account=account) if account else None
+        result = self.client().acquire_token_silent(scopes, account=account) if account else None
         if not result or 'access_token' not in result:
-            if account and 'Sites.Read.All' in self.settings['scopes']:
+            if account and scopes == ['User.Read']:
+                raise AuthenticationRequired('Vuelve a conectar la cuenta para mostrar tu nombre y foto de perfil.')
+            if account and 'Sites.Read.All' in scopes:
                 raise AuthenticationRequired('Renueva la conexión con Cambiar cuenta para conceder la lectura de SharePoint. Si Microsoft solicita aprobación, debe concederla un administrador de CHC.')
             raise AuthenticationRequired('Conecta tu cuenta CHC para enviar los pendientes a SharePoint.')
         return result['access_token']

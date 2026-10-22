@@ -48,6 +48,64 @@ class RecordingBridge(DetailsBridge):
 
 
 class ConfigurationEventsTest(unittest.TestCase):
+    def test_four_daily_ranges_follow_progress_keep_origin_and_preserve_manual_edits(self):
+        from test_details_bridge import wait_until
+        bridges = [RecordingBridge(module) for module in ('detalles', 'duas_transito', 'talon', 'xmovimientos')]
+        backend = DemoBackend(HERE / 'modules.json', *bridges)
+        engine = QQmlApplicationEngine()
+        warnings = []
+        engine.warnings.connect(lambda items: warnings.extend(x.toString() for x in items))
+        context = engine.rootContext()
+        for name, value in dict(demo=backend, details=bridges[0], transit=bridges[1], talon=bridges[2],
+                                movements=bridges[3], preferences=Preferences(HERE/'unused-test-preferences.json', persist=False)).items():
+            context.setContextProperty(name, value)
+        for bridge in bridges:
+            bridge._snapshot['config'].update(daily_mode=True, daily_start_date='2026-10-01', daily_end_date='2026-10-05')
+            bridge._daily.update(startDate='2026-10-01', resumeDate='2026-10-08', resumeEndDate='2026-10-15',
+                                 waitingForDay=False, month='2026-10', monthLabel='Octubre 2026')
+        backend.navigate('detalles')
+        engine.load(QUrl.fromLocalFile(str(HERE/'qml/Main.qml')))
+        self.assertTrue(engine.rootObjects(), warnings)
+        window = engine.rootObjects()[0]
+        try:
+            for bridge in bridges:
+                backend.navigate(bridge.moduleId)
+                name = {'detalles':'detailsRealPage','duas_transito':'transitRealPage'}.get(bridge.moduleId, bridge.moduleId+'RealPage')
+                wait_until(lambda: window.findChild(QObject, name) is not None)
+                page = window.findChild(QObject, name)
+                start = page.findChild(QObject, 'detailsDailyStart')
+                end = page.findChild(QObject, 'detailsDailyEnd')
+                calendar = page.findChild(QObject, 'detailsDailyCalendar')
+                self.assertEqual((start.property('text'), end.property('text')), ('2026-10-08','2026-10-15'))
+                QMetaObject.invokeMethod(page, 'startQueries', Qt.DirectConnection)
+                self.assertEqual(bridge.commands, ['daily_run'])
+                bridge._busy = False
+                bridge._daily.update(resumeDate='2026-10-09')
+                bridge.changed.emit()
+                APP.processEvents()
+                self.assertEqual(start.property('text'), '2026-10-09')
+                self.assertEqual(calendar.property('rangeStart'), '2026-10-09')
+                # Guardar otros parámetros no convierte la vista móvil en el origen.
+                expression = QQmlExpression(context, page, 'currentConfig().daily_start_date + "|" + currentConfig().daily_end_date')
+                self.assertEqual(expression.evaluate()[0], '2026-10-01|2026-10-05')
+                context.setContextProperty('testCalendar', calendar)
+                choose = QQmlExpression(context, page, '''
+                    testCalendar.chooseDay({date:"2026-09-29",available:true});
+                    testCalendar.chooseDay({date:"2026-10-02",available:true});
+                    testCalendar.applyRange();
+                ''')
+                choose.evaluate()
+                self.assertFalse(choose.hasError(), choose.error().toString())
+                bridge._daily.update(resumeDate='2026-10-10')
+                bridge.changed.emit()
+                APP.processEvents()
+                self.assertEqual((start.property('text'), end.property('text')), ('2026-09-29','2026-10-02'))
+                self.assertEqual(calendar.property('rangeStart'), '2026-09-29')
+                self.assertEqual(expression.evaluate()[0], '2026-09-29|2026-10-02')
+            self.assertFalse(warnings, warnings)
+        finally:
+            window.setVisible(False)
+
     def test_save_acknowledgement_and_start_after_save(self):
         bridge = RecordingBridge()
         transit = RecordingBridge('duas_transito')

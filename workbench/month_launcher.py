@@ -286,7 +286,7 @@ class MonthLauncher(QObject):
                         if any(bridge.config.get(key)!=task['config'][key] for key in ('daily_start_date','daily_end_date','daily_mode','cant_hilos')):
                             self.mark(task,'error','La configuración cambió; no se inició otro mes');return
                         task.update(stage='running',label='Descargando y procesando el mes')
-                        task['request']=bridge.request('daily_run')
+                        task['request']=bridge.request('daily_run', {'bounded': True})
                         if not task['request']:self.mark(task,'error','No se pudo iniciar el mes')
                         self.changed.emit()
                     QTimer.singleShot(0,run)

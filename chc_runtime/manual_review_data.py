@@ -62,6 +62,11 @@ def load_selection(root, module, request):
     if folder.resolve().parent != (root/'data/jobs'/flow).resolve():
         raise ValueError('La ejecución no pertenece al módulo seleccionado.')
     candidates = list(folder.glob('**/SQLite/bls.sqlite3')) if module == 'bls' else record.get('databases', [])
+    if request.get('database'):
+        selected = contained(request['database'],folder)
+        if selected not in [contained(p,folder) for p in candidates]:
+            raise ValueError('La base de revisión no pertenece a la ejecución seleccionada.')
+        candidates = [selected]
     matches = []
     for candidate in candidates:
         path = contained(candidate, folder)

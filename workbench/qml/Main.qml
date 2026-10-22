@@ -14,6 +14,7 @@ ApplicationWindow {
     title: details.enabled ? "CHC Workbench" : "CHC Workbench · Demostración"
     color: Theme.background
     property bool sidebarExpanded: true
+    property bool compact: width < 1120
     property bool initialDark: true
     property QtObject demoBackend: demo
     property string toastMessage: ""
@@ -61,28 +62,31 @@ ApplicationWindow {
     Timer { id: toastTimer; interval: 4000; onTriggered: window.toastMessage = "" }
 
     RowLayout {
+        objectName: "workbenchControls"
         anchors.fill: parent
         spacing: 0
         Rectangle {
             id: sidebar
             objectName: "sidebar"
-            Layout.preferredWidth: window.sidebarExpanded ? 244 : 80
+            Layout.preferredWidth: window.sidebarExpanded ? (window.compact ? 220 : 244) : 80
             Layout.fillHeight: true
             color: Theme.sidebar
             clip: true
             Behavior on Layout.preferredWidth { NumberAnimation { duration: 200; easing.type: Easing.InOutCubic } }
             Rectangle { width: 1; anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.right: parent.right; color: Theme.border }
+            ScrollView {
+                id:navigationScroll; objectName:"navigationScroll"
+                anchors.fill:parent; anchors.margins:15
+                contentWidth:availableWidth; clip:true
+                ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
+                ScrollBar.vertical.active:true
             ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 15
+                width:navigationScroll.availableWidth
+                height:Math.max(navigationScroll.availableHeight,implicitHeight)
                 spacing: 6
                 Item {
                     Layout.fillWidth: true; implicitHeight: 68
-                    Rectangle {
-                        x: 5; y: 7; width: 40; height: 40; radius: 11; color: Theme.accent
-                        Text { anchors.centerIn: parent; text: "C"; color: "#2a211c"; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.Bold }
-                        Rectangle { x: 28; y: 27; width: 6; height: 6; radius: 1; color: "#2a211c" }
-                    }
+                    BrandMark { x: 5; y: 7; width: 40; height: 40 }
                     Column {
                         x: 57; y: 8; spacing: 2; visible: window.sidebarExpanded
                         Text { text: "CHC"; color: Theme.text; font.family: Theme.family; font.pixelSize: 19; font.weight: Font.Bold; font.letterSpacing: 1 }
@@ -106,7 +110,7 @@ ApplicationWindow {
                 Item { Layout.fillHeight: true }
                 Text { visible: window.sidebarExpanded; text: details.enabled ? "Módulos independientes" : "Modo demostración"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 10; Layout.leftMargin: 13; Layout.bottomMargin: 6 }
                 NavItem { Layout.fillWidth: true; label: "Acerca del Workbench"; iconName: "info"; expanded: window.sidebarExpanded; onClicked: aboutDialog.open() }
-                NavItem { objectName:"sharePointNavigation"; Layout.fillWidth:true; label:"Cuenta y SharePoint"; iconName:"folder"; expanded:window.sidebarExpanded; onClicked:sharePointDialog.open() }
+                NavItem { objectName:"sharePointNavigation"; Layout.fillWidth:true; label:"SharePoint"; iconName:"folder"; expanded:window.sidebarExpanded; onClicked:sharePointDialog.open() }
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border; Layout.topMargin: 7; Layout.bottomMargin: 7 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -127,23 +131,24 @@ ApplicationWindow {
                     }
                 }
             }
+            }
         }
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 0
             Rectangle {
-                Layout.fillWidth: true; implicitHeight: 73; color: Theme.background
+                Layout.fillWidth: true; implicitHeight: window.height < 740 ? 56 : 73; color: Theme.background
                 RowLayout {
-                    anchors.fill: parent; anchors.leftMargin: 32; anchors.rightMargin: 32; spacing: 18
+                    anchors.fill: parent; anchors.leftMargin: window.compact ? 20 : 32; anchors.rightMargin: window.compact ? 20 : 32; spacing: window.compact ? 12 : 18
                     RowLayout {
                         Layout.fillWidth: true; spacing: 10
                         Text { text: "Workbench"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 12 }
                         Icon { name: "chevron"; width: 12; height: 12; tint: Theme.faint }
-                        Text { text: window.pageTitle; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        Text { text: window.pageTitle; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; font.weight: Font.DemiBold; Layout.fillWidth:true; Layout.minimumWidth:0; elide:Text.ElideRight }
                     }
                     Rectangle {
-                        Layout.preferredWidth: 240; height: 35; radius: 7; color: Theme.surface; border.color: searchInput.activeFocus ? Theme.accent : Theme.border
+                        Layout.preferredWidth: window.compact ? 180 : 240; height: 35; radius: 7; color: Theme.surface; border.color: searchInput.activeFocus ? Theme.accent : Theme.border
                         Icon { x: 11; anchors.verticalCenter: parent.verticalCenter; name: "search"; width: 16; height: 16; tint: Theme.faint }
                         TextField {
                             id: searchInput
@@ -167,9 +172,28 @@ ApplicationWindow {
                         contentItem: Icon { name: Theme.dark ? "sun" : "moon"; tint: Theme.muted; width: 18; height: 18 }
                         onClicked: window.toggleTheme()
                     }
-                    Rectangle {
-                        implicitWidth: 32; implicitHeight: 32; radius: 16; color: Theme.raised; border.color: Theme.border
-                        Text { anchors.centerIn: parent; text: "CH"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 10; font.weight: Font.DemiBold }
+                    Button {
+                        id: profileButton; objectName:"accountProfileButton"; implicitWidth:36; implicitHeight:36
+                        hoverEnabled:true; padding:0; background:Item {}
+                        Accessible.name: window.cloudBridge && window.cloudBridge.connected ? "Cuenta de " + (window.cloudBridge.profile.displayName || window.cloudBridge.account) : "Conectar cuenta de SharePoint"
+                        ToolTip.visible:hovered; ToolTip.text:Accessible.name; ToolTip.delay:350
+                        contentItem:AccountAvatar {
+                            objectName:"headerAccountAvatar"
+                            connected:!!window.cloudBridge && window.cloudBridge.connected
+                            displayName:window.cloudBridge ? window.cloudBridge.profile.displayName || window.cloudBridge.account : ""
+                            photoUrl:window.cloudBridge ? window.cloudBridge.profile.photoUrl || "" : ""
+                        }
+                        onClicked: profileMenu.popup()
+                        Menu {
+                            id:profileMenu; objectName:"accountProfileMenu"; width:280
+                            MenuItem { text:window.cloudBridge && window.cloudBridge.connected ? window.cloudBridge.profile.displayName || window.cloudBridge.account : "Sin cuenta conectada"; enabled:false }
+                            MenuItem { visible:!!window.cloudBridge && window.cloudBridge.connected; text:window.cloudBridge ? window.cloudBridge.account : ""; enabled:false }
+                            MenuSeparator {}
+                            MenuItem { text:"SharePoint"; onTriggered:sharePointDialog.open() }
+                            MenuItem { text:window.cloudBridge && window.cloudBridge.connected ? "Cambiar cuenta…" : "Conectar cuenta…"; enabled:!!window.cloudBridge && window.cloudBridge.enabled && !window.cloudBridge.busy; onTriggered:window.cloudBridge.connectAccount() }
+                            MenuItem { text:"Actualizar perfil"; visible:!!window.cloudBridge && window.cloudBridge.connected; enabled:!!window.cloudBridge && !window.cloudBridge.busy; onTriggered:window.cloudBridge.refreshProfile() }
+                            MenuItem { text:"Desconectar"; visible:!!window.cloudBridge && window.cloudBridge.connected; enabled:!!window.cloudBridge && !window.cloudBridge.busy; onTriggered:window.cloudBridge.disconnectAccount() }
+                        }
                     }
                 }
                 Rectangle { height: 1; color: Theme.border; anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom }
@@ -178,7 +202,7 @@ ApplicationWindow {
                 Layout.fillWidth: true; Layout.fillHeight: true
                 Loader {
                     id: pageLoader
-                    anchors.fill: parent; anchors.margins: 32; anchors.bottomMargin: 20
+                    anchors.fill: parent; anchors.margins: window.compact ? 20 : 32; anchors.bottomMargin: 20
                     sourceComponent: demo.route === "overview" ? dashboardComponent : demo.route === "detalles" && details.enabled ? detailsComponent : demo.route === "duas_transito" && window.transitBridge && window.transitBridge.enabled ? transitComponent : demo.route === "talon" && window.talonBridge && window.talonBridge.enabled ? talonComponent : demo.route === "xmovimientos" && window.movementsBridge && window.movementsBridge.enabled ? movementsComponent : demo.route === "manifiestos" && window.manifestsBridge && window.manifestsBridge.enabled ? manifestsComponent : demo.route === "bls" && window.blsBridge && window.blsBridge.enabled ? blsComponent : demoComponent
                     Component { id: dashboardComponent; Dashboard {} }
                     Component { id: detailsComponent; DetallesPage { moduleBridge: details } }
@@ -206,8 +230,9 @@ ApplicationWindow {
 
     SharePointDialog { id:sharePointDialog; objectName:"sharePointDialog"; service:window.cloudBridge }
 
-    Dialog {
+    AppDialog {
         id: aboutDialog
+        objectName:"aboutDialog"
         title: "Acerca de CHC Workbench"
         anchors.centerIn: parent
         width: 460
@@ -220,13 +245,19 @@ ApplicationWindow {
         background: Panel {}
         contentItem: ColumnLayout {
             spacing: 15
+            RowLayout {
+                spacing: 12
+                BrandMark { Layout.preferredWidth: 48; Layout.preferredHeight: 48 }
+                Text { text: "CHC Consultores"; color: Theme.text; font.family: Theme.family; font.pixelSize: 19; font.weight: Font.DemiBold }
+            }
             Text { text: "Un solo espacio para toda tu operación."; color: Theme.text; font.family: Theme.family; font.pixelSize: 17; font.weight: Font.DemiBold; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: details.enabled ? "Los módulos tienen motores independientes y almacenamiento propio. Manifiestos incluye cinco procedimientos y preparación de bases para BLs." : "Modo de demostración: los espacios usan datos sintéticos y no realizan consultas a TICA."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true; wrapMode: Text.WordWrap }
             Text { text: "Versión 0.2 · Integración modular\nCtrl+K: buscar  ·  Ctrl+B: contraer navegación"; color: Theme.faint; font.family: Theme.family; font.pixelSize: 11; Layout.fillWidth: true; wrapMode: Text.WordWrap }
         }
     }
-    Dialog {
+    AppDialog {
         id: roadmapDialog
+        objectName:"roadmapDialog"
         title: "Bases e integraciones"
         anchors.centerIn: parent
         width: 460

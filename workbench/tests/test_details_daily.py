@@ -12,6 +12,48 @@ from test_details_bridge import APP, DetailsBridge, wait_until
 
 
 class DailyPilotTest(unittest.TestCase):
+    def test_four_bots_continue_past_selected_end_and_resume_waiting_after_restart(self):
+        for module in ('detalles','duas_transito','talon','xmovimientos'):
+            with self.subTest(module=module), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                bridge = DetailsBridge(module_id=module,storage_root=root,offline_fixture=True)
+                try:
+                    bridge.connectModule()
+                    wait_until(lambda: (bridge.ready and not bridge.busy) or bool(bridge.error), timeout=60000)
+                    self.assertTrue(bridge.ready,bridge.error)
+                    today = date.fromisoformat(bridge.daily['startDate']) + timedelta(days=1)
+                    start = today - timedelta(days=2)
+                    bridge.saveConfig({'daily_mode':True,'daily_start_date':start.isoformat(),'daily_end_date':start.isoformat(),
+                                       'output_base_path':str(root/'out'),'cant_hilos':2})
+                    wait_until(lambda: not bridge.busy)
+                    bridge.startDaily()
+                    wait_until(lambda: bridge.daily['phase']=='waiting' or bool(bridge.error), timeout=60000)
+                    self.assertFalse(bridge.error,bridge.error)
+                    self.assertEqual((bridge.daily['resumeDate'],bridge.daily['resumeEndDate']), (today.isoformat(),today.isoformat()))
+                    self.assertTrue(bridge.daily['waitingForDay'])
+                    with closing(sqlite3.connect(root/'data/daily/calendar.sqlite3')) as db:
+                        self.assertEqual(db.execute('SELECT state FROM days ORDER BY day').fetchall(), [('completed',),('completed',)])
+                    bridge.stopQueries()
+                    wait_until(lambda: not bridge.busy)
+                    with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
+                        attempts = db.execute('SELECT SUM(attempts) FROM queries').fetchone()[0]
+                    bridge.shutdown();wait_until(lambda:bridge.isClosed)
+                    bridge = DetailsBridge(module_id=module,storage_root=root,offline_fixture=True)
+                    bridge.connectModule()
+                    wait_until(lambda: (bridge.ready and not bridge.busy) or bool(bridge.error), timeout=60000)
+                    self.assertTrue(bridge.ready,bridge.error)
+                    self.assertFalse(bridge.dailyActive)
+                    self.assertEqual(bridge.daily['resumeDate'], today.isoformat())
+                    self.assertEqual(bridge.config['daily_start_date'], start.isoformat())
+                    bridge.startDaily()
+                    wait_until(lambda: bridge.daily['phase']=='waiting' or bool(bridge.error))
+                    self.assertFalse(bridge.error,bridge.error)
+                    with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
+                        self.assertEqual(db.execute('SELECT SUM(attempts) FROM queries').fetchone()[0], attempts)
+                    bridge.stopQueries();wait_until(lambda:not bridge.busy)
+                finally:
+                    bridge.shutdown();wait_until(lambda:bridge.isClosed)
+
     def test_two_days_accumulate_and_resume_without_redownloading(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

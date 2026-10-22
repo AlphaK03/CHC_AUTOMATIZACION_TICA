@@ -60,7 +60,10 @@ class DemoBackend(QObject):
         for bridge in self._bridges.values():
             if bridge and bridge.enabled:
                 bridge.changed.connect(self.changed.emit)
-                if monthly:bridge.changed.connect(monthly.schedule)
+                if monthly:
+                    bridge.changed.connect(monthly.schedule)
+                    if hasattr(bridge,'calendarMarksChanged'):
+                        bridge.calendarMarksChanged.connect(monthly.refresh)
         self._timer = QTimer(self)
         self._timer.setInterval(350)
         self._timer.timeout.connect(self._tick)
@@ -73,7 +76,7 @@ class DemoBackend(QObject):
             item['mode'] = 'demo'
             bridge = self._bridges.get(item['id'])
             if bridge and bridge.enabled:
-                item.update(mode='real', status='running' if bridge.running or bridge.dailyActive else 'available' if bridge.ready else 'unavailable',
+                item.update(mode='real', status='loading' if bridge.loading else 'running' if bridge.running or bridge.dailyActive else 'available' if bridge.ready else 'unavailable',
                             progress=bridge.summary['succeeded'] + bridge.summary.get('empty', 0), total=bridge.summary['total'])
         return modules
 

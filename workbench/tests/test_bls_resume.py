@@ -77,6 +77,11 @@ class BLSResumeTests(unittest.TestCase):
                 self.assertFalse(bridge.error,bridge.error)
                 self.assertEqual(bridge.activeId,original_id)
                 self.assertEqual(bridge.summary['succeeded'],2)
+                messages=[event['message'] for event in bridge.activityModel.rows]
+                self.assertTrue(any('BL=0000987654321' in message for message in messages))
+                self.assertTrue(any('Exportando CSV de BLs' in message for message in messages))
+                self.assertTrue(any('Exportando CSV desde SQLite' in message for message in messages))
+                self.assertFalse(bridge.consoleMonitor.running)
                 self.assertEqual(len(bridge.history),1)
                 with closing(sqlite3.connect(database)) as db:
                     self.assertEqual(db.execute('SELECT ordinal,attempts,state FROM jobs ORDER BY ordinal').fetchall(),

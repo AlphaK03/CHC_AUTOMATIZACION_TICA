@@ -1,4 +1,5 @@
 """Navegación concurrente con cola durable y reintentos por rondas completas."""
+from .distribution import chromium_options
 import asyncio
 import logging
 import os
@@ -17,6 +18,11 @@ from .portal_form import fill_and_submit, wait_form_ready
 from .messages import pending_reason
 from .detail_navigation import install_lightweight_detail
 from .async_operations import AttemptDeadline, bounded_result, close_browser_resource
+from .activity import stage, observed
+
+
+def dua_subject(self, page, row):
+    return row['NroDUA']
 
 
 class ExtraStepRequired(RuntimeError):
@@ -68,9 +74,10 @@ class PlaywrightDUAProcessor:
                 logging.info('%d DUAs consultados sin movimientos (Vacío).', summary['empty'])
         finally:
             # Los resultados se confirmaron antes en SQLite; fallar aquí no los pierde.
-            store.export(self.output_paths, self.fields)
-            if getattr(self, 'on_export', None):
-                self.on_export()
+            with stage('Exportando CSV y actualizando resultados locales'):
+                store.export(self.output_paths, self.fields)
+                if getattr(self, 'on_export', None):
+                    self.on_export()
             self._notify(store, progress_callback, force=True)
 
     async def _run_async(self, store, callback):
@@ -84,8 +91,9 @@ class PlaywrightDUAProcessor:
         playwright = browser = None
         timeout = int(self.machine.get('timeout', 30))
         try:
-            playwright = await bounded_result(manager.start(), timeout=timeout)
-            browser = await bounded_result(playwright.chromium.launch(headless=self.machine.get('headless', True)), timeout=timeout)
+            with stage('Iniciando navegador de consultas'):
+                playwright = await bounded_result(manager.start(), timeout=timeout)
+                browser = await bounded_result(playwright.chromium.launch(headless=self.machine.get('headless', True), **chromium_options()), timeout=timeout)
             try:
                 for round_number in range(1, int(self.machine.get('max_retries', 3)) + 1):
                     if self.stop_event.is_set():
@@ -99,7 +107,8 @@ class PlaywrightDUAProcessor:
                     if round_number < int(self.machine.get('max_retries', 3)):
                         await self._cooldown(min(2 ** round_number, 30))
             finally:
-                await close_browser_resource(browser.close)
+                with stage('Cerrando navegador de consultas'):
+                    await close_browser_resource(browser.close)
         finally:
             if playwright is not None:
                 stopped = await close_browser_resource(playwright.stop)
@@ -150,6 +159,7 @@ class PlaywrightDUAProcessor:
                 job = store.claim(round_number)
                 if job is None:
                     return
+                logging.info('Consultando DUA %s · ronda %s/%s', job['dua'], round_number, self.machine.get('max_retries',3))
                 resolved, discard = False, False
                 try:
                     try:
@@ -166,7 +176,8 @@ class PlaywrightDUAProcessor:
                         # abandonada no puede guardar tarde ni tomar otro DUA.
                         uses += 1
                         page._dua_attempt_deadline = deadline
-                        record = await bounded_result(self._extract_record(page, dua_fields(job['dua'])), deadline=deadline)
+                        with stage('Intento de consulta DUA', job['dua']):
+                            record = await bounded_result(self._extract_record(page, dua_fields(job['dua'])), deadline=deadline)
                     except Exception as exc:
                         discard = True
                         evidence = await self._save_evidence(page, job['dua'])
@@ -210,11 +221,13 @@ class PlaywrightDUAProcessor:
         self._last_notification = now
         callback(store.summary())
 
+    @observed('Pausa entre rondas de reintento', lambda self,seconds:f'{seconds} s')
     async def _cooldown(self, seconds):
         until = time.monotonic() + seconds
         while not self.stop_event.is_set() and time.monotonic() < until:
             await asyncio.sleep(0.1)
 
+    @observed('Consultando y validando DUA', dua_subject)
     async def _extract_record(self, page, row):
         html = await self._fetch_result(page, row)
         return validate_result(self._flow.extract_data(html), row['NroDUA'])
@@ -237,18 +250,21 @@ class PlaywrightDUAProcessor:
         page._dua_form_snapshot = None
         timeout_ms = int(self.machine.get('timeout', 30)) * 1000
         page.set_default_timeout(timeout_ms)
-        response = await page.goto(self._flow.start_url, timeout=timeout_ms, wait_until='domcontentloaded')
+        with stage('Abriendo formulario de TICA', row['NroDUA']):
+            response = await page.goto(self._flow.start_url, timeout=timeout_ms, wait_until='domcontentloaded')
         if response and response.status >= 400:
             raise RuntimeError(f'Portal respondió HTTP {response.status}')
         extra = page.locator('input[name="SALIR"][value="OK"]')
         if await extra.count():
             raise ExtraStepRequired('Página intermedia: requiere clic adicional')
-        await wait_form_ready(page, timeout_ms)
+        with stage('Esperando formulario de consulta', row['NroDUA']):
+            await wait_form_ready(page, timeout_ms)
         captcha_text = await self._resolve_captcha(page, timeout_ms)
         try:
-            await fill_and_submit(page, row, captcha_text, timeout_ms,
-                                  captcha_source=page._dua_captcha_source,
-                                  button_name=getattr(self._flow, 'submit_button', 'DETALLE'))
+            with stage('Enviando consulta y esperando respuesta de TICA', row['NroDUA']):
+                await fill_and_submit(page, row, captcha_text, timeout_ms,
+                                      captcha_source=page._dua_captcha_source,
+                                      button_name=getattr(self._flow, 'submit_button', 'DETALLE'))
         except Exception:
             if await extra.count():
                 raise ExtraStepRequired('El resultado requiere clic adicional') from None
@@ -257,6 +273,7 @@ class PlaywrightDUAProcessor:
             raise ExtraStepRequired('El resultado requiere clic adicional')
         return page._dua_raw_detail or await page.content()
 
+    @observed('Leyendo CAPTCHA del formulario')
     async def _resolve_captcha(self, page, timeout_ms):
         img = await page.wait_for_selector('#captchaImage img', state='attached', timeout=timeout_ms)
         src = await img.get_attribute('src')
@@ -276,6 +293,7 @@ class PlaywrightDUAProcessor:
     def _validate(data, dua_number):
         return validate_result(data, dua_number)
 
+    @observed('Guardando diagnóstico del intento', lambda self,page,dua:dua)
     async def _save_evidence(self, page, dua):
         if page is None or 'diagnostics' not in self.output_paths:
             return ''

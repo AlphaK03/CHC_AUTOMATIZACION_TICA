@@ -64,7 +64,7 @@ class TransitIntegrationTest(unittest.TestCase):
                 call('detail', {'jobId': '001-2026-000001'})
                 self.assertEqual(len(bridge.jobDetail['resultRows']), 52)
                 call('configure', {'config': {'daily_mode': True, 'daily_start_date': start.isoformat(), 'daily_end_date': end.isoformat()}})
-                call('daily_run')
+                call('daily_run', {'bounded': True})
                 self.assertEqual(bridge.daily['phase'], 'completed')
                 self.assertFalse(bridge.dailyActive)
                 self.assertEqual(bridge.summary['retry'], 1, 'El rango diario no procesa pendientes de otros días.')
@@ -74,11 +74,11 @@ class TransitIntegrationTest(unittest.TestCase):
                     self.assertEqual(attempts, 2)
                 with closing(sqlite3.connect(root/'data/daily/calendar.sqlite3')) as db:
                     self.assertEqual(db.execute('SELECT state,total,succeeded FROM days ORDER BY day').fetchall(), [('completed',1,1), ('completed',1,1)])
-                call('daily_run')
+                call('daily_run', {'bounded': True})
                 with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
                     self.assertEqual(db.execute('SELECT SUM(attempts) FROM queries').fetchone()[0], attempts)
                 # Limpiar filas completadas conserva todas sus líneas en el CSV mensual.
-                call('clean', {'confirmTableId': bridge.activeTable['id']})
+                call('clean', {'confirmTableId': bridge.activeTable['id'], 'confirmation': 'BORRAR'})
                 call('export')
                 rows = exported_rows()
                 self.assertEqual(len(rows), 156 if start.month == end.month else 52 + 52)

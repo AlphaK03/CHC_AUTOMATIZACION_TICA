@@ -11,6 +11,7 @@ import uuid
 
 from .auth import CloudAccount
 from .graph import GraphClient, GraphError, places_address, site_address
+from .profile import ProfileCache
 from chc_runtime import output_layout
 
 TARGETS = [('detalles','Detalles'), ('duas_transito','DUAs Tránsito'), ('talon','Talón'),
@@ -52,6 +53,9 @@ class CloudService:
         self.legacy_destinations = saved if saved and saved.get('version')!=2 else {}
         self.account = account or CloudAccount(self.folder, app_settings)
         self.graph = graph or GraphClient(self.account)
+        self.app_settings=app_settings
+        self.profile=ProfileCache(self.folder,self.graph)
+        self.browse_folder=None
         self.exports_settings=self.folder.parent/'exports.json'
         self.exports_registry=output_layout.registry_path(settings=self.exports_settings)
         self.monthly_reader=monthly
@@ -86,6 +90,8 @@ class CloudService:
         account = self.account_info()
         tasks = [dict(r) for r in self.db.execute('SELECT target,name,filename,state,error,updated FROM jobs ORDER BY updated DESC LIMIT 50')]
         return {'account': account.get('username','') if account else '',
+                'profile':self.profile.get(account),'profileWarning':self.profile.warning if account else '',
+                'queueCounts':dict(self.db.execute('SELECT state,count(*) FROM jobs GROUP BY state')),
                 'connected': bool(account), 'destination': self.destination,
                 'needsFolderSelection': bool(self.legacy_destinations),
                 'localRoot':str(output_layout.local_root(settings=self.exports_settings)),
@@ -214,6 +220,13 @@ class CloudService:
             if row['target'] not in completed.get(destination.get('period',''),{}).get('targets',set()):
                 with self.db:self.db.execute("UPDATE jobs SET state='error',error='El mes ya no está completo, al día ni cerrado manualmente; se conservó la copia local.' WHERE id=?",(row['id'],))
                 continue
+            if self.exports_registry.exists():
+                with closing(sqlite3.connect(self.exports_registry.as_uri()+'?mode=ro',uri=True)) as exports:
+                    registered=exports.execute("SELECT final FROM exports WHERE owner=? AND target=? AND json_extract(spec,'$.filename')=?",
+                        (row['owner'],row['target'],row['filename'])).fetchall()
+                if registered and not any(value[0] for value in registered):
+                    with self.db:self.db.execute("UPDATE jobs SET state='paused',error='CSV anterior sustituido por el acumulado mensual; copia local conservada.' WHERE id=?",(row['id'],))
+                    continue
             with self.db:
                 self.db.execute("UPDATE jobs SET state='uploading',error='' WHERE id=?",(row['id'],))
             try:
@@ -253,9 +266,27 @@ class CloudService:
         result = {}
         if command == 'connect':
             self.connect()
+            self.browse_site=None;self.browse_folder=None
+            result['browse']={}
+            if 'User.Read' in self.app_settings.get('scopes',[]):self.profile.refresh(self.account_info(),force=True)
         elif command == 'disconnect':
             self.account.disconnect()
+            self.browse_site=None;self.browse_folder=None;self.profile.clear()
+            result['browse']={}
+        elif command == 'profile':
+            self.profile.refresh(self.account_info(),force=True)
+        elif command == 'destination_contents':
+            account=self.account_info()
+            if not account or not self.destination.get('enabled') or self.destination.get('accountId')!=account['home_account_id']:
+                raise ValueError('Conecta la cuenta propietaria de la carpeta de destino.')
+            self.browse_site=self.graph.site(self.destination['webUrl'])
+            drive,item=self.destination['driveId'],self.destination['folderId']
+            if drive not in [d['id'] for d in self.browse_site['drives']]:
+                raise ValueError('La biblioteca de destino ya no está disponible.')
+            self.browse_folder={'drive':drive,'item':item}
+            result['browse']={**self.browse_site,**self.graph.folders(drive,item),'driveId':drive}
         elif command == 'site':
+            self.browse_folder=None
             host = places_address(request['url'])
             if host:
                 self.browse_site = None
@@ -267,6 +298,7 @@ class CloudService:
                 self.browse_site = self.graph.site(request['url'])
                 result['browse'] = self.browse_site
         elif command == 'sites':
+            self.browse_folder=None
             host,_=site_address(request['url'])
             sites=self.graph.sites(host,request.get('search',''))
             self.known_sites=sites
@@ -277,6 +309,15 @@ class CloudService:
             if not self.browse_site or request['drive'] not in [d['id'] for d in self.browse_site['drives']]:
                 raise ValueError('Selecciona una biblioteca del sitio autorizado.')
             result['browse'] = {**self.browse_site, **self.graph.folders(request['drive'],request.get('item','root')), 'driveId':request['drive']}
+            self.browse_folder={'drive':request['drive'],'item':result['browse']['folder']['id']}
+        elif command == 'create_folder':
+            if not self.account_info() or self.browse_folder!={'drive':request['drive'],'item':request['item']}:
+                raise ValueError('Selecciona primero la carpeta en la que deseas crear la subcarpeta.')
+            name=safe_name(request.get('name',''))
+            if not name or name!=request['name'].strip() or len(name)>120:
+                raise ValueError('Usa un nombre de carpeta de hasta 120 caracteres, sin puntos al final.')
+            self.graph.create_folder(request['drive'],request['item'],name)
+            result['browse']={**self.browse_site,**self.graph.folders(request['drive'],request['item']),'driveId':request['drive']}
         elif command == 'save':
             self.save_destination(request['drive'],request['item'])
         elif command == 'remove':
@@ -303,5 +344,7 @@ class CloudService:
             output_layout.set_local_root(request['path'],settings=self.exports_settings)
         elif command != 'status':
             raise ValueError('Acción SharePoint desconocida.')
-        if command == 'status':self.completed_targets(refresh=True)
+        if command == 'status':
+            self.completed_targets(refresh=True)
+            if 'User.Read' in self.app_settings.get('scopes',[]):self.profile.refresh(self.account_info())
         return {**result, 'snapshot':self.snapshot()}

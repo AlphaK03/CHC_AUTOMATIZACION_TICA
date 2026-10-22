@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from .job_store import JobStore, RunLock, active_revisions
+from .sqlite_read import prepare_reader
 
 _ANY_TARGET = object()
 
@@ -191,6 +192,7 @@ class TableCatalog:
         db = sqlite3.connect(self.database(record).as_uri() + '?mode=ro', uri=True, timeout=2)
         db.row_factory = sqlite3.Row
         try:
+            prepare_reader(db,10)
             has_budget = db.execute("SELECT 1 FROM sqlite_master WHERE name='daily_automatic_attempts'").fetchone()
             where, args = '1=1', []
             if status == 'pending':

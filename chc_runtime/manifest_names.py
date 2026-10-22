@@ -33,14 +33,22 @@ def normalized_scope(spec):
     return {**spec, 'modes': sorted(set(spec['modes'])), 'ids': sorted(set(spec['ids']))}
 
 
+def cumulative_family(spec):
+    """Una acumulación mensual; selecciones filtradas conservan su aislamiento."""
+    if spec.get('ids') or spec.get('limit'):
+        return None
+    return {key:value for key,value in normalized_scope(spec).items()
+            if key not in ('start','end','modes')}
+
+
 def manifest_name(spec):
     year, month = spec['year'], spec['month']
     parts = [MONTHS[month - 1] + f'{year % 100:02d}']
     modes = sorted(set(spec['modes']))
-    if modes != ['maritimo']:
+    if modes != ['maritimo'] and not cumulative_family(spec):
         parts.append('-'.join(modes))
     start, end = date.fromisoformat(spec['start']), date.fromisoformat(spec['end'])
-    if start.day != 1 or end.day != calendar.monthrange(year, month)[1]:
+    if not cumulative_family(spec) and (start.day != 1 or end.day != calendar.monthrange(year, month)[1]):
         parts.append(f'{start.day:02d}-{end.day:02d}')
     if spec['courier'] != 'todos':
         parts.append('courier-' + spec['courier'].lower())

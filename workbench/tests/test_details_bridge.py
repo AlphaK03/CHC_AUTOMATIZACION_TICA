@@ -12,7 +12,7 @@ os.environ.setdefault('QT_QUICK_BACKEND', 'software')
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
-from PySide6.QtCore import QEventLoop, QObject, QTimer, QUrl
+from PySide6.QtCore import QEventLoop, QObject, QTimer, QUrl, QMetaObject, Q_ARG, Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -133,7 +133,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(len(detail['attemptHistory']), 1)
         self.call('run')
         self.assertEqual(self.bridge.summary['attempts'], 2)  # No consulta guardados.
-        self.call('clean', {'confirmTableId': self.bridge.activeTable['id']})
+        self.call('clean', {'confirmTableId': self.bridge.activeTable['id'], 'confirmation': 'BORRAR'})
         self.assertEqual(self.bridge.summary['total'], 0)
         self.assertEqual(self.bridge.summary['retained'], 2)
         self.call('export')
@@ -164,7 +164,11 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.bridge.rowCount, 2)
         old_id = self.bridge.activeTable['id']
         self.call('delete', {'confirmTableId': 'wrong'}, error=True)
-        self.call('delete', {'confirmTableId': old_id})
+        for confirmation in (None, '', 'borrar', ' BORRAR', 'BORRAR '):
+            self.call('delete', {'confirmTableId': old_id, 'confirmation': confirmation}, error=True)
+            self.assertEqual(self.bridge.activeTable['id'], old_id)
+            self.assertEqual(self.bridge.summary['succeeded'], 2)
+        self.call('delete', {'confirmTableId': old_id, 'confirmation': 'BORRAR'})
         self.assertEqual(self.bridge.tables, [])
         self.assertTrue(list((self.root / 'data' / 'queues' / 'backups').glob('*.sqlite3')))
         self.assertTrue(list((self.root / 'output').rglob('*.CSV')))
@@ -187,6 +191,16 @@ class BridgeTests(unittest.TestCase):
         button = window.findChild(QObject, 'detailsStartButton')
         self.assertTrue(button.property('enabled'))
         page = window.findChild(QObject, 'detailsRealPage')
+        QMetaObject.invokeMethod(page,'requestDelete',Qt.DirectConnection,Q_ARG('QVariant','table'))
+        APP.processEvents()
+        dialog = window.findChild(QObject,'detailsDeleteDialog')
+        field = dialog.findChild(QObject,'deleteConfirmationInput')
+        confirm = dialog.findChild(QObject,'deleteConfirm')
+        self.assertFalse(confirm.property('enabled'))
+        field.setProperty('text','BORRAR'); APP.processEvents()
+        self.assertTrue(confirm.property('enabled'))
+        QMetaObject.invokeMethod(dialog.findChild(QObject,'deleteCancel'),'clicked',Qt.DirectConnection)
+        self.assertTrue(self.bridge.activeTable['id'])
         page.setProperty('tab', 1)
         self.bridge.showDetail(self.bridge.rows[0]['id'])
         wait_until(lambda: not self.bridge.busy)
@@ -206,7 +220,7 @@ class BridgeTests(unittest.TestCase):
         second = self.connect()
         self.assertTrue(self.bridge._send('run'))
         wait_until(lambda: self.bridge.summary['running'] > 0)
-        self.assertTrue(second._send('clean', {'confirmTableId': second.activeTable['id']}))
+        self.assertTrue(second._send('clean', {'confirmTableId': second.activeTable['id'], 'confirmation': 'BORRAR'}))
         wait_until(lambda: not second.busy)
         self.assertIn('otra instancia', second.error)
         self.bridge.stopQueries()

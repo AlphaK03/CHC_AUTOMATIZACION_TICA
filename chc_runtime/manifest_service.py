@@ -1,4 +1,5 @@
 """Catálogo y adaptación de Manifiestos/BLs. Solo se importa dentro del worker."""
+from .distribution import chromium_options
 import asyncio
 from contextlib import closing
 from datetime import date, datetime
@@ -12,20 +13,45 @@ import sqlite3
 import tempfile
 import time
 
-from .manifest_names import manifest_scope, manifest_name, normalized_scope
+from .manifest_names import manifest_scope, manifest_name, normalized_scope, cumulative_family
 from . import output_layout
+from .bls_observation import BlsModeProgress, manifest_mode, combine
+from .activity import observed, stage
+from .sqlite_read import prepare_reader
 
 ROOT = Path(__file__).resolve().parents[1]
 FLOWS = ('tabla', 'conocimientos', 'duas', 'movimientos', 'contenedores', 'bases', 'bls_source', 'bls')
 LABELS = {'tabla':'Manifiestos', 'conocimientos':'Conocimientos', 'duas':'DUAs por manifiesto',
           'movimientos':'Movimientos de manifiesto', 'contenedores':'Contenedores', 'bls':'BLs'}
+MODES = {'maritimo':'Marítimo', 'aereo':'Aéreo', 'terrestre':'Terrestre'}
+MODE_ORDER = {mode:ordinal for ordinal,mode in enumerate(MODES)}
+COUNT_KEYS = ('total','succeeded','pending','running','excluded','rows','invalid')
+
+
+def manifest_job_key(database, identifier):
+    # El llamador normaliza la ruta una vez por base/evento, no una vez por fila.
+    return (str(database) if database else '', identifier)
 
 
 def write_json(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix('.new')
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
-    os.replace(temporary, path)
+    # En Windows un lector breve puede impedir os.replace. Reintentar solo esa
+    # operación, con límite y sin truncar nunca el historial vigente.
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w',encoding='utf-8',dir=path.parent,
+                                         prefix=path.stem+'-',suffix='.new',delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(value,stream,ensure_ascii=False,indent=2)
+        for attempt in range(5):
+            try:
+                os.replace(temporary,path)
+                break
+            except PermissionError:
+                if attempt==4:raise
+                time.sleep(.05*(attempt+1))
+    finally:
+        if temporary is not None:temporary.unlink(missing_ok=True)
 
 
 def name_checked(value):
@@ -40,7 +66,7 @@ def name_checked(value):
 def bls_job(ordinal, payload, state, attempts, rows, error):
     original = json.loads(payload) if isinstance(payload, str) else payload
     manifest, bl = original.get('IDManifiesto', ''), original.get('BL original', '')
-    return dict(id=manifest+' / '+bl, manifest=manifest, bl=bl, ordinal=ordinal,
+    return dict(id=manifest+' / '+bl, manifest=manifest, bl=bl, ordinal=ordinal, mode=manifest_mode(manifest),
                 state=state, attempts=attempts, rows=rows, error=error,
                 page=0,checkpointPage=0,collectedRows=rows)
 
@@ -64,12 +90,18 @@ class BatchService:
                 self.index['config']['inputMode']='file'
             self.index['config'].update(saved.get('config', {}))
             self.index.update({k:v for k,v in saved.items() if k != 'config'})
+        from .batch_deletion import recover
+        recover(self.root, flow, self.index)
         self.sources = []
         self.base_scope = None
         self._last_event = 0
         self._last_save = 0
         self._jobs = {}
         self._result_counts = {}
+        self._database_summaries = {}
+        self._view_mode = ''
+        self._view_search = ''
+        self._view_offset = 0
         self.message = ''
         self.base_info = {}
         self._fixture_portals = {}
@@ -93,30 +125,70 @@ class BatchService:
         active = self.active() or {}
         summary = active.get('summary', {})
         jobs = list(self._jobs.values())
-        jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,item['ordinal']))
+        jobs.sort(key=lambda item:(0 if item['state']=='Descargando' else 1,
+            MODE_ORDER.get(item.get('mode'),3) if self.flow!='bls' else 0,
+            item['ordinal'],item.get('database','')))
+        active_jobs = [j for j in jobs if j['state']=='Descargando'] if self.processing else []
+        if self.flow != 'bls':
+            jobs = [j for j in jobs if (not self._view_mode or j.get('mode') == self._view_mode)
+                    and self._view_search.casefold() in j['id'].casefold()]
+            # Los activos siempre quedan primero, incluso tras cambiar de página.
+            running = [j for j in jobs if j['state']=='Descargando']
+            history = [j for j in jobs if j['state']!='Descargando']
+            offset = max(0,self._view_offset-len(running))
+            jobs = running + history[offset:offset+max(0,200-len(running))]
         return {'config':{**self.index['config'],'outputRoot':str(self.public_root())}, 'history':[
-            {'id':item['id'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
+            {'id':item['id'], 'name':item['name'], 'label':item['name'] + ' · ' + item.get('period',''), 'state':item.get('state','Pendiente')}
             for item in reversed(self.index['history'])], 'activeId':self.index['active'],
-            'summary':{key:summary.get(key,0) for key in ('total','succeeded','pending','running','excluded','rows','invalid')},
-            'jobs':jobs[:200], 'activeJobs':[j for j in jobs if j['state']=='Descargando'] if self.processing else [], 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
+            'summary':{**{key:summary.get(key,0) for key in COUNT_KEYS},
+                       **({'empty':summary.get('empty',0)} if self.flow=='bls' else {})},
+            'modeSummaries':active.get('modeSummaries',[]),
+            'viewMode':self._view_mode, 'viewSearch':self._view_search, 'viewOffset':self._view_offset,
+            'jobs':jobs[:200], 'activeJobs':active_jobs, 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
             'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info,
             'knowledgeCatalog':self.knowledge_catalog}
+
+    def update_manifest_summary(self, record):
+        grouped = {}
+        for stats in self._database_summaries.values():
+            mode = stats.get('mode','')
+            target = grouped.setdefault(mode,dict(mode=mode,label=MODES.get(mode,'Sin modalidad'),
+                                                   **{key:0 for key in COUNT_KEYS}))
+            for key in COUNT_KEYS:
+                target[key] += stats.get(key,0)
+        record['modeSummaries'] = sorted(grouped.values(), key=lambda item:
+            MODE_ORDER.get(item['mode'],3))
+        record['summary'] = {key:sum(item[key] for item in grouped.values()) for key in COUNT_KEYS}
 
     def progress(self, payload):
         record = self.active()
         if record is None:
             return
         p = payload.get('progress', payload)
-        if 'selected' in p:
+        database = str(Path(payload['database']).resolve()) if payload.get('database') else ''
+        if self.flow != 'bls' and database:
+            previous = self._database_summaries.get(database,{})
+            mode = payload.get('mode',previous.get('mode',''))
+            summary = dict(previous)
+            if 'selected' in p:
+                summary.update(total=p['selected'], succeeded=p.get('saved',0), pending=p.get('pending',0),
+                               running=p.get('active',0), excluded=p.get('excluded',0))
+            summary.setdefault('rows',0)
+            summary['mode'] = mode
+        elif 'selected' in p:
             summary = dict(total=p['selected'], succeeded=p.get('saved',0), pending=p.get('pending',0),
                            running=p.get('active',0), excluded=p.get('excluded',0), rows=record.get('summary',{}).get('rows',0))
         elif 'total' in p:
             summary = dict(total=p.get('total',0), succeeded=p.get('saved',0), pending=p.get('pending',0),
                            running=p.get('running',0), excluded=0, invalid=p.get('invalid',0), rows=p.get('result_rows',0))
+            if self.flow == 'bls':summary['empty'] = p.get('empty_saved',0)
         else:
             # Preparar el navegador/base no significa reiniciar el avance guardado.
             summary = dict(record.get('summary',{}))
-        record['summary'] = summary
+        if self.flow == 'bls':
+            record['summary'] = summary
+            if 'modeSummaries' in payload:
+                record['modeSummaries'] = payload['modeSummaries']
         if payload.get('message'):
             self.message = payload['message']
         jobs = payload.get('jobs', payload.get('rows', []))
@@ -138,13 +210,18 @@ class BatchService:
                 self._jobs[ordinal] = row
                 continue
             identifier = item.get('id') or (item.get('manifest','') + ' / ' + item.get('bl',''))
-            self._jobs[identifier] = {'id':identifier, 'ordinal':item.get('ordinal',0),
+            key = manifest_job_key(database,identifier)
+            self._jobs[key] = {'id':identifier, 'ordinal':item.get('ordinal',0),
+                'database':database, 'mode':payload.get('mode',summary.get('mode','')),
                 'state':item.get('state',''), 'attempts':item.get('attempts',0),
                 'rows':item.get('kept', item.get('result_count',0)), 'error':item.get('error','')}
             if 'selected' in p:
-                count = self._jobs[identifier]['rows'] if item.get('state')=='Guardado' else 0
-                summary['rows'] += count-self._result_counts.get(identifier,0)
-                self._result_counts[identifier] = count
+                count = self._jobs[key]['rows'] if item.get('state')=='Guardado' else 0
+                summary['rows'] += count-self._result_counts.get(key,0)
+                self._result_counts[key] = count
+        if self.flow != 'bls' and database:
+            self._database_summaries[database] = summary
+            self.update_manifest_summary(record)
         record['databases'] = list(dict.fromkeys(record.get('databases',[]) + ([payload['database']] if payload.get('database') else [])))
         terminal = bool(payload.get('job'))
         if time.monotonic() - self._last_event > .15 or payload.get('phase') == 'finished' or terminal:
@@ -161,7 +238,13 @@ class BatchService:
                 logging.exception('No se pudo actualizar el historial de %s; SQLite conserva el progreso.', self.flow)
 
     def execute(self, command, request):
-        if command == 'configure':
+        if command == 'delete':
+            if self.flow not in LABELS:
+                raise ValueError('Seleccione una ejecución de Manifiestos o BLs.')
+            from .batch_deletion import delete_batch
+            result = delete_batch(self, request)
+            return {**result, 'snapshot': self.snapshot()}
+        elif command == 'configure':
             if request.get('config',{}).get('outputRoot'):
                 output_layout.set_local_root(request['config']['outputRoot'],self.root)
             self.index['config'].update({k:v for k,v in request.get('config',{}).items() if k in self.index['config']})
@@ -170,6 +253,18 @@ class BatchService:
             self.index['config'].update({k:v for k,v in request.get('config',{}).items() if k in self.index['config']})
             self.save()
             self.run()
+        elif command == 'retry_empty':
+            record = self.active()
+            if self.flow != 'bls' or not record or request.get('recordId') != record['id']:
+                raise ValueError('El lote BLs seleccionado cambió. Abre de nuevo la reconsulta.')
+            if self.processing:
+                raise ValueError('Primero termina la consulta activa.')
+            from .bls_empty_retry import load_input
+            if not load_input(self.root,record)[3]:
+                self.inspect()
+                self.message = 'No hay BLs guardados con 0 filas en este lote.'
+            else:
+                self.run(retry_empty=True)
         elif command == 'select':
             if not any(item['id'] == request['id'] for item in self.index['history']):
                 raise ValueError('No se encontró la ejecución')
@@ -179,10 +274,12 @@ class BatchService:
                 selected.setdefault('inputMode','file')
                 selected.setdefault('knowledgePeriods',[])
             self.index['config'].update(selected)
+            self._view_offset = 0
+            self._view_search = ''
             self.inspect()
             self.save()
         elif command == 'view':
-            self.inspect(request.get('search',''), int(request.get('offset',0)))
+            self.inspect(request.get('search',''), int(request.get('offset',0)),request.get('mode',''))
         elif command == 'export':
             self.export()
         elif command == 'review':
@@ -211,9 +308,20 @@ class BatchService:
                 if [r[1] for r in db.execute('PRAGMA table_info(BLS)')]!=BLS_COLUMNS or db.execute('SELECT 1 FROM BLS LIMIT 1').fetchone():
                     raise ValueError('La base no acredita una selección sin BLs.')
             self.index['config'].update({k:v for k,v in config.items() if k in self.index['config']})
-            self.index['active']=''
-            self._jobs={}
-            self.message='Conocimientos completos; no hay BLs Courier N para esta selección.'
+            from config_manager import DEFAULTS
+            from .bls_incremental import family,find_record
+            scope={'version':1,'sheet':config.get('sheet','BLS'),'dates_from_input':True,'target_url':DEFAULTS.get('target_url','')}
+            previous=find_record(self.index['history'],family(self.index['config'],scope),self.index['active'])
+            if previous:
+                self.index['active']=previous['id']
+                previous['config']=dict(self.index['config'])
+                previous['spec']={'input':config['input'],'sheet':config.get('sheet','BLS')}
+                self.inspect()
+                self.message='No hay BLs Courier N en la nueva selección; resultados anteriores conservados.'
+            else:
+                self.index['active']=''
+                self._jobs={}
+                self.message='Conocimientos completos; no hay BLs Courier N para esta selección.'
             self.save()
         elif command == 'split':
             # Función original usa diálogos Tk: la adaptación conserva el streaming sin GUI.
@@ -272,9 +380,13 @@ class BatchService:
             self.export()
             self.message = 'Progreso importado; el original permanece intacto.'
 
+    @observed('Preparando lote y revisando resultados existentes')
     def prepare(self):
         c = self.index['config']
+        selected_family=family_record=None
         if self.flow == 'bls':
+            from .bls_identifiers import install_input_support
+            install_input_support()
             if not Path(c['input']).is_file():
                 raise ValueError('Seleccione una base de BLs Excel o SQLite.')
             from input_files import load_input_file
@@ -282,11 +394,14 @@ class BatchService:
             from config_manager import DEFAULTS
             frame = load_input_file(c['input'], c['sheet'])
             settings = {**DEFAULTS, 'sheet_name':c['sheet'], 'dates_from_input':True}
-            key, _ = batch_scope(frame, settings)
+            key, settings_scope = batch_scope(frame, settings)
+            from .bls_incremental import family,find_record
+            selected_family=family(c,settings_scope)
+            family_record=find_record(self.index['history'],selected_family,self.index['active'])
             spec = {'input':c['input'], 'sheet':c['sheet']}
         else:
             spec = manifest_scope(self.flow, c)
-            key = hashlib.sha256(json.dumps(normalized_scope(spec),sort_keys=True).encode()).hexdigest()
+            key = hashlib.sha256(json.dumps(cumulative_family(spec) or normalized_scope(spec),sort_keys=True).encode()).hexdigest()
         maximum = 20 if self.flow == 'bls' else 32
         if not 1 <= int(c['workers']) <= maximum:
             raise ValueError(f'Use entre 1 y {maximum} descargas simultáneas')
@@ -295,13 +410,14 @@ class BatchService:
         default_name=manifest_name(spec) if self.flow!='bls' else LABELS[self.flow]
         output_root=Path(c['outputRoot']).resolve()
         identity_for=lambda name:hashlib.sha256((key+'|'+name+'|'+str(output_root)).encode()).hexdigest()[:24]
-        if self.flow=='bls' and c.get('inputMode')=='knowledge' and c.get('knowledgePeriods') and not c['name']:
+        if self.flow=='bls' and c.get('inputMode')=='knowledge' and c.get('knowledgePeriods') and not c['name'] and family_record is None:
             periods=sorted(set(k.split('|')[0] for k in c['knowledgePeriods']))
             modes=sorted(set(k.split('|')[1] for k in c['knowledgePeriods']))
             mode_label='Marítimo y Aéreo' if len(modes)>1 else 'Marítimo' if modes[0]=='maritimo' else 'Aéreo'
             default_name='BLs '+(' y '.join(periods) if len(periods)<=3 else periods[0]+' a '+periods[-1])+' '+mode_label
             # Reutilizar incluso un lote manual previo de la misma entrada, conservando sus BLs.
-            previous=next((r for r in self.index['history'] if r['id']==identity_for(r['name'])),None)
+            previous=next((r for r in self.index['history'] if r['id']==identity_for(r['name']) and
+                not r.get('knowledgeFamily') and family(r.get('config',{}),settings_scope) is None),None)
             if previous:
                 default_name=previous['name']
             else:
@@ -311,16 +427,22 @@ class BatchService:
                 while default_name in used:
                     default_name=base+f' ({version})'
                     version+=1
-        name = name_checked(c['name'] or default_name) if self.flow=='bls' else name_checked(default_name)
+        if family_record:
+            name=family_record['name']
+        else:
+            name=name_checked(c['name'] or default_name) if self.flow=='bls' else name_checked(default_name)
         # El nombre y destino distinguen lotes publicados, sin duplicar reservas por cambiar hilos.
         identity = identity_for(name)
-        record = next((item for item in self.index['history'] if item['id']==identity), None)
+        record = family_record or next((item for item in self.index['history'] if item['id']==identity), None)
         if self.flow!='bls':
             # Recuperar también lotes anteriores con nombre manual, sin mover sus datos.
             candidates = [item for item in self.index['history']
-                          if normalized_scope(item['spec']) == normalized_scope(spec)]
-            record = next((item for item in candidates if item['id']==self.index['active']),
-                          candidates[-1] if candidates else None)
+                          if (cumulative_family(spec) and cumulative_family(item['spec'])==cumulative_family(spec))
+                          or normalized_scope(item['spec']) == normalized_scope(spec)]
+            populated=[item for item in candidates if item.get('databases')]
+            pool=populated or candidates
+            record = next((item for item in pool if item['id']==self.index['active']),
+                          max(pool,key=lambda item:item.get('summary',{}).get('succeeded',0)) if pool else None)
             c['name'] = record['name'] if record else name
         elif record is None:
             # Cambiar la carpeta pública nunca reinicia un lote BL ya existente.
@@ -331,9 +453,20 @@ class BatchService:
                 'spec':spec, 'config':dict(c), 'work':str(self.root/'data/jobs'/self.flow/identity),
                 'output':str(Path(c['outputRoot']).resolve()/name), 'databases':[], 'state':'Pendiente', 'summary':{}}
             self.index['history'].append(record)
+        if self.flow!='bls' and cumulative_family(spec):
+            record['cumulative']=True
+            record['spec']=spec
+        if selected_family:
+            from .bls_incremental import anchor
+            previous_family=record.get('knowledgeFamily') or family(record.get('config',{}),settings_scope)
+            if previous_family is not None and previous_family!=selected_family:
+                raise ValueError('El lote corresponde a otra selección de meses/modalidades. Elige otro nombre.')
+            signature,scope=anchor(self.root,record,key,settings_scope)
+            record.update(knowledgeFamily=selected_family,knowledgeAnchor=signature,knowledgeScope=scope,spec=spec)
+            if c['name']:c['name']=record['name']
         record['config'] = dict(c)
         if self.flow=='bls':
-            public_specs={}
+            public_specs={s['filename']:s for s in record.get('publicSpecs',[])} if selected_family else {}
             from datetime import datetime
             for value in frame['IDManifiesto']:
                 try:
@@ -345,12 +478,14 @@ class BatchService:
             record['publicSpecs']=list(public_specs.values())
         self.index['active'] = record['id']
         self._jobs = {}
+        self._view_offset = 0
+        self._view_search = ''
         self.inspect()
         self.save()
         return record
 
-    def run(self):
-        record = self.prepare()
+    def run(self, retry_empty=False):
+        record = self.active() if retry_empty else self.prepare()
         if self.flow=='bls':
             for spec in record.get('publicSpecs',[]):self.publication_target(record,spec=spec)
         else:
@@ -362,7 +497,7 @@ class BatchService:
         self.processing = True
         self.save()
         async def guarded():
-            operation = asyncio.create_task(self.run_bls(record) if self.flow == 'bls' else self.run_manifests(record))
+            operation = asyncio.create_task(self.run_bls(record,retry_empty=retry_empty) if self.flow == 'bls' else self.run_manifests(record))
             async def watch():
                 while not self.stop.is_set():
                     await asyncio.sleep(.1)
@@ -402,7 +537,12 @@ class BatchService:
         from playwright.async_api import async_playwright
         from resultados import output_paths
         from chc_runtime.manifest_adapters import WorkbenchManifestScraper
+        from .manifest_activity import install
+        install(WorkbenchManifestScraper)
         c, spec = self.index['config'], record['spec']
+        if record.get('cumulative'):
+            from chc_runtime.manifest_adapters import enable_incremental_stores
+            enable_incremental_stores()
         workspace = Path(record['work'])
         config = {'timeout_manifest':float(c['timeout']), 'headless':bool(c['headless']),
             'app_data_folder':str(workspace/'datos_app'), 'resultados_folder':str(workspace/'resultados'),
@@ -414,11 +554,16 @@ class BatchService:
         for option in ('concurrencia','fecha_inicio','fecha_fin','manifest_ids','limite_manifiestos','progress_callback'):
             config[self.flow+'_'+option] = config['conocimientos_'+option]
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=bool(c['headless']))
+            with stage('Iniciando navegador de consultas'):
+                browser = await pw.chromium.launch(headless=bool(c['headless']), **chromium_options())
             try:
                 for mode in spec['modes']:
                     paths = output_paths(config,self.flow,mode,spec['month'],spec['year'])
                     record['databases'] = list(dict.fromkeys(record['databases']+[str(paths.database)]))
+                    callback = lambda payload, selected_mode=mode, database=str(paths.database): self.progress(
+                        {**payload,'mode':selected_mode,'database':database})
+                    config['conocimientos_progress_callback'] = callback
+                    config[self.flow+'_progress_callback'] = callback
                     scraper = WorkbenchManifestScraper(dict(config),browser,request_factory=pw.request)
                     if self.fixture:
                         from chc_runtime.manifest_fixture import configure_scraper
@@ -429,28 +574,53 @@ class BatchService:
                     elif self.flow in ('duas','movimientos'):
                         await scraper.run_tracked_table(self.flow,mode,spec['month'],spec['year'])
                     elif self.flow == 'contenedores':
-                        config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow}
+                        config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow,'workbench_cumulative':bool(record.get('cumulative'))}
                         scraper.config.update(config)
                         await scraper.run_container_jobs(mode,spec['month'],spec['year'],paths.csv,paths.database)
                     else:
-                        scraper.config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow}
+                        scraper.config['workbench_scope'] = {**spec,'mode':mode,'flow':self.flow,'workbench_cumulative':bool(record.get('cumulative'))}
                         await scraper.run_main_job(mode,spec['month'],spec['year'],paths.csv,paths.database)
                     self.inspect()
                     self.emit('progress',snapshot=self.snapshot())
                     if self.stop.is_set():
                         raise asyncio.CancelledError()
             finally:
-                await browser.close()
+                with stage('Cerrando navegador de consultas'):
+                    await browser.close()
 
-    async def run_bls(self, record):
+    async def run_bls(self, record, retry_empty=False):
         from config_manager import DEFAULTS
         from chc_runtime.bls_session import WorkbenchBLSProcessor
         from input_files import load_input_file
-        c = self.index['config']
+        c = record['config'] if retry_empty else self.index['config']
         config = {**DEFAULTS, 'sheet_name':c['sheet'], 'output_base_path':record['work'],
             'cant_hilos':int(c['workers']), 'max_retries':int(c['max_retries']),
             'timeout':float(c['timeout']), 'headless':bool(c['headless']), 'event_callback':self.progress}
-        frame = load_input_file(c['input'],c['sheet'])
+        if retry_empty:
+            import pandas as pd
+            from .bls_empty_retry import load_input
+            from .bls_incremental import verify_input
+            path,scope,records,_ = load_input(self.root,record)
+            frame = pd.DataFrame(records)
+            config.update(target_url=scope['target_url'],dates_from_input=scope['dates_from_input'],
+                          sheet_name=scope['sheet'])
+            for field in ('fecha_inicio','fecha_fin'):
+                if field in scope:config[field]=scope[field]
+            with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True)) as db:
+                verify_input(db,records,scope)
+                expected=db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]
+            if path != (Path(record['work'])/config['sheet_name']/expected[:16]/'SQLite/bls.sqlite3').resolve():
+                raise ValueError('La entrada persistida no coincide con la firma del lote; progreso conservado.')
+            config['workbench_bls_accumulation']={'signature':expected,'scope':scope,'append':False}
+            config['workbench_empty_retry'] = {'database':str(path),'backups':str(self.root/'data/backups/bls_empty')}
+        else:
+            frame = load_input_file(c['input'],c['sheet'])
+            if record.get('knowledgeFamily'):
+                from core.inputs import batch_scope
+                signature,_=batch_scope(frame,config)
+                config['workbench_bls_accumulation']={'signature':record['knowledgeAnchor'],
+                    'scope':record['knowledgeScope'],'input_signature':signature,'family':record['knowledgeFamily'],
+                    'backups':str(self.root/'data/backups/bls_incremental')}
         factory = None
         if self.fixture:
             from chc_runtime.bls_fixture import Session
@@ -462,14 +632,25 @@ class BatchService:
         if result.get('export_error'):
             raise OSError(result['export_error'])
 
-    def inspect(self, search='', offset=0):
+    @observed('Leyendo progreso y resultados guardados')
+    def inspect(self, search=None, offset=None, mode=None):
+        if mode is not None:
+            if mode not in ('',*MODES):
+                raise ValueError('Modalidad inválida para la vista.')
+            self._view_mode = mode
+        if search is not None:self._view_search = search
+        if offset is not None:self._view_offset = max(0,offset)
+        search, offset = self._view_search, self._view_offset
         record = self.active()
         if not record:
             return
         self._jobs = {}
         summary = dict(total=0,succeeded=0,pending=0,running=0,excluded=0,rows=0,invalid=0)
+        if self.flow=='bls':summary['empty']=0
+        bls_modes = []
         self._result_counts = {}
-        databases = record.get('databases',[])
+        self._database_summaries = {}
+        databases = list(dict.fromkeys(str(Path(p).resolve()) for p in record.get('databases',[])))
         if self.flow == 'bls':
             databases = [str(p) for p in Path(record['work']).glob('**/SQLite/bls.sqlite3')]
             record['databases'] = databases
@@ -478,31 +659,58 @@ class BatchService:
             if not path.is_file():
                 continue
             with closing(sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=3)) as db:
+                prepare_reader(db)
                 tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if 'jobs' not in tables:
                     continue
-                counts = dict(db.execute('SELECT state,count(*) FROM jobs GROUP BY state'))
+                with stage('Leyendo estados de consultas', path.name):
+                    counts = dict(db.execute('SELECT state,count(*) FROM jobs GROUP BY state'))
                 summary['total'] += sum(counts.values())
                 for key, state in [('succeeded','Guardado'),('pending','Pendiente'),('running','Descargando'),('excluded','Excluido'),('invalid','Inválido')]:
                     summary[key] += counts.get(state,0)
-                summary['rows'] += db.execute('SELECT count(*) FROM '+('results' if self.flow=='bls' else 'rows')).fetchone()[0]
+                with stage('Contando resultados guardados', path.name):
+                    result_rows = db.execute('SELECT count(*) FROM '+('results' if self.flow=='bls' else 'rows')).fetchone()[0]
+                summary['rows'] += result_rows
                 if self.flow!='bls':
-                    self._result_counts.update(db.execute("SELECT id,kept_count FROM jobs WHERE state='Guardado'"))
+                    scope = json.loads(db.execute('SELECT scope FROM metadata').fetchone()[0])
+                    mode = scope.get('mode','')
+                    stats = dict(mode=mode,total=sum(counts.values()),succeeded=counts.get('Guardado',0),
+                        pending=counts.get('Pendiente',0),running=counts.get('Descargando',0),
+                        excluded=counts.get('Excluido',0),invalid=counts.get('Inválido',0),
+                        rows=result_rows)
+                    if not self.processing:
+                        stats['pending'] += stats['running']
+                        stats['running'] = 0
+                    self._database_summaries[str(path)] = stats
+                    self._result_counts.update((manifest_job_key(path,identifier),kept)
+                        for identifier,kept in db.execute("SELECT id,kept_count FROM jobs WHERE state='Guardado'"))
                 if self.flow=='bls':
+                    bls_modes.extend(BlsModeProgress.read(db).summaries(processing=self.processing))
+                    summary['empty'] += db.execute("SELECT count(*) FROM jobs WHERE state='Guardado' AND result_count=0").fetchone()[0]
+                    records = db.execute('''SELECT id,ordinal,payload,state,attempts,result_count,error FROM jobs
+                        WHERE json_extract(payload,'$."IDManifiesto"') LIKE ?
+                           OR json_extract(payload,'$."BL original"') LIKE ?
+                        ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''',
+                        ('%'+search+'%','%'+search+'%',max(0,offset))).fetchall()
                     progress = {}
                     checkpoint = path.with_name('bls_pages.sqlite3')
                     if checkpoint.is_file():
                         with closing(sqlite3.connect(checkpoint.resolve().as_uri()+'?mode=ro',uri=True,timeout=3)) as pages:
+                            prepare_reader(pages)
                             signature = db.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]
                             if pages.execute("SELECT value FROM metadata WHERE key='signature'").fetchone()[0]!=signature:
                                 raise ValueError('Las páginas guardadas pertenecen a otra selección BLs')
-                            progress = {ordinal:(number,count) for ordinal,number,count in pages.execute(
-                                'SELECT ordinal,MAX(page),SUM(count) FROM pages GROUP BY ordinal')}
-                    records = db.execute('''SELECT ordinal,payload,state,attempts,result_count,error FROM jobs
-                        WHERE json_extract(payload,'$."IDManifiesto"') LIKE ?
-                           OR json_extract(payload,'$."BL original"') LIKE ?
-                        ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''', ('%'+search+'%','%'+search+'%',max(0,offset)))
-                    for ordinal,payload,state,attempts,rows,error in records:
+                            from .bls_empty_retry import generations,page_key
+                            versions=generations(db)
+                            aliases={page_key(key,versions):key for key in versions}
+                            keys=[page_key(row[0],versions) for row in records]
+                            if keys:
+                                with stage('Leyendo checkpoints de los trabajos visibles'):
+                                    marks=','.join('?' for _ in keys)
+                                    progress = {ordinal:(number,count) for key,ordinal,number,count in pages.execute(
+                                        f'SELECT job,ordinal,MAX(page),SUM(count) FROM pages WHERE job IN ({marks}) GROUP BY job',keys)
+                                        if key==page_key(aliases.get(key,key),versions) and ('@' not in key or key in aliases)}
+                    for identifier,ordinal,payload,state,attempts,rows,error in records:
                         row = bls_job(ordinal,payload,state,attempts,rows,error)
                         if ordinal in progress:
                             number,collected = progress[ordinal]
@@ -511,10 +719,18 @@ class BatchService:
                         self._jobs[ordinal] = row
                 else:
                     records = db.execute('''SELECT id,ordinal,state,attempts,kept_count,error FROM jobs
-                        WHERE id LIKE ? ORDER BY CASE WHEN state='Descargando' THEN 0 ELSE 1 END, ordinal LIMIT 200 OFFSET ?''', ('%'+search+'%',max(0,offset)))
-                    for identifier,ordinal,state,attempts,rows,error in records:
-                        self._jobs[identifier] = dict(id=identifier,ordinal=ordinal,state=state,attempts=attempts,rows=rows,error=error)
+                        WHERE id LIKE ? ORDER BY ordinal LIMIT ?''', ('%'+search+'%',offset+200)).fetchall()
+                    # Zona activa independiente del filtro, de la búsqueda y de la página.
+                    active = db.execute('''SELECT id,ordinal,state,attempts,kept_count,error FROM jobs
+                        WHERE state='Descargando' ORDER BY ordinal''').fetchall()
+                    for identifier,ordinal,state,attempts,rows,error in [*records,*active]:
+                        self._jobs[manifest_job_key(path,identifier)] = dict(id=identifier,ordinal=ordinal,
+                            state=state,attempts=attempts,rows=rows,error=error,mode=mode,database=str(path))
         record['summary'] = summary
+        if self.flow!='bls':
+            self.update_manifest_summary(record)
+        else:
+            record['modeSummaries'] = combine(bls_modes)
         if not self.processing:
             # Una reserva huérfana se recupera bajo el bloqueo al reanudar; no simular actividad.
             summary['pending'] += summary['running']
@@ -542,6 +758,7 @@ class BatchService:
             raise ValueError('El CSV ya existe fuera de este lote. Use otro nombre de tabla; el archivo anterior se conservó.')
         return destination,owner_path
 
+    @observed('Actualizando CSV en la carpeta local de resultados')
     def publish(self, source, record):
         source = Path(source)
         if not source.is_file():
@@ -556,7 +773,8 @@ class BatchService:
         try:
             for path,spec in files:
                 destination,owner_path=self.publication_target(record,spec=spec)
-                result=output_layout.publish(path,self.public_root(),spec,self.flow+':'+record['id'],output_layout.registry_path(self.root))
+                result=output_layout.publish(path,self.public_root(),spec,self.flow+':'+record['id'],output_layout.registry_path(self.root),
+                                             supersede=bool(record.get('cumulative')))
                 if result:
                     write_json(owner_path,{'owner':record['id'],'path':str(destination)})
                     self.emit('published',flow=self.flow,**result)
@@ -564,6 +782,7 @@ class BatchService:
             if self.flow=='bls':
                 for path,_ in files:path.unlink(missing_ok=True)
 
+    @observed('Exportando CSV desde SQLite')
     def export(self):
         record = self.active()
         if not record:
@@ -613,7 +832,10 @@ class BatchService:
                     writer.writerows(db.execute(sql))
         return {'reviewFolder':str(root)}
 
+    @observed('Leyendo fuentes para la base BLs')
     def load_base(self, request):
+        from .bls_identifiers import install_base_support
+        install_base_support()
         from bls_base import catalog_sources, choose_candidates, inspect_sources, NotKnowledgeSource
         self.sources = []
         self.base_scope = None
@@ -649,7 +871,10 @@ class BatchService:
                           'periods':periods,'message':f'{len(self.sources)} fuentes disponibles. Seleccione los meses.'}
         return {'snapshot':self.snapshot()}
 
+    @observed('Generando base BLs')
     def build_base(self, request):
+        from .bls_identifiers import install_base_support
+        install_base_support()
         from bls_base import build_base
         if not self.sources or self.base_scope is None:
             raise ValueError('Cargue los datos elegidos antes de generar la base.')

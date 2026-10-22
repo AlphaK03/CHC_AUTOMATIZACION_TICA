@@ -25,12 +25,13 @@ class ManifestNamesTests(unittest.TestCase):
             config.update(year=2027, month=1)
             self.assertEqual(manifest_name(manifest_scope(service.flow, config)), 'enero27')
             config.update(year=2026, month=10)
-            for changes in ({'start':'2026-10-02'}, {'courier':'N'}, {'limit':2},
-                            {'manifestIds':'001-2026-000001'}, {'modes':['aereo']}):
+            for changes in ({'courier':'N'}, {'limit':2}, {'manifestIds':'001-2026-000001'}):
                 with self.subTest(changes=changes):
                     name = manifest_name(manifest_scope(service.flow, {**config, **changes}))
                     self.assertTrue(name.startswith('octubre26_'))
                     self.assertNotEqual(name, 'octubre26')
+            for changes in ({'start':'2026-10-02'},{'modes':['aereo']},{'modes':['maritimo','aereo']}):
+                self.assertEqual(manifest_name(manifest_scope(service.flow,{**config,**changes})),'octubre26')
 
     def test_resume_ignores_manual_name_and_mode_order(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -42,7 +43,11 @@ class ManifestNamesTests(unittest.TestCase):
             self.assertIs(second, first)
             self.assertEqual(len(service.index['history']), 1)
             self.assertEqual(service.index['active'], first['id'])
-            service.index['config']['month'] = 11
+            service.index['config'].update(modes=['maritimo'],end='2026-10-17')
+            self.assertIs(service.prepare(),first)
+            service.index['config'].update(modes=['aereo'],end='2026-10-31')
+            self.assertIs(service.prepare(),first)
+            service.index['config'].update(month=11,end='')
             self.assertNotEqual(service.prepare()['id'], first['id'])
 
     def test_legacy_progress_and_paths_survive_reload(self):

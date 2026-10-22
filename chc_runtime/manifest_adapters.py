@@ -8,9 +8,26 @@ from pathlib import Path
 
 from conocimientos import KnowledgeStore, IncompleteTable, parse_main_rows
 from manifest_scraper import ManifestScraper
+from .manifest_incremental import IncrementalStore
+from tablas_manifiesto import ManifestTableStore
 
 
-class RowsStore(KnowledgeStore):
+class CumulativeKnowledgeStore(IncrementalStore,KnowledgeStore):
+    enable_cumulative=True
+
+
+class CumulativeTableStore(IncrementalStore,ManifestTableStore):
+    enable_cumulative=True
+
+
+def enable_incremental_stores():
+    # Solo el proceso de este módulo; no altera los archivos fuente copiados.
+    import conocimientos_flow, tablas_flow
+    conocimientos_flow.KnowledgeStore=CumulativeKnowledgeStore
+    tablas_flow.ManifestTableStore=CumulativeTableStore
+
+
+class RowsStore(IncrementalStore,KnowledgeStore):
     """La unidad confirmada es el manifiesto, no el índice de la última fila CSV."""
     def __init__(self, csv_path, scope, columns, db_path):
         self.columns = columns
@@ -68,6 +85,20 @@ class RowsStore(KnowledgeStore):
 
 
 class WorkbenchManifestScraper(ManifestScraper):
+    async def process_conocimientos_links(self,link_field='vVCONS',fetch_result=None):
+        if getattr(self.conoc_store,'cumulative',False):
+            # Reconciliar los identificadores antiguos antes de añadir nuevos:
+            # insertar primero el canónico impediría la reparación original.
+            corrections=[];canonical=set()
+            for ordinal,item in enumerate(parse_main_rows(self.conoc_main_grid,self.conoc_main_values,self.URL,link_field),1):
+                if item is None:continue
+                href,info,old=item
+                actual='-'.join(info.get(k,'').strip() for k in ('Trans.','Ing Sal','Manifiesto','Cod Ubicacion','Fecha'))
+                canonical.add(actual)
+                if actual!=old:corrections.append((old,actual,ordinal))
+            self.conoc_store.reconcile_identities(corrections,canonical)
+        return await super().process_conocimientos_links(link_field,fetch_result)
+
     async def container_result(self, href, ordinal, info):
         """Mismos Llenos y 18 campos; un fallo de mercancía no puede perder filas."""
         mid = '-'.join(info[k] for k in ('Trans.', 'Ing Sal', 'Manifiesto', 'Cod Ubicacion', 'Fecha'))
@@ -164,14 +195,29 @@ class WorkbenchManifestScraper(ManifestScraper):
             frame = await self.extract_table()
             if len(frame) != len(snapshot):
                 raise IncompleteTable('El listado visible no coincide con la respuesta confirmada')
+            keys=['Trans.','Ing Sal','Manifiesto','Cod Ubicacion','Fecha']
+            indices=[list(frame.columns).index(key) for key in keys]
+            values = [[str(value) for value in row] for row in frame.itertuples(index=False, name=None)]
+            identity=lambda row:tuple(row[index].strip() for index in indices)
+            expected=[tuple(item[1].get(key,'').strip() for key in keys) for item in snapshot if item is not None]
+            if [identity(row) for row in values]!=expected:
+                raise IncompleteTable('Las identidades visibles no coinciden con el listado confirmado')
             store = RowsStore(csv_path, self.config['workbench_scope'], list(frame.columns), db_path)
             self.conoc_store = store
             try:
                 store.prepare_selection([(1, '', {}, 'listado')])
                 store.start_run()
-                if not store.completed('listado'):
+                if store.cumulative and store.completed('listado'):
+                    # El listado no tiene detalle por descargar: conservar las
+                    # filas anteriores y añadir identidades nuevas de la consulta.
+                    previous=[json.loads(row[0]) for row in store.db.execute(
+                        "SELECT data FROM rows WHERE manifest='listado' ORDER BY sequence")]
+                    seen={identity(row) for row in previous}
+                    merged=previous+[row for row in values if identity(row) not in seen]
+                    if len(merged)!=len(previous):
+                        store.save('listado',1,merged,{'pages':1,'read':len(merged),'kept':len(merged)})
+                elif not store.completed('listado'):
                     store.claim('listado')
-                    values = [[str(value) for value in row] for row in frame.itertuples(index=False, name=None)]
                     store.save('listado', 1, values, {'pages':1, 'read':len(values), 'kept':len(values)})
                 store.finish_run(0 if store.progress()['processed_run'] == 0 else 1)
                 store.export()

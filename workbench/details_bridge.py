@@ -1,6 +1,7 @@
 """Adaptador Qt común por módulo; nunca importa los paquetes del motor."""
 import json
 import os
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Property, QProcess, QTimer, QUrl, Signal, Slot
@@ -8,7 +9,10 @@ from PySide6.QtGui import QDesktopServices
 from remaining_time import RemainingTime
 from process_guard import ProcessTreeGuard
 from activity_model import ActivityModel
+from live_activity import LiveActivity
 from manual_review import ManualReview
+from daily_marks import DailyMarks
+from chc_runtime.distribution import bot_data_root, packaged
 
 ROOT = Path(__file__).resolve().parents[1]
 BOT = ROOT / 'bots' / 'detalles'
@@ -17,6 +21,7 @@ EMPTY = {key: 0 for key in ('pending', 'running', 'retry', 'succeeded', 'invalid
 
 class DetailsBridge(QObject):
     changed = Signal()
+    calendarMarksChanged = Signal()
     remainingTimeChanged = Signal()
     toast = Signal(str)
     filePrepared = Signal()
@@ -34,7 +39,8 @@ class DetailsBridge(QObject):
         self._module_id = module_id
         self._bot = ROOT / 'bots' / module_id
         self._enabled = enabled
-        self._storage_root = str(storage_root or self._bot)
+        self._storage_root = str(storage_root or bot_data_root(module_id))
+        self._day_marks = DailyMarks(self._storage_root)
         self._offline_fixture = offline_fixture
         self._review = ManualReview(module_id, self._storage_root, offline_fixture, self)
         self._review.toast.connect(self.toast.emit)
@@ -47,8 +53,11 @@ class DetailsBridge(QObject):
         self._view = {'rows': [], 'offset': 0, 'total': 0}
         self._query = {'filter': 'all', 'search': '', 'offset': 0}
         self._events = []
+        self._last_daily_message = ''
         self._activity_model = ActivityModel(parent=self)
+        self._console = LiveActivity(self)
         self._error = ''
+        self._error_command = ''
         self._ready = False
         self._busy = False
         self._running = False
@@ -93,17 +102,27 @@ class DetailsBridge(QObject):
     @Property(bool, constant=True)
     def supportsLightweight(self): return self._module_id == 'detalles'
     @Property(bool, constant=True)
-    def supportsClassic(self): return self._module_id == 'detalles'
+    def supportsClassic(self): return self._module_id == 'detalles' and not packaged()
     @Property(bool, notify=changed)
     def ready(self): return self._ready
     @Property(bool, notify=changed)
     def busy(self): return self._busy
     @Property(bool, notify=changed)
+    def loading(self):
+        if not self._enabled or self._closing or self._error or self._running or self._daily_active:
+            return False
+        return not self._ready or any(request['command'] in {
+            'initialize','select','refresh','inspect_excel','prepare_import','import'
+        } and not request.get('readonly') for request in self._requests.values())
+    @Property(bool, notify=changed)
     def running(self): return self._running
     @Property(bool, notify=changed)
     def dailyActive(self): return self._daily_active
     @Property('QVariantMap', notify=changed)
-    def daily(self): return self._daily
+    def daily(self):
+        return {**self._daily, 'days': [
+            {**day, 'manualCompleted': day.get('date') in self._day_marks.values}
+            for day in self._daily['days']]}
     @Property(str, notify=remainingTimeChanged)
     def remainingTime(self): return self._remaining_text
     @Property(bool, notify=changed)
@@ -144,6 +163,8 @@ class DetailsBridge(QObject):
     def events(self): return self._events
     @Property(QObject, constant=True)
     def activityModel(self): return self._activity_model
+    @Property(QObject, constant=True)
+    def consoleMonitor(self): return self._console
     @Property(str, notify=changed)
     def outputFolder(self): return self._snapshot['outputFolder']
     @Property(str, notify=changed)
@@ -165,6 +186,7 @@ class DetailsBridge(QObject):
         self._stderr = ''
         self._error = ''
         self._status = 'Preparando módulo…'
+        self._console.begin('Cargando módulo…')
         self._process.setWorkingDirectory(str(self._bot))
         arguments = ['-u', str(self._bot / 'workbench_worker.py'), '--storage-root', self._storage_root]
         if self._offline_fixture:
@@ -185,8 +207,10 @@ class DetailsBridge(QObject):
         if command not in {'stop', 'shutdown'}:
             self._requests[self._sequence] = {'command': command, 'readonly': readonly, 'tableId': self.activeTable.get('id')}
         if command not in {'stop', 'shutdown'} and not readonly:
+            self._console.begin()
             self._busy = True
             self._error = ''
+            self._error_command = ''
             self._status = {'run': 'Consultando el portal…', 'import': 'Guardando tabla…', 'export': 'Exportando resultados…'}.get(command, self._status)
         if command in {'run', 'retry_empty'}:
             self._running = True
@@ -215,6 +239,9 @@ class DetailsBridge(QObject):
 
     def _receive(self, event):
         kind = event['event']
+        self._console.accept(event)
+        if kind == 'activity_state':
+            return
         if 'snapshot' in event:
             self._snapshot = event['snapshot']
             if 'daily' in self._snapshot:
@@ -227,6 +254,8 @@ class DetailsBridge(QObject):
             if event.get('command') != 'view' or (request.get('tableId') == self.activeTable.get('id') and request_id >= self._last_view_sequence):
                 self._view = event['view']
                 self._last_view_sequence = request_id
+                if event.get('command') == 'view' and self._error_command == 'view':
+                    self._error = self._error_command = ''
         if kind == 'daily':
             self._daily_active = self._daily['active']
             processing = self._daily['phase'] == 'processing'
@@ -241,6 +270,9 @@ class DetailsBridge(QObject):
             self._update_remaining()
             if event.get('message'):
                 self._status = event['message']
+                if self._last_daily_message != event['message']:
+                    self._last_daily_message = event['message']
+                    self._activity_model.prepend({'message':event['message'],'time':time.strftime('%H:%M:%S'),'level':'INFO'})
         elif kind == 'progress':
             self._snapshot['summary'] = {**EMPTY, **event['summary']}
             if self._running:
@@ -285,8 +317,15 @@ class DetailsBridge(QObject):
                 self._status = 'Resultados exportados'
                 self.toast.emit('CSV actualizado.')
         elif kind in {'error', 'fatal'}:
-            self._error = event['message']
-            self._status = 'No se pudo completar la operación'
+            self._activity_model.prepend({'message':event['message'],'time':time.strftime('%H:%M:%S'),'level':'ERROR'})
+            if kind == 'fatal':self._console.finish()
+            command = event.get('command', '')
+            # Un lector tardío no debe ocultar un fallo real del motor.
+            if command != 'view' or not self._error or self._error_command == 'view':
+                self._error = event['message']
+                self._error_command = command
+            if command != 'view':
+                self._status = 'No se pudo completar la operación'
             if event.get('command') in {'run', 'retry_empty', 'daily_run','retry_month','retry_day'}:
                 self._running = False
                 self._daily_active = False
@@ -300,6 +339,7 @@ class DetailsBridge(QObject):
             self._requests.pop(event.get('requestId'), None)
             if not event.get('readonly'):
                 self._busy = False
+                self._console.finish()
         self.changed.emit()
         self.eventReceived.emit(event)
 
@@ -320,6 +360,7 @@ class DetailsBridge(QObject):
             self.remainingTimeChanged.emit()
 
     def _finished(self, exit_code, exit_status):
+        self._console.finish()
         self._shutdown_timer.stop()
         self._process_guard.close()
         self._busy = self._running = self._ready = self._daily_active = False
@@ -337,6 +378,7 @@ class DetailsBridge(QObject):
 
     def _process_error(self, error):
         if error == QProcess.FailedToStart:
+            self._console.finish()
             self._busy = False
             self._error = self._process.errorString()
             self.changed.emit()
@@ -386,6 +428,22 @@ class DetailsBridge(QObject):
     def retryMonth(self, month): self._send('retry_month', {'month':month})
     @Slot(str)
     def retryDay(self, day): self._send('retry_day', {'day':day})
+    @Slot(str, bool)
+    def markCalendarDay(self, day, completed):
+        if not self._enabled or not self._ready or self._closing:
+            return
+        selected = next((item for item in self._daily['days'] if item.get('date') == day), {})
+        if not selected.get('available'):
+            self.toast.emit('Elige un día disponible del calendario.')
+            return
+        try:
+            self._day_marks.set_completed(day, completed)
+        except (OSError, ValueError) as error:
+            self.toast.emit(f'No se pudo guardar la marca del día: {error}')
+            return
+        self.changed.emit()
+        self.calendarMarksChanged.emit()
+        self.toast.emit('Día marcado como completado manual.' if completed else 'Marca manual quitada.')
     @Slot(str)
     def loadCalendar(self, month): self._send('daily_calendar', {'month': month})
     @Slot()
@@ -406,12 +464,12 @@ class DetailsBridge(QObject):
             self._review.open({'tableId': self.activeTable['id'], 'jobId': job_id})
     @Slot(str)
     def renameTable(self, name): self._send('rename', {'name': name})
-    @Slot('QVariantList', str)
-    def removeRows(self, ids, table_id): self._send('remove_rows', {'ids': ids, 'confirmTableId': table_id})
-    @Slot(str)
-    def cleanCompleted(self, table_id): self._send('clean', {'confirmTableId': table_id})
-    @Slot(str)
-    def deleteTable(self, table_id): self._send('delete', {'confirmTableId': table_id})
+    @Slot('QVariantList', str, str)
+    def removeRows(self, ids, table_id, confirmation): self._send('remove_rows', {'ids': ids, 'confirmTableId': table_id, 'confirmation': confirmation})
+    @Slot(str, str)
+    def cleanCompleted(self, table_id, confirmation): self._send('clean', {'confirmTableId': table_id, 'confirmation': confirmation})
+    @Slot(str, str)
+    def deleteTable(self, table_id, confirmation): self._send('delete', {'confirmTableId': table_id, 'confirmation': confirmation})
     @Slot()
     def clearActivity(self):
         self._events = []

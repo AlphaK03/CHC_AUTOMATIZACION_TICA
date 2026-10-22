@@ -3,7 +3,7 @@ from datetime import date
 from pathlib import Path
 
 
-def create(root, tag, mode='maritimo', month=9, state='saved', courier=None, start='', end='', limited=False, rows=True):
+def create(root, tag, mode='maritimo', month=9, state='saved', courier=None, start='', end='', limited=False, rows=True, number='20260001'):
     import calendar
     from conocimientos import KnowledgeStore
     from resultados import output_paths
@@ -15,7 +15,7 @@ def create(root, tag, mode='maritimo', month=9, state='saved', courier=None, sta
            'url':'https://ticaconsultas.hacienda.go.cr/Tica/hcicgmic.aspx',
            'desde':start or f'2026-{month:02d}-01','hasta':end or f'2026-{month:02d}-{calendar.monthrange(2026,month)[1]}',
            'ids':['elegido'] if limited else [],'limit':None}
-    mid=f"{dict(maritimo='1',aereo='4',terrestre='7')[mode]}-0-20260001-P027-01/{month:02d}/26"
+    mid=f"{dict(maritimo='1',aereo='4',terrestre='7')[mode]}-0-{number}-P027-01/{month:02d}/26"
     store=KnowledgeStore(paths.csv,scope,db_path=paths.database)
     try:
         store.prepare_selection([(1,'',{},mid)] if rows else [])
