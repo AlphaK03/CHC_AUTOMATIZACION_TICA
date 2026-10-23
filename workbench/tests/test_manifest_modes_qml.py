@@ -14,10 +14,42 @@ from preferences import Preferences
 from chc_runtime.manifest_service import BatchService
 from PySide6.QtCore import QObject, QUrl, QMetaObject, Q_ARG, Qt
 from PySide6.QtGui import QFont, QFontDatabase
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 
 
 class ManifestModesQMLTests(unittest.TestCase):
+    def test_containers_show_only_maritime_even_with_old_air_selection(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);here=Path(__file__).resolve().parents[1]
+            old=[DetailsBridge(enabled=False,module_id=m,storage_root=root/m) for m in
+                 ('detalles','duas_transito','talon','xmovimientos')]
+            bridge=MemoryBatch(storage_root=root);bridge._flow='contenedores'
+            service=BatchService(root,'contenedores',lambda *a,**k:None,Event())
+            bridge.current().snapshot=service.snapshot();bridge.current().snapshot['config']['modes']=['aereo']
+            bridge.current().ready=True
+            backend=DemoBackend(here/'modules.json',*old,bridge);backend.navigate('manifiestos')
+            engine=QQmlApplicationEngine();warnings=[]
+            engine.warnings.connect(lambda values:warnings.extend(w.toString() for w in values))
+            for name,value in dict(demo=backend,details=old[0],transit=old[1],talon=old[2],movements=old[3],
+                                   manifests=bridge,preferences=Preferences(root/'prefs',persist=False)).items():
+                engine.rootContext().setContextProperty(name,value)
+            engine.load(QUrl.fromLocalFile(str(here/'qml/Main.qml')))
+            self.assertTrue(engine.rootObjects(),warnings);window=engine.rootObjects()[0]
+            try:
+                APP.processEvents()
+                maritime=window.findChild(QObject,'manifestMaritime')
+                self.assertTrue(maritime.property('checked'));self.assertFalse(maritime.property('enabled'))
+                self.assertFalse(window.findChild(QObject,'manifestAir').property('visible'))
+                self.assertFalse(window.findChild(QObject,'manifestLand').property('visible'))
+                page=window.findChild(QObject,'batchRealPage')
+                expression=QQmlExpression(engine.rootContext(),page,'JSON.stringify(configuration().modes)')
+                value=expression.evaluate()
+                self.assertFalse(expression.hasError())
+                self.assertEqual(value[0] if isinstance(value,tuple) else value,'["maritimo"]')
+                self.assertFalse(warnings,warnings)
+            finally:
+                window.close();engine.deleteLater();APP.processEvents()
+
     @classmethod
     def setUpClass(cls):
         if sys.platform=='win32' and os.environ.get('QT_QPA_PLATFORM')=='offscreen':

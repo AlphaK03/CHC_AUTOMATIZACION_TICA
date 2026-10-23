@@ -8,13 +8,24 @@ MONTHS = ('enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
           'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre')
 
 
+def supports_manifest_mode(flow, mode):
+    return flow != 'contenedores' or mode == 'maritimo'
+
+
+def manifest_modes(flow, selected):
+    modes = list(dict.fromkeys(selected))
+    if not modes or any(mode not in ('maritimo', 'aereo', 'terrestre') for mode in modes):
+        raise ValueError('Seleccione al menos una modalidad')
+    if any(not supports_manifest_mode(flow, mode) for mode in modes):
+        raise ValueError('Contenedores solo consulta la modalidad Marítimo.')
+    return modes
+
+
 def manifest_scope(flow, config):
     year, month = int(config['year']), int(config['month'])
     if not 2000 <= year <= 2100 or not 1 <= month <= 12:
         raise ValueError('Año o mes inválido')
-    modes = list(dict.fromkeys(config['modes']))
-    if not modes or any(mode not in ('maritimo', 'aereo', 'terrestre') for mode in modes):
-        raise ValueError('Seleccione al menos una modalidad')
+    modes = manifest_modes(flow, config['modes'])
     start = date.fromisoformat(config.get('start') or f'{year:04d}-{month:02d}-01')
     end = date.fromisoformat(config.get('end') or f'{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]}')
     if start > end or any((day.year, day.month) != (year, month) for day in (start, end)):

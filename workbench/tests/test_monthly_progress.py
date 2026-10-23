@@ -22,6 +22,15 @@ def write(path):
 
 
 class MonthlyTests(unittest.TestCase):
+    def test_containers_month_needs_only_maritime_and_preserves_historical_air(self):
+        sea=self.manifest('sea',mode='maritimo',flow='contenedores')
+        air=self.manifest('air',mode='aereo',flow='contenedores',pending=True)
+        hashes={p:hashlib.sha256(p.read_bytes()).hexdigest() for p in (sea,air)}
+        reader=MonthlyReader({'manifiestos':self.root},self.today);reader.read()
+        self.assertEqual(reader.cell('2026-09','manifiestos','contenedores')['status'],'completed')
+        self.assertEqual(len(reader.entries),1)
+        self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in hashes},hashes)
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.today=date(2026,10,13)

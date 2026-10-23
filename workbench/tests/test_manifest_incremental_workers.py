@@ -43,6 +43,7 @@ class IncrementalWorkersTests(unittest.TestCase):
                 for flow in ('tabla','conocimientos','duas','movimientos','contenedores'):
                     config=dict(year=2026,month=9,modes=['maritimo','aereo'],start='2026-09-01',end='2026-09-15',
                                 workers=2,headless=True,timeout=5)
+                    if flow=='contenedores':config['modes']=['maritimo']
                     initial=call(flow,config);before=jobs(flow)
                     snapshot=bridge.current().snapshot
                     messages=[event['message'] for event in bridge.current().activity_model.rows]
@@ -52,16 +53,18 @@ class IncrementalWorkersTests(unittest.TestCase):
                         self.assertTrue(any('Esperando HTTP' in message for message in messages),flow)
                     if flow=='duas':
                         self.assertTrue(any('sin límite de tiempo' in message for message in messages))
-                    self.assertEqual({j['mode'] for j in snapshot['jobs']},{'maritimo','aereo'})
-                    self.assertEqual({s['mode'] for s in snapshot['modeSummaries']},{'maritimo','aereo'})
+                    expected_modes=set(config['modes'])
+                    self.assertEqual({j['mode'] for j in snapshot['jobs']},expected_modes)
+                    self.assertEqual({s['mode'] for s in snapshot['modeSummaries']},expected_modes)
                     self.assertEqual(snapshot['summary']['rows'],sum(s['rows'] for s in snapshot['modeSummaries']))
                     if flow=='tabla':
                         self.assertEqual([j['id'] for j in snapshot['jobs']],['listado','listado'])
                     channel=bridge.current()
-                    self.assertTrue(channel.send('view',dict(mode='aereo',offset=0,search='')))
+                    view_mode='maritimo' if flow=='contenedores' else 'aereo'
+                    self.assertTrue(channel.send('view',dict(mode=view_mode,offset=0,search='')))
                     wait_until(lambda:not channel.busy)
                     self.assertTrue(channel.snapshot['jobs'])
-                    self.assertTrue(all(j['mode']=='aereo' for j in channel.snapshot['jobs']))
+                    self.assertTrue(all(j['mode']==view_mode for j in channel.snapshot['jobs']))
                     self.assertEqual(channel.snapshot['summary'],snapshot['summary'])
                     self.assertTrue(channel.send('view',dict(mode='',offset=0,search='')))
                     wait_until(lambda:not channel.busy)
@@ -70,17 +73,17 @@ class IncrementalWorkersTests(unittest.TestCase):
                     self.assertEqual(call(flow,{**config,'modes':['maritimo'],'end':'2026-09-30'}),initial)
                     maritime=jobs(flow)
                     self.assertTrue(all(maritime[key][0]==value[0] for key,value in before.items()))
-                    self.assertEqual(call(flow,{**config,'modes':['aereo'],'end':'2026-09-30'}),initial)
+                    self.assertEqual(call(flow,{**config,'modes':[view_mode],'end':'2026-09-30'}),initial)
                     after=jobs(flow)
                     self.assertEqual(len(bridge.current().snapshot['history']),1)
                     self.assertTrue(all(value[0]==1 and value[1]=='Guardado' for value in after.values()))
                     if flow=='tabla':
                         self.assertEqual(sum(v[2] for v in after.values()),6)
                     else:
-                        self.assertEqual(len(after),6)
+                        self.assertEqual(len(after),3 if flow=='contenedores' else 6)
                     outputs=list((root/'resultados'/'MANIFIESTOS').glob('**/*.CSV'))
                     own=[p for p in outputs if ('CONOCIMIENTOS' if flow=='conocimientos' else 'LISTADO' if flow=='tabla' else flow.upper()) in p.parts]
-                    self.assertEqual(len(own),2)
+                    self.assertEqual(len(own),1 if flow=='contenedores' else 2)
                     contents={p:p.read_bytes() for p in own}
                     self.assertEqual(call(flow,{**config,'end':'2026-09-30'}),initial)
                     self.assertEqual(jobs(flow),after)
@@ -111,7 +114,8 @@ class IncrementalWorkersTests(unittest.TestCase):
                 bridge=BatchBridge(storage_root=root,offline_fixture=True)
                 for flow in ('tabla','conocimientos','duas','movimientos','contenedores'):
                     before=jobs(flow)
-                    self.assertEqual(call(flow,dict(year=2026,month=9,modes=['aereo'],start='2026-09-01',end='2026-09-30',
+                    modes=['maritimo'] if flow=='contenedores' else ['aereo']
+                    self.assertEqual(call(flow,dict(year=2026,month=9,modes=modes,start='2026-09-01',end='2026-09-30',
                         workers=1,headless=True,timeout=5)),ids[flow])
                     self.assertEqual(jobs(flow),before)
             finally:

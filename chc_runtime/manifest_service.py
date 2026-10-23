@@ -13,7 +13,8 @@ import sqlite3
 import tempfile
 import time
 
-from .manifest_names import manifest_scope, manifest_name, normalized_scope, cumulative_family
+from .manifest_names import (manifest_scope, manifest_name, normalized_scope, cumulative_family,
+                             manifest_modes, supports_manifest_mode)
 from . import output_layout
 from .bls_observation import BlsModeProgress, manifest_mode, combine
 from .activity import observed, stage
@@ -90,6 +91,9 @@ class BatchService:
                 self.index['config']['inputMode']='file'
             self.index['config'].update(saved.get('config', {}))
             self.index.update({k:v for k,v in saved.items() if k != 'config'})
+        if flow == 'contenedores':
+            # Adaptar la selección vigente sin modificar los lotes/SQLite históricos.
+            self.index['config']['modes'] = ['maritimo']
         from .batch_deletion import recover
         recover(self.root, flow, self.index)
         self.sources = []
@@ -238,6 +242,8 @@ class BatchService:
                 logging.exception('No se pudo actualizar el historial de %s; SQLite conserva el progreso.', self.flow)
 
     def execute(self, command, request):
+        if command in ('configure', 'run') and 'modes' in request.get('config', {}):
+            manifest_modes(self.flow, request['config']['modes'])
         if command == 'delete':
             if self.flow not in LABELS:
                 raise ValueError('Seleccione una ejecución de Manifiestos o BLs.')
@@ -270,6 +276,8 @@ class BatchService:
                 raise ValueError('No se encontró la ejecución')
             self.index['active'] = request['id']
             selected=dict(self.active()['config'])
+            if self.flow == 'contenedores':
+                selected['modes'] = ['maritimo']
             if self.flow=='bls':
                 selected.setdefault('inputMode','file')
                 selected.setdefault('knowledgePeriods',[])
@@ -540,6 +548,7 @@ class BatchService:
         from .manifest_activity import install
         install(WorkbenchManifestScraper)
         c, spec = self.index['config'], record['spec']
+        manifest_modes(self.flow, spec['modes'])
         if record.get('cumulative'):
             from chc_runtime.manifest_adapters import enable_incremental_stores
             enable_incremental_stores()
@@ -663,6 +672,10 @@ class BatchService:
                 tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if 'jobs' not in tables:
                     continue
+                if self.flow == 'contenedores':
+                    scope = json.loads(db.execute('SELECT scope FROM metadata').fetchone()[0])
+                    if not supports_manifest_mode(self.flow, scope.get('mode')):
+                        continue
                 with stage('Leyendo estados de consultas', path.name):
                     counts = dict(db.execute('SELECT state,count(*) FROM jobs GROUP BY state'))
                 summary['total'] += sum(counts.values())
@@ -782,6 +795,14 @@ class BatchService:
             if self.flow=='bls':
                 for path,_ in files:path.unlink(missing_ok=True)
 
+    def includes_database(self, path):
+        if self.flow != 'contenedores':
+            return True
+        with closing(sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro', uri=True)) as db:
+            prepare_reader(db)
+            scope = json.loads(db.execute('SELECT scope FROM metadata').fetchone()[0])
+            return supports_manifest_mode(self.flow, scope.get('mode'))
+
     @observed('Exportando CSV desde SQLite')
     def export(self):
         record = self.active()
@@ -805,6 +826,8 @@ class BatchService:
             for database in record.get('databases',[]):
                 if not Path(database).is_file():
                     continue
+                if not self.includes_database(database):
+                    continue
                 if self.flow in ('tabla','conocimientos','duas','movimientos','contenedores'):
                     from chc_runtime.manifest_adapters import RowsStore
                     cls = KnowledgeStore if self.flow=='conocimientos' else ManifestTableStore if self.flow in ('duas','movimientos') else RowsStore
@@ -827,6 +850,8 @@ class BatchService:
             writer = csv.writer(stream)
             writer.writerow(['Fila','Identificador','Estado','Intentos','Último error'])
             for database in record.get('databases',[]):
+                if not self.includes_database(database):
+                    continue
                 with closing(sqlite3.connect(Path(database).as_uri()+'?mode=ro',uri=True)) as db:
                     sql = "SELECT ordinal,id,state,attempts,error FROM jobs WHERE state!='Guardado' ORDER BY ordinal"
                     writer.writerows(db.execute(sql))

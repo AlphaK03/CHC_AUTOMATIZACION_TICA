@@ -64,6 +64,20 @@ def completed(bridge,flow,pending=0):
 
 
 class MonthLauncherTests(unittest.TestCase):
+    def test_containers_monthly_launch_only_maritime_and_blocks_air_only(self):
+        manifests=fake_batch();launcher=self.make({'manifiestos':manifests})
+        launcher.setSelected('contenedores',True);launcher.setMode('aereo',True)
+        launcher.start()
+        self.assertEqual(manifests.sent[-1][2]['config']['modes'],['maritimo'])
+        completed(manifests,'contenedores')
+        launcher.cancel()
+        manifests=fake_batch();launcher=self.make({'manifiestos':manifests})
+        launcher.setSelected('contenedores',True)
+        launcher.setMode('maritimo',False);launcher.setMode('aereo',True)
+        launcher.start()
+        self.assertEqual(launcher.tasks['contenedores']['stage'],'blocked')
+        self.assertEqual(manifests.sent,[])
+
     def make(self,bridges):
         launcher=MonthLauncher(bridges)
         launcher.setPeriod(2026,9)

@@ -9,6 +9,7 @@ ScrollView {
     objectName: "batchRealPage"
     required property QtObject moduleBridge
     property bool isBls: moduleBridge.isBls
+    property bool maritimeOnly: !isBls && moduleBridge.flow === "contenedores"
     property var flows: ["tabla","conocimientos","duas","movimientos","contenedores"]
     property var titles: ["Tabla de manifiestos","Conocimientos asociados","DUAs por manifiesto","Movimientos de manifiesto","Contenedores asociados"]
     property var navLabels: ["Manifiestos","Conocimientos","DUAs","Movimientos","Contenedores"]
@@ -64,13 +65,17 @@ ScrollView {
         page.deleteFlow = moduleBridge.flow
         deleteDialog.open()
     }
-    function automaticName() {
+    function selectedModes() {
+        if (page.maritimeOnly) return ["maritimo"]
         let modes = []
         if (maritime.checked) modes.push("maritimo")
         if (air.checked) modes.push("aereo")
         if (land.checked) modes.push("terrestre")
+        return modes
+    }
+    function automaticName() {
         return moduleBridge.automaticTableName({flow:moduleBridge.flow, year:year.value, month:month.currentIndex+1,
-            modes:modes, start:fromDate.text, end:toDate.text,
+            modes:page.selectedModes(), start:fromDate.text, end:toDate.text,
             courier:["todos","N","S"][courier.currentIndex] || "todos",
             manifestIds:manifestIds.text, limit:limit.value})
     }
@@ -85,9 +90,9 @@ ScrollView {
         const c = moduleBridge.config
         if (!c || c.year === undefined) return
         year.value = c.year; month.currentIndex = c.month - 1
-        maritime.checked = c.modes.indexOf("maritimo") >= 0
-        air.checked = c.modes.indexOf("aereo") >= 0
-        land.checked = c.modes.indexOf("terrestre") >= 0
+        maritime.checked = page.maritimeOnly || c.modes.indexOf("maritimo") >= 0
+        air.checked = !page.maritimeOnly && c.modes.indexOf("aereo") >= 0
+        land.checked = !page.maritimeOnly && c.modes.indexOf("terrestre") >= 0
         if (page.isBls) tableName.text = c.name || ""
         threads.value = c.workers
         visibleBrowser.checked = !c.headless
@@ -104,11 +109,7 @@ ScrollView {
         page.syncView()
     }
     function configuration() {
-        let modes = []
-        if(maritime.checked) modes.push("maritimo")
-        if(air.checked) modes.push("aereo")
-        if(land.checked) modes.push("terrestre")
-        return {year:year.value, month:month.currentIndex+1, modes:modes, name:tableName.text,
+        return {year:year.value, month:month.currentIndex+1, modes:page.selectedModes(), name:tableName.text,
             workers:threads.value, headless:!visibleBrowser.checked, timeout:timeout.value,
             outputRoot:output.text, start:fromDate.text, end:toDate.text,
             courier:["todos","N","S"][courier.currentIndex], manifestIds:manifestIds.text,
@@ -206,11 +207,11 @@ ScrollView {
                 }
                 RowLayout {
                     visible:!page.isBls
-                    Choice { id:maritime; text:"Marítimo"; checked:true; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
-                    Choice { id:air; text:"Aéreo"; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
-                    Choice { id:land; text:"Terrestre"; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
+                    Choice { id:maritime; objectName:"manifestMaritime"; text:"Marítimo"; checked:true; enabled:!moduleBridge.busy && !page.maritimeOnly; palette.windowText:Theme.text }
+                    Choice { id:air; objectName:"manifestAir"; text:"Aéreo"; visible:!page.maritimeOnly; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
+                    Choice { id:land; objectName:"manifestLand"; text:"Terrestre"; visible:!page.maritimeOnly; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
                     Item { Layout.fillWidth:true }
-                    Text { visible:moduleBridge.flow==="contenedores"; text:"Contenedores llenos"; color:Theme.muted; font.pixelSize:12 }
+                    Text { visible:page.maritimeOnly; text:"Contenedores llenos · solo Marítimo"; color:Theme.muted; font.pixelSize:12 }
                 }
                 RowLayout {
                     visible:page.isBls

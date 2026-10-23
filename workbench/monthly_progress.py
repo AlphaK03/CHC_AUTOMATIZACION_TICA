@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import sqlite3
 from chc_runtime.manifest_coverage import cumulative_days, day_ranges
+from chc_runtime.manifest_names import supports_manifest_mode
 from chc_runtime.sqlite_read import prepare_reader
 from chc_runtime.distribution import data_root
 
@@ -224,6 +225,8 @@ class MonthlyReader:
                 try:
                     with readonly(path) as db:
                         scope=json.loads(db.execute('SELECT scope FROM metadata').fetchone()[0])
+                        if not supports_manifest_mode(flow, scope.get('mode')):
+                            continue
                         key=f"{int(scope['year']):04d}-{int(scope['month']):02d}"
                         if not period(key):raise ValueError('Mes inválido')
                         counts=dict(db.execute('SELECT state,count(*) FROM jobs GROUP BY state'))
