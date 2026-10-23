@@ -5,6 +5,18 @@ la aplicación y evitar que vuelvan a acumularse en futuras entregas. La regla
 persistente está en `AGENTS.md`. No añade un servicio ni un proceso de limpieza
 en segundo plano a la aplicación.
 
+## CSV manuales y limpieza adicional pendiente
+
+El usuario pidió retirar CSV de resultados existentes al pasar a generación
+manual. Plan de 44 archivos regenerables (638.547.240 bytes) en
+`runtime/diagnostics/manual-csv/deletion-plan.json`: **cero eliminados**, revisión
+automática rechazó el borrado nativo con `blocked by policy`, sin detalle.
+También bloqueó limpiar la copia de prueba `%TEMP%/CHC-two-loads-2qxrzjw2`
+(147.710.122 bytes). No ejecutar otra vía para eludir los rechazos ni anunciar
+espacio liberado. La prueba posterior sí limpió su almacenamiento temporal.
+Ver [exportación manual](EXPORTACION_MANUAL.md) y `cleanup-status.json` cercano
+al plan. La instalación ya no recrea CSV de resultados automáticamente.
+
 ## Limpieza residual autorizada y pendiente
 
 La instalación habitual está en

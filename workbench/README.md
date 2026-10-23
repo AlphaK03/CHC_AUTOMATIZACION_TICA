@@ -16,6 +16,16 @@ Aéreo y Terrestre quedan excluidos también al iniciar el mes. Una configuraci�
 antigua se adapta al abrirla y sus históricos permanecen intactos. Los otros
 procedimientos conservan sus modalidades disponibles.
 
+## Generar resultados manualmente
+
+Las consultas, reintentos y paradas conservan datos en SQLite sin crear CSV.
+Para una tabla DUA usa **Más → Generar CSV de esta tabla**; para BLs/Manifiestos,
+**Más → Generar CSV de esta ejecución**. En **Vista general → Generar todos los CSV**
+se recorren todos los lotes y meses guardados, manteniendo la selección actual.
+Los módulos ocupados se omiten y se informa del resultado. No se consulta TICA
+ni se sube a SharePoint al generar archivos. Los CSV existentes permanecen iguales
+hasta la próxima generación manual. [Detalles](../docs/EXPORTACION_MANUAL.md).
+
 ## Abrir
 
 Para la distribución Windows x64, ejecutar **Instalar CHC Workbench x64.exe**.
@@ -342,7 +352,7 @@ habilita cuando hay vacíos y el bot está libre. El resumen muestra cuántos
 guardados siguen sin líneas. Conserva el historial, los BLs con líneas y los
 pendientes que ya existían; no vuelve a preparar Conocimientos ni necesita el
 archivo de entrada original. Hace una consulta nueva, conserva las páginas
-antiguas aparte y actualiza el CSV si aparecen líneas. Si sigue vacío vuelve a
+antiguas aparte y incluye las líneas nuevas en la próxima generación manual del CSV. Si sigue vacío vuelve a
 Guardado con 0 filas. Ante error/detención queda Pendiente; **Continuar pendientes**
 usa el avance nuevo y también atiende los demás pendientes de su alcance normal.
 

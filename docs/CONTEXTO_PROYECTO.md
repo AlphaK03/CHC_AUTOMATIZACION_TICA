@@ -2,6 +2,29 @@
 
 ## Estado vigente — 22 de octubre de 2026
 
+- Por instrucción del 22/10, los CSV de resultados se generan únicamente
+  manualmente en los seis bots: Más → Generar CSV de esta tabla/ejecución;
+  Vista general → Generar todos los CSV recorre todos los lotes/meses guardados
+  sin cambiar selecciones ni consultar TICA. Omite módulos ocupados e informa
+  errores. No exportar durante consultas, reintentos, parada o importación de
+  progreso. SQLite sigue confirmando resultados y recuperando pendientes.
+  Se quitó la comprobación de CSV antes de consultar y la generación periódica
+  DUA/final BLs/Manifiestos, también la interna, sin modificar fuentes copiadas.
+  La exportación manual BLs siempre relee SQLite; el registro durable acredita
+  propiedad si falta el JSON auxiliar (causa del aviso falso de Conocimientos).
+  Código `15a6fbc`, instalado en C con 13 archivos y hashes/respaldo en
+  `runtime/diagnostics/manual-csv/install-update/20261023T045603Z/`.
+  Pasaron 35 pruebas offline; seis módulos instalados listos en 9,516 s,
+  cero avisos QML y cero CSV antes de la acción manual, con copias temporales.
+  La app instalada quedó abierta antes de documentar. No se consultó TICA.
+  Borrado solicitado de 44 CSV (638.547.240 bytes): NO realizado; revisión
+  automática rechazó la operación con `blocked by policy`, sin más detalle.
+  También bloqueó limpiar una copia de prueba de 147.710.122 bytes en
+  `%TEMP%/CHC-two-loads-2qxrzjw2`; conserva solo una copia, sin uso activo.
+  El fallo de limpieza original del arnés se corrigió esperando al lector
+  mensual; su segunda ejecución sí limpió todos sus datos. Ver
+  `EXPORTACION_MANUAL.md` y `runtime/diagnostics/manual-csv/cleanup-status.json`.
+
 - Contenedores consulta exclusivamente Marítimo, por instrucción del 22/10.
   Interfaz, worker e inicio mensual rechazan/excluyen Aéreo y Terrestre.
   Al reabrir configuraciones antiguas se selecciona Marítimo; los SQLite,

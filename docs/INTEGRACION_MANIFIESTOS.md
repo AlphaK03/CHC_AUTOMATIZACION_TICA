@@ -7,6 +7,17 @@ y pruebas, más requisitos y documentación de referencia, a `bots/manifiestos/`
 Los hashes de esos 28 archivos están en `source_manifest.json`; sus extractores
 permanecen intactos. Los cambios funcionales viven en adaptadores nuevos.
 
+## CSV manuales (22/10/2026)
+
+Consultar, reintentar, detener e importar progreso guardan solo en SQLite; ya no
+exportan CSV internos ni públicos. Generar desde **Más → Generar CSV de esta
+ejecución** (lote seleccionado), o **Vista general → Generar todos los CSV**
+(todos los lotes/meses de los seis módulos, omitiendo ocupados). Un CSV existente
+no bloquea consultar. Al exportar se comprueba la propiedad, también con el
+registro durable cuando falta el JSON auxiliar. BLs siempre reconstruye desde
+SQLite. Ver [uso y evidencia](EXPORTACION_MANUAL.md); sustituye las referencias
+anteriores a generación automática o al antiguo rótulo «Actualizar CSV».
+
 ## Contenedores: solo Marítimo (22/10/2026)
 
 Por instrucción del usuario, Contenedores no consulta Aéreo ni Terrestre.

@@ -40,6 +40,13 @@
   procesos independientes. BLs conserva su motor original aislado. Adaptadores:
   `batch_worker.py`, `manifest_service.py`, `manifest_adapters.py` y
   `workbench/batch_bridge.py`. No forzarlos al perfil DUA ni sustituir sus fuentes.
+- Preferencia explícita del 22/10: CSV de resultados solo por acción manual,
+  individual o conjunta para todos los lotes guardados. No exportar durante
+  consultas/reintentos, al detener/terminar ni al importar progreso, ni siquiera
+  en almacenamiento interno. SQLite conserva el estado y la recuperación.
+  Mantener export/export_all y omitir módulos ocupados sin detenerlos. Un CSV
+  existente nunca bloquea consultar; al exportar, conservar propiedad y evitar
+  sobrescribir lotes ajenos. Leer `docs/EXPORTACION_MANUAL.md`.
 - Contenedores consulta exclusivamente Marítimo por instrucción del 22/10.
   Rechazar Aéreo/Terrestre en el worker y excluirlos del inicio mensual,
   resumen, exportación y cobertura de Contenedores. Adaptar la selección

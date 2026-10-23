@@ -11,6 +11,10 @@ datos por usuario separados del programa. [Instalación, construcción y límite
 de verificación](docs/DISTRIBUCION_WINDOWS.md).
 
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
+Los **CSV de resultados se generan solo manualmente**: en cada bot, desde Más;
+en Vista general, **Generar todos los CSV** reúne los lotes guardados de todos los
+meses. Consultar y detener guardan en SQLite sin exportar. Cambio ya instalado en
+C. [Uso, verificación y borrado pendiente](docs/EXPORTACION_MANUAL.md).
 Contenedores consulta solo **Marítimo**, también en el inicio mensual; los
 históricos aéreos se conservan fuera de su avance. Cambio aplicado a la
 instalación local de C y verificado con portales locales, sin consultar TICA.
@@ -52,7 +56,7 @@ La preparación y el motor de BLs admiten números de manifiesto con una letra
 final, como `2601287L`, conservando el identificador y sus ceros sin cambios.
 En **BLs → Más → Reconsultar BLs con 0 filas…** se pueden volver a consultar
 los guardados vacíos del lote elegido, con confirmación y respaldo. Conserva
-historial, BLs con líneas y otros pendientes; actualiza el CSV con las líneas nuevas.
+historial, BLs con líneas y otros pendientes; incluye las líneas nuevas al generar el CSV manualmente.
 BLs muestra un resumen por modalidad con **guardados/total**, estado, pendientes,
 trabajos en curso, filas confirmadas y BLs sin líneas. Permite ver si Marítimo
 terminó mientras Aéreo sigue descargando, contando todo el lote.
