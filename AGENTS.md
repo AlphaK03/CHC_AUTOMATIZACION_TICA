@@ -1,5 +1,21 @@
 # Mantenimiento de CHC Workbench
 
+- Preferencia y autorización permanente del usuario (22/10/2026): al cerrar cada
+  entrega revisar y retirar los residuos pesados generados por el trabajo, como
+  copias temporales de diagnóstico, instalaciones QA, paquetes intermedios de
+  compilación y migraciones incompletas ya reemplazadas por una migración verificada.
+  Usar TemporaryDirectory/context managers y limpieza en finally para las pruebas;
+  conservar recibos y métricas pequeños en vez de bases o programas completos.
+  Comprobar el destino absoluto, procesos y accesos directos antes de eliminar;
+  no tocar la instalación activa, fuentes, entornos de desarrollo, bases,
+  calendarios, checkpoints, CSV, configuración, tokens ni respaldos útiles.
+  Conservar el entregable final vigente y al menos un respaldo válido donde aplique.
+  La autorización cubre esos residuos propios sin pedir permiso repetido; no es
+  permiso para purgar datos de bots ni cualquier archivo grande por su tamaño.
+  Descontar enlaces duros y comprobar almacenamiento real al estimar lo recuperable.
+  Si la revisión automática bloquea la limpieza, informar la acción y el motivo
+  recibido, registrar lo pendiente y no presentar el espacio como liberado.
+  Ver `docs/MANTENIMIENTO_ALMACENAMIENTO.md` para la limpieza residual pendiente.
 - Leer primero `docs/CONTEXTO_PROYECTO.md`: objetivo final, stack, decisiones,
   restricciones y estado real para retomar desde otra sesión.
 - Destino: una plataforma de escritorio modular Python + PySide6 + Qt Quick/QML

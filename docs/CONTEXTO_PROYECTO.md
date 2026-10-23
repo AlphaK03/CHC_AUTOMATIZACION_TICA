@@ -2,6 +2,19 @@
 
 ## Estado vigente — 22 de octubre de 2026
 
+- El usuario autorizó eliminar residuos de pruebas/compilación/migración y pidió
+  limpieza al cerrar futuras entregas; preferencia guardada en `AGENTS.md`.
+  Pendientes `C:/CHC_Build`, `C:/CHC_QA`, `C:/CHC_Install_QA`,
+  `runtime/diagnostics/batch-loading` y la copia incompleta
+  `%LOCALAPPDATA%/CHC Consultores/Workbench.migracion-20261022-003022`.
+  Almacenamiento real de ese conjunto: 3.539.491.158 bytes, descontando enlaces
+  duros Build/QA. Acceso directo e instalación activa comprobados fuera del alcance.
+  NO se borraron: revisión automática rechazó la operación conjunta y la carpeta
+  de diagnóstico aislada con `blocked by policy`, sin explicación más específica.
+  No presentar esos 3,54 GB como liberados. Ver `MANTENIMIENTO_ALMACENAMIENTO.md`
+  e inventarios de `runtime/diagnostics/storage-audit/`. La limpieza XMovimientos
+  anterior sí se completó y es independiente de este bloqueo.
+
 - Limpieza de evidencias XMovimientos completada por instrucción expresa del
   usuario: eliminados únicamente 31.242 HTML/JSON de
   `%LOCALAPPDATA%/CHC Consultores/Workbench/bots/xmovimientos/data/exports/daily-2026-10/diagnosticos`.

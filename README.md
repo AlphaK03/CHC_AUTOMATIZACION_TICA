@@ -2,6 +2,8 @@
 
 Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón,
 XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada.
+La limpieza de residuos pesados al cerrar entregas está descrita en
+[mantenimiento del almacenamiento](docs/MANTENIMIENTO_ALMACENAMIENTO.md).
 
 Disponible distribución para **Windows 10/11 x64** con instalador, Python y
 navegador incluidos. No lleva bases ni credenciales del desarrollo; guarda los
