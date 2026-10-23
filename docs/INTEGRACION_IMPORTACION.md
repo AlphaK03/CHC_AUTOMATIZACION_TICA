@@ -158,9 +158,14 @@ el HTML mayor pasa de 14.145.681 a 1.746 bytes con la misma comprobación de vac
 No es una medición de la conversión completa. Evidencia local en
 `runtime/diagnostics/movement-evidence/`.
 
-Los históricos todavía no se han sustituido. El usuario descartó su conversión
-por costo/tiempo y considera volver a descargar; se recomendó retirar únicamente
-diagnósticos para conservar resultados. No se ejecutó borrado de datos.
+El usuario descartó convertir los históricos por costo/tiempo y autorizó eliminar
+solo sus evidencias. Se retiraron 31.242 HTML/JSON (10.753.741.896 bytes) del
+`daily-2026-10/diagnosticos` instalado en C; carpeta vacía y cero errores.
+Los SHA-256 de SQLite/CSV son idénticos antes/después, con bloqueos compatibles.
+No se cambió progreso ni se reconsultó TICA. Las evidencias eliminadas dejan de
+estar disponibles en Abrir evidencia, sin reabrir los DUAs confirmados para
+regenerarlas. Otras copias/respaldos intactos. Recibo en
+`runtime/diagnostics/movement-evidence/deleted-20261023T003540.json` (UTC).
 La instalación local de C ya incorpora la corrección: cuatro módulos de runtime,
 con respaldo previo y actualización de metadatos/hashes. Con su Python instalado,
 una respuesta sintética de 2.000.268 bytes quedó en 1.779 bytes y conservó Vacío

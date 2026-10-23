@@ -220,6 +220,9 @@ descargando, se detiene sin interrumpirlo. La página completa original se desca
 al confirmar. [Comandos y límites](../docs/INTEGRACION_IMPORTACION.md#evidencia-resumida-de-xmovimientos).
 La instalación local en C ya guarda evidencias pequeñas al abrirla desde su
 acceso directo habitual. El instalador anterior todavía no se reempaquetó.
+La limpieza autorizada de diagnósticos antiguos conserva los resultados y el
+calendario. Abrir evidencia de esas consultas ya no encontrará su archivo;
+no se vuelven a consultar DUAs confirmados para regenerarlo.
 
 ## Manifiestos y BLs
 

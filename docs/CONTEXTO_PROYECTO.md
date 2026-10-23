@@ -2,6 +2,18 @@
 
 ## Estado vigente — 22 de octubre de 2026
 
+- Limpieza de evidencias XMovimientos completada por instrucción expresa del
+  usuario: eliminados únicamente 31.242 HTML/JSON de
+  `%LOCALAPPDATA%/CHC Consultores/Workbench/bots/xmovimientos/data/exports/daily-2026-10/diagnosticos`.
+  Total retirado: 10.753.741.896 bytes (10,75 GB); carpeta sin archivos, cero
+  errores. Se tomaron los bloqueos de cola del motor y se verificaron iguales
+  los SHA-256 de SQLite/CSV antes y después. No se consultó TICA, reabrieron
+  trabajos ni borraron resultados/calendarios. Otras copias y respaldos intactos.
+  Recibo en `runtime/diagnostics/movement-evidence/deleted-20261023T003540.json`
+  (fecha UTC). La falta del HTML no reconsulta DUAs confirmados ni reconstruye
+  evidencia: Abrir evidencia de esos históricos ya no encontrará el archivo.
+  Las futuras consultas que lo requieran usarán el resumen acotado ya instalado.
+
 - XMovimientos: 11,84 GB de HTML de diagnóstico frente a 36,9 MB de SQLite mensual
   en los datos instalados de C. Guardaba páginas completas para Vacío, incluidas
   tablas de manifiestos ajenas a movimientos. Ahora `movement_evidence.py`
@@ -14,7 +26,7 @@
   convierten históricos tras `BORRAR` exacto; revisión por defecto sin cambios,
   bloqueos compatibles, reemplazo atómico, rutas/fechas conservadas, diario con
   hashes y operación repetible. No abre SQLite ni elimina CSV.
-  Históricos aún intactos: conversiones probadas en almacenamiento temporal y
+  Históricos conservados en la entrega inicial: conversiones probadas en almacenamiento temporal y
   ejemplos existentes solo en lectura. Mayor HTML: 14.145.681 → 1.746 bytes con
   la misma comprobación de vacío. Pasaron 13 pruebas evidencia/vacíos, 21 de
   puentes/bitácora y smoke de seis vistas. Ver `INTEGRACION_IMPORTACION.md`.
@@ -22,7 +34,7 @@
   `CHC_WORKBENCH_HOME`, sin consultas. No había instancia previa.
   Actualización posterior: el usuario descartó convertir históricos por tiempo
   y energía y considera volver a descargar. Se recomendó retirar solo diagnósticos
-  conservando resultados; no se ejecutó ningún borrado ni conversión masiva.
+  conservando resultados; después autorizó la limpieza indicada arriba, sin conversión masiva.
   La instalación C ya incorpora los cuatro archivos de runtime de `e45654d`
   (40.463 bytes), con respaldo previo, metadatos y hashes instalados actualizados.
   Evidencia/respaldo en `runtime/diagnostics/movement-evidence/install-update/20261023T002359/`.
