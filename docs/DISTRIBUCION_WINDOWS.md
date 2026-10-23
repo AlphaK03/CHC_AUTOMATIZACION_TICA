@@ -42,6 +42,20 @@ su almacenamiento propio. No se incluyen sesiones del equipo de compilación.
 
 ## Construcción y tamaño
 
+Corrección local posterior del 22/10: la instalación
+`20261022-002420-76a546` ya incluye la evidencia resumida de XMovimientos de
+`e45654d`. Se verificó la línea base antes de sustituir cuatro módulos Python
+(40.463 bytes), respaldando código/metadatos y actualizando `distribution.json`
+y `SHA256SUMS.json`. No se copiaron ni borraron datos operativos ni se recompiló
+el navegador/instalador. Respaldo y recibo en
+`runtime/diagnostics/movement-evidence/install-update/20261023T002359/` (UTC).
+Verificación con intérprete instalado y datos temporales: HTML sintético de
+2.000.268 → 1.779 bytes, comprobación de vacío y persistencia al reabrir correctas;
+hashes de los archivos actualizados y smoke del EXE correctos, sin consultas TICA.
+App instalada abierta antes de documentar. El acceso directo habitual carga
+la corrección; el instalador anterior de `runtime/releases/` conserva su payload
+previo y deberá reconstruirse para incluirla en nuevas instalaciones.
+
 `distribution/windows/build.py --output <carpeta nueva>` arma la distribución;
 ejecutarlo con `workbench/.venv/Scripts/python.exe`. Requiere los entornos de
 desarrollo preparados y la caché del Chromium descrito en `browser.lock.json`.

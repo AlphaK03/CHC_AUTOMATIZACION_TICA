@@ -158,10 +158,16 @@ el HTML mayor pasa de 14.145.681 a 1.746 bytes con la misma comprobación de vac
 No es una medición de la conversión completa. Evidencia local en
 `runtime/diagnostics/movement-evidence/`.
 
-Los históricos todavía no se han sustituido. Antes de documentar se abrió la app
-con el código actualizado del repositorio y `CHC_WORKBENCH_HOME` apuntando a los
-datos instalados de C, sin iniciar consultas. El instalador anterior del 22/10
-no se reconstruyó ni se modificó: ese ejecutable conserva el runtime previo.
+Los históricos todavía no se han sustituido. El usuario descartó su conversión
+por costo/tiempo y considera volver a descargar; se recomendó retirar únicamente
+diagnósticos para conservar resultados. No se ejecutó borrado de datos.
+La instalación local de C ya incorpora la corrección: cuatro módulos de runtime,
+con respaldo previo y actualización de metadatos/hashes. Con su Python instalado,
+una respuesta sintética de 2.000.268 bytes quedó en 1.779 bytes y conservó Vacío
+al reabrir SQLite temporal. Smoke del EXE correcto, sin consultas TICA. La app
+instalada se abrió antes de documentar; el acceso directo habitual usa la mejora.
+El instalador anterior en `runtime/releases/` no se reempaquetó y conserva su
+payload previo; reinstalarlo requerirá volver a aplicar la corrección.
 
 ## Evidencia y alcance de las comprobaciones
 

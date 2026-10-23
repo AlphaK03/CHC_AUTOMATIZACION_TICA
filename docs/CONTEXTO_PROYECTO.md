@@ -20,8 +20,17 @@
   puentes/bitácora y smoke de seis vistas. Ver `INTEGRACION_IMPORTACION.md`.
   Antes de documentar se abrió la app del repositorio usando datos C mediante
   `CHC_WORKBENCH_HOME`, sin consultas. No había instancia previa.
-  No se modificó la instalación ni se reconstruyó el instalador anterior: ese
-  acceso usará su runtime previo cuando cierre esta instancia.
+  Actualización posterior: el usuario descartó convertir históricos por tiempo
+  y energía y considera volver a descargar. Se recomendó retirar solo diagnósticos
+  conservando resultados; no se ejecutó ningún borrado ni conversión masiva.
+  La instalación C ya incorpora los cuatro archivos de runtime de `e45654d`
+  (40.463 bytes), con respaldo previo, metadatos y hashes instalados actualizados.
+  Evidencia/respaldo en `runtime/diagnostics/movement-evidence/install-update/20261023T002359/`.
+  Verificado con Python instalado y almacenamiento temporal: respuesta sintética
+  de 2.000.268 bytes → 1.779 bytes, Vacío durable al reabrir, sin red; smoke del
+  EXE correcto. App instalada abierta antes de documentar, sin consultas.
+  El acceso directo habitual carga la corrección; el instalador anterior en
+  `runtime/releases/` aún conserva el payload previo (no se reempaquetó).
 
 - Migración de datos a la instalación C autorizada después por el usuario para
   probar la carga. Instalada en `%LOCALAPPDATA%/Programs/CHC Workbench/20261022-002420-76a546`;

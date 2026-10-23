@@ -218,6 +218,8 @@ en C si existen; otras copias requieren indicar su raíz al script Python.
 Mantiene las rutas/fechas, no abre SQLite ni cambia resultados. Si hay un lote
 descargando, se detiene sin interrumpirlo. La página completa original se descarta
 al confirmar. [Comandos y límites](../docs/INTEGRACION_IMPORTACION.md#evidencia-resumida-de-xmovimientos).
+La instalación local en C ya guarda evidencias pequeñas al abrirla desde su
+acceso directo habitual. El instalador anterior todavía no se reempaquetó.
 
 ## Manifiestos y BLs
 
