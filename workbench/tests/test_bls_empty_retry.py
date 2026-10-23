@@ -98,7 +98,7 @@ class EmptyRetryTests(unittest.TestCase):
                 self.assertEqual(dialog.property('count'),1)
                 self.assertEqual(dialog.property('recordId'),bridge.activeId)
                 button=find('blsConfirmRetryEmpty');self.assertTrue(button.property('enabled'))
-                capture=ROOT/'runtime/diagnostics/bls-empty-retry.png';capture.parent.mkdir(parents=True,exist_ok=True)
+                capture=root/'bls-empty-retry.png'
                 APP.processEvents();self.assertTrue(window.grabWindow().save(str(capture)))
                 self.assertLessEqual(dialog.property('width'),window.width())
                 self.assertLessEqual(dialog.property('height'),window.height())
@@ -125,6 +125,7 @@ class EmptyRetryTests(unittest.TestCase):
                 bridge.connectModule();wait_until(lambda:bridge.ready and not bridge.busy)
                 self.assertEqual(bridge.summary['empty'],1)
                 selected=bridge.activeId
+                before={p:p.read_bytes() for p in (root/'resultados/BLS').rglob('*.csv')}
                 self.assertTrue(bridge.command('retry_empty',{'recordId':selected}))
                 wait_until(lambda:not bridge.busy,timeout=15000)
                 self.assertFalse(bridge.error,bridge.error)
@@ -137,6 +138,9 @@ class EmptyRetryTests(unittest.TestCase):
                     self.assertEqual(db.execute('SELECT count(*) FROM attempts').fetchone()[0],4)
                     self.assertEqual(db.execute('SELECT count(*) FROM workbench_empty_requeries').fetchone()[0],1)
                 self.assertTrue(list((root/'data/backups/bls_empty').glob('*.sqlite3')))
+                self.assertEqual({p:p.read_bytes() for p in before},before)
+                self.assertTrue(bridge.command('export',{}));wait_until(lambda:not bridge.busy)
+                self.assertFalse(bridge.error,bridge.error)
                 csvs=list((root/'resultados/BLS').rglob('*.csv'))
                 self.assertEqual(len(csvs),1)
                 text=csvs[0].read_text(encoding='utf-8-sig')

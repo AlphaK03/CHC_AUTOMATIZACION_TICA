@@ -174,6 +174,16 @@ class DetailsService:
             result=output_layout.publish(path,self.local_root(),spec,module+':'+record['id'],output_layout.registry_path(self.root))
             if result:self.protocol.emit('published',**result)
 
+    def export_record(self, record):
+        with RunLock(self.catalog.database(record)):
+            store = self.Store(self.catalog.database(record))
+            try:
+                paths = self.paths(record)
+                store.export(paths, self.fields)
+                self.published(record, paths)
+            finally:
+                store.close()
+
     def local_root(self):
         return output_layout.local_root(self.root,self.machine.get('output_base_path',''))
 
@@ -377,14 +387,19 @@ class DetailsService:
             record = self.record()
             if not record:
                 raise ValueError('Selecciona una tabla.')
-            with RunLock(self.catalog.database(record)):
-                store = self.Store(self.catalog.database(record))
-                try:
-                    store.export(self.paths(record), self.fields)
-                    self.published(record, self.paths(record))
-                finally:
-                    store.close()
+            self.export_record(record)
             logging.info('Resultados exportados desde SQLite; no se consultó el portal.')
+        elif command == 'export_all':
+            report = {'token':request.get('exportToken'), 'exported':0, 'errors':[]}
+            for record in self.catalog.list_tables():
+                if self.stop_event.is_set():
+                    report['errors'].append('Generación detenida.');break
+                try:
+                    self.export_record(record)
+                    report['exported'] += 1
+                except Exception as exc:
+                    report['errors'].append(record['name']+': '+str(exc))
+            return {'exportReport':report, 'snapshot':self.snapshot()}
         elif command == 'retry_empty':
             if not getattr(self.Store, 'supports_empty', False):
                 raise ValueError('Este módulo no registra consultas vacías.')
@@ -424,7 +439,6 @@ class DetailsService:
                 monitor_thread = threading.Thread(target=monitor, daemon=False)
                 try:
                     processor = self.Processor({**self.machine,'max_retries':3} if automatic else self.machine, paths, self.flow, self.captcha, self.stop_event)
-                    processor.on_export = lambda: self.published(record, paths)
                     monitor_thread.start()
                     processor.run(store, lambda summary: self.protocol.emit('progress', summary=summary))
                 finally:

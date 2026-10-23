@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 from activity_model import ActivityModel
 from month_launcher import MonthLauncher
+from csv_exports import CsvExports
 
 PRESENTATION = {
     'manifiestos': {'title':'Manifiestos', 'subtitle':'Manifiestos y conocimientos', 'icon':'ship',
@@ -57,6 +58,8 @@ class DemoBackend(QObject):
         self._bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
                          'manifiestos': manifests, 'bls': bls}
         self._month_launcher=MonthLauncher(self._bridges,parent=self)
+        self._csv_exports=CsvExports(self._bridges,parent=self)
+        self._csv_exports.toast.connect(self.toast.emit)
         for bridge in self._bridges.values():
             if bridge and bridge.enabled:
                 bridge.changed.connect(self.changed.emit)
@@ -91,6 +94,9 @@ class DemoBackend(QObject):
 
     @Property(QObject, constant=True)
     def monthLauncher(self):return self._month_launcher
+
+    @Property(QObject, constant=True)
+    def csvExports(self):return self._csv_exports
 
     @Property('QVariantMap', notify=changed)
     def selectedModule(self):

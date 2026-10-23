@@ -12,6 +12,34 @@ from chc_runtime.manifest_service import BatchService
 
 
 class ManifestNamesTests(unittest.TestCase):
+    def test_consulting_never_requires_or_overwrites_an_existing_csv(self):
+        from unittest.mock import AsyncMock, patch
+        from chc_runtime import output_layout as layout
+        with tempfile.TemporaryDirectory() as folder:
+            service=self.service(folder);record=service.prepare()
+            spec=layout.manifest_spec('conocimientos',record,'maritimo')
+            csv=service.public_root().joinpath(*spec['relativeFolders'],spec['filename'])
+            csv.parent.mkdir(parents=True);csv.write_bytes(b'external CSV\n')
+            with patch.object(service,'run_manifests',new=AsyncMock()) as run:
+                service.run()
+                run.assert_awaited_once()
+            self.assertEqual(csv.read_bytes(),b'external CSV\n')
+            with self.assertRaises(ValueError):service.publication_target(record,spec=spec)
+
+    def test_registered_csv_without_auxiliary_json_belongs_to_same_batch(self):
+        from chc_runtime import output_layout as layout
+        with tempfile.TemporaryDirectory() as folder:
+            service=self.service(folder);record=service.prepare()
+            source=Path(folder)/'example.csv';source.write_text('code\n0001\n',encoding='utf-8')
+            spec=layout.manifest_spec('conocimientos',record,'maritimo')
+            result=layout.publish(source,service.public_root(),spec,'conocimientos:'+record['id'],layout.registry_path(service.root))
+            destination,marker=service.publication_target(record,spec=spec)
+            self.assertEqual(destination,Path(result['path']))
+            self.assertFalse(marker.exists())
+            with self.assertRaises(ValueError):
+                service.publication_target({**record,'id':'other'},spec=spec)
+            layout.registry_path(service.root).unlink()
+            with self.assertRaises(ValueError):service.publication_target(record,spec=spec)
     def test_containers_reject_non_maritime_before_saving_or_running(self):
         with tempfile.TemporaryDirectory() as folder:
             service = self.service(folder, 'contenedores')

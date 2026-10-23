@@ -47,7 +47,7 @@ class IncrementalWorkersTests(unittest.TestCase):
                     initial=call(flow,config);before=jobs(flow)
                     snapshot=bridge.current().snapshot
                     messages=[event['message'] for event in bridge.current().activity_model.rows]
-                    self.assertTrue(any('Exportando CSV desde SQLite' in message for message in messages),flow)
+                    self.assertFalse(any('Exportando CSV desde SQLite' in message for message in messages),flow)
                     self.assertFalse(bridge.current().console.running)
                     if flow in ('conocimientos','duas','movimientos'):
                         self.assertTrue(any('Esperando HTTP' in message for message in messages),flow)
@@ -81,13 +81,22 @@ class IncrementalWorkersTests(unittest.TestCase):
                         self.assertEqual(sum(v[2] for v in after.values()),6)
                     else:
                         self.assertEqual(len(after),3 if flow=='contenedores' else 6)
+                    internal=Path(bridge.current().snapshot['outputFolder'])
+                    self.assertFalse(list(internal.rglob('*.CSV')))
+                    active_id=bridge.activeId
+                    self.assertTrue(channel.send('export_all',{'exportToken':'test'}))
+                    wait_until(lambda:not channel.busy)
+                    self.assertFalse(channel.error,channel.error)
+                    self.assertEqual(bridge.activeId,active_id)
                     outputs=list((root/'resultados'/'MANIFIESTOS').glob('**/*.CSV'))
                     own=[p for p in outputs if ('CONOCIMIENTOS' if flow=='conocimientos' else 'LISTADO' if flow=='tabla' else flow.upper()) in p.parts]
                     self.assertEqual(len(own),1 if flow=='contenedores' else 2)
                     contents={p:p.read_bytes() for p in own}
+                    modified={p:p.stat().st_mtime_ns for p in own}
                     self.assertEqual(call(flow,{**config,'end':'2026-09-30'}),initial)
                     self.assertEqual(jobs(flow),after)
                     self.assertEqual({p:p.read_bytes() for p in own},contents)
+                    self.assertEqual({p:p.stat().st_mtime_ns for p in own},modified)
                     ids[flow]=initial
                     print(flow,'acumulado, modalidades y reanudación correctos',flush=True)
                 report=MonthlyReader({'manifiestos':root},date(2026,10,17)).read()

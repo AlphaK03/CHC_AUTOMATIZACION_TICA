@@ -52,10 +52,12 @@ class TransitIntegrationTest(unittest.TestCase):
                 call('run')
                 self.assertEqual(bridge.summary['succeeded'], 1)
                 self.assertEqual(bridge.summary['retry'], 1)
-                path = next((root/'output').rglob('*.csv'))
                 def exported_rows():
                     with path.open(encoding='utf-8-sig', newline='') as stream:
                         return list(csv.DictReader(stream))
+                self.assertFalse(list(root.rglob('*.csv')))
+                call('export')
+                path = next((root/'output').rglob('*.csv'))
                 rows = exported_rows()
                 self.assertEqual(len(rows), 52)
                 self.assertEqual(rows[-1]['Item'], '52')

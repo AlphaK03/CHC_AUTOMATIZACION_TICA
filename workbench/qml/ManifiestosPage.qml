@@ -136,7 +136,7 @@ ScrollView {
             ActionButton { visible:!page.isBls; text:"Crear base para BLs"; onClicked:baseDialog.open() }
             ActionButton { text:"Más"; onClicked:more.open(); Menu {
                 id:more
-                MenuItem { text:"Actualizar CSV"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("export",{}) }
+                MenuItem { text:"Generar CSV de esta ejecución"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("export",{}) }
                 MenuItem {
                     objectName:"blsRetryEmpty"; text:"Reconsultar BLs con 0 filas…"; visible:page.isBls
                     enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
@@ -431,7 +431,7 @@ ScrollView {
         property int count:0
         contentItem:ColumnLayout {
             spacing:16
-            Text { text:"Se volverán a consultar los "+emptyRetry.count+" BLs guardados sin líneas del lote seleccionado. Las líneas nuevas se incorporarán al CSV. Se conservan el historial, los BLs con líneas y los demás pendientes."; color:Theme.muted; font.pixelSize:13; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+            Text { text:"Se volverán a consultar los "+emptyRetry.count+" BLs guardados sin líneas del lote seleccionado. Las líneas nuevas quedarán guardadas para generar el CSV manualmente. Se conservan el historial, los BLs con líneas y los demás pendientes."; color:Theme.muted; font.pixelSize:13; wrapMode:Text.WordWrap; Layout.fillWidth:true }
             RowLayout {
                 Layout.fillWidth:true
                 ActionButton { text:"Cancelar"; subtle:true; onClicked:emptyRetry.close() }

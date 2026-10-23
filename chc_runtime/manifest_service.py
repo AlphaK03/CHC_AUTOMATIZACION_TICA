@@ -290,6 +290,17 @@ class BatchService:
             self.inspect(request.get('search',''), int(request.get('offset',0)),request.get('mode',''))
         elif command == 'export':
             self.export()
+        elif command == 'export_all':
+            report = {'token':request.get('exportToken'), 'exported':0, 'errors':[]}
+            for record in self.index['history']:
+                if self.stop.is_set():
+                    report['errors'].append('Generación detenida.');break
+                try:
+                    self.export(record)
+                    report['exported'] += 1
+                except Exception as exc:
+                    report['errors'].append(record['name']+': '+str(exc))
+            return {'exportReport':report,'snapshot':self.snapshot()}
         elif command == 'review':
             return self.review(request.get('kind','pending'))
         elif command == 'import_progress':
@@ -385,7 +396,6 @@ class BatchService:
             record['state'] = 'Importado'
             self.inspect()
             self.save()
-            self.export()
             self.message = 'Progreso importado; el original permanece intacto.'
 
     @observed('Preparando lote y revisando resultados existentes')
@@ -494,12 +504,6 @@ class BatchService:
 
     def run(self, retry_empty=False):
         record = self.active() if retry_empty else self.prepare()
-        if self.flow=='bls':
-            for spec in record.get('publicSpecs',[]):self.publication_target(record,spec=spec)
-        else:
-            from resultados import csv_name
-            for mode in record['spec']['modes']:
-                self.publication_target(record,csv_name(self.flow,mode,record['spec']['month'],record['spec']['year']))
         record['state'] = 'En curso'
         self.message = 'Consultando…'
         self.processing = True
@@ -533,13 +537,10 @@ class BatchService:
         finally:
             self.processing = False
             self.inspect()
-            try:
-                self.export()
-            finally:
-                self.message = record['state'] + ('; progreso guardado' if record['state'] in ('Error','Detenido') else '')
-                if record['state']=='Error' and record.get('error'):
-                    self.message += ': ' + record['error']
-                self.save()
+            self.message = record['state'] + ('; progreso guardado' if record['state'] in ('Error','Detenido') else '')
+            if record['state']=='Error' and record.get('error'):
+                self.message += ': ' + record['error']
+            self.save()
 
     async def run_manifests(self, record):
         from playwright.async_api import async_playwright
@@ -559,9 +560,10 @@ class BatchService:
             'conocimientos_concurrencia':int(c['workers']), 'conocimientos_courier':None if spec['courier']=='todos' else spec['courier'],
             'conocimientos_fecha_inicio':spec['start'], 'conocimientos_fecha_fin':spec['end'],
             'conocimientos_manifest_ids':spec['ids'], 'conocimientos_limite_manifiestos':spec['limit'] or None,
-            'conocimientos_progress_callback':self.progress}
+            'conocimientos_progress_callback':self.progress, 'conocimientos_exportar_csv':False}
         for option in ('concurrencia','fecha_inicio','fecha_fin','manifest_ids','limite_manifiestos','progress_callback'):
             config[self.flow+'_'+option] = config['conocimientos_'+option]
+        config[self.flow+'_exportar_csv'] = False
         async with async_playwright() as pw:
             with stage('Iniciando navegador de consultas'):
                 browser = await pw.chromium.launch(headless=bool(c['headless']), **chromium_options())
@@ -765,7 +767,8 @@ class BatchService:
             if self.flow!='bls':
                 raise ValueError('La carpeta de este período ya publica otra selección. Retome su ejecución guardada o elija otra carpeta de resultados.')
             raise ValueError('Este nombre de tabla ya publica otro lote. Use otro nombre o retome su ejecución guardada.')
-        if destination.exists() and not owner_path.exists():
+        if destination.exists() and not owner_path.exists() and not output_layout.owns_publication(
+                output_layout.registry_path(self.root), destination, self.flow+':'+record['id']):
             if self.flow!='bls':
                 raise ValueError('El CSV ya existe fuera de este lote. Elija otra carpeta de resultados; el archivo anterior se conservó.')
             raise ValueError('El CSV ya existe fuera de este lote. Use otro nombre de tabla; el archivo anterior se conservó.')
@@ -804,19 +807,18 @@ class BatchService:
             return supports_manifest_mode(self.flow, scope.get('mode'))
 
     @observed('Exportando CSV desde SQLite')
-    def export(self):
-        record = self.active()
+    def export(self, record=None):
+        record = record or self.active()
         if not record:
             raise ValueError('Seleccione una ejecución guardada.')
         if self.flow == 'bls':
             from core.store import export_saved
-            # El motor ya exporta internamente; se publica exclusivamente el CSV de datos.
-            files = list(Path(record['work']).glob('**/CSV/Duas_procesados_*.csv'))
-            if not files:
-                for database in record.get('databases',[]):
-                    destination = Path(database).parent.parent/'CSV'/f"Duas_procesados_{record['config']['sheet']}.csv"
-                    export_saved(database,destination)
-                    files.append(destination)
+            # Regenerar siempre desde SQLite; un CSV anterior puede estar desactualizado.
+            files = []
+            for database in record.get('databases',[]):
+                destination = Path(database).parent.parent/'CSV'/f"Duas_procesados_{record['config']['sheet']}.csv"
+                export_saved(database,destination)
+                files.append(destination)
             for path in files:
                 self.publish(path,record)
         else:

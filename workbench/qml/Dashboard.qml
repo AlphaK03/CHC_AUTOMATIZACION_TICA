@@ -14,6 +14,8 @@ ScrollView {
         width: dashboard.availableWidth; spacing: 18
         MonthStart { Layout.fillWidth: true }
         MonthlyLog { Layout.fillWidth: true }
+        ActionButton { objectName:"generateAllCsv"; text:demo.csvExports.busy ? "Generando CSV…" : "Generar todos los CSV"; enabled:details.enabled && !demo.csvExports.busy; onClicked:demo.csvExports.generateAll() }
+        Text { visible:text!==""; text:demo.csvExports.message; Layout.fillWidth:true; wrapMode:Text.WordWrap; color:Theme.muted; font.pixelSize:12 }
         Item { height: 8 }
         Text { text: "Automatizaciones"; color: Theme.text; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.DemiBold }
         Text { text: "Selecciona el bot que quieres usar."; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12 }

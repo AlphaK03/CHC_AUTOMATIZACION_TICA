@@ -52,6 +52,8 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 self.assertEqual(bridge.summary['succeeded'],2,bridge.error)
                 self.assertEqual(bridge.summary['retry'],2 if module=='talon' else 1)
                 self.assertEqual(bridge.summary.get('empty',0),0 if module=='talon' else 1)
+                self.assertFalse(list(root.rglob('*.csv')))
+                call('export')
                 csv_path=next(Path(bridge.outputFolder).glob('*.CSV'))
                 def read_csv(path):
                     with path.open(encoding='utf-8-sig',newline='') as stream:return list(csv.DictReader(stream))

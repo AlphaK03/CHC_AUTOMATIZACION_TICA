@@ -73,11 +73,7 @@ class PlaywrightDUAProcessor:
             if summary.get('empty'):
                 logging.info('%d DUAs consultados sin movimientos (Vacío).', summary['empty'])
         finally:
-            # Los resultados se confirmaron antes en SQLite; fallar aquí no los pierde.
-            with stage('Exportando CSV y actualizando resultados locales'):
-                store.export(self.output_paths, self.fields)
-                if getattr(self, 'on_export', None):
-                    self.on_export()
+            # SQLite ya confirmó cada resultado. CSV solo por petición del usuario.
             self._notify(store, progress_callback, force=True)
 
     async def _run_async(self, store, callback):
@@ -196,11 +192,6 @@ class PlaywrightDUAProcessor:
                         logging.info('DUA %s: Vacío, sin movimientos por ahora.' if record.get('empty') else 'DUA %s guardado.',
                                      job['dua'], extra={'tag': 'INFO' if record.get('empty') else 'SUCCESS'})
                     self._notify(store, callback)
-                    if time.monotonic() - self._last_export >= self.machine.get('export_interval', 60):
-                        store.export(self.output_paths, self.fields)
-                        if getattr(self, 'on_export', None):
-                            self.on_export()
-                        self._last_export = time.monotonic()
                 finally:
                     if not resolved:
                         store.retry(job, 'Intento interrumpido; se retomará al iniciar.',

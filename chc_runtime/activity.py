@@ -143,7 +143,7 @@ def observed(label, subject=None):
 
 COMMANDS={'run':'Ejecutando consultas','retry_empty':'Reconsultando vacíos','daily_run':'Diario automático',
           'retry_month':'Reintentando pendientes del mes','retry_day':'Reintentando pendientes del día',
-          'export':'Exportando resultados','refresh':'Leyendo bases y progreso','initialize':'Cargando bases de datos',
+          'export':'Generando CSV','export_all':'Generando todos los CSV guardados','refresh':'Leyendo bases y progreso','initialize':'Cargando bases de datos',
           'knowledge_build':'Preparando base BLs desde Conocimientos','knowledge_catalog':'Buscando Conocimientos terminados',
           'base_build':'Generando base BLs','base_load':'Leyendo fuentes de Conocimientos','import':'Importando base',
           'view':'Leyendo lista de consultas','detail':'Leyendo detalle guardado','daily_calendar':'Leyendo calendario',

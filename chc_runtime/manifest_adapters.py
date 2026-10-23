@@ -177,9 +177,8 @@ class WorkbenchManifestScraper(ManifestScraper):
             await self.process_conocimientos_links(link_field='vVCONTE', fetch_result=self.container_result)
         finally:
             try:
-                self.conoc_store.export()
-            finally:
                 self.conoc_store.close()
+            finally:
                 if self.context:
                     await self.context.close()
 
@@ -220,7 +219,6 @@ class WorkbenchManifestScraper(ManifestScraper):
                     store.claim('listado')
                     store.save('listado', 1, values, {'pages':1, 'read':len(values), 'kept':len(values)})
                 store.finish_run(0 if store.progress()['processed_run'] == 0 else 1)
-                store.export()
                 self._notify_conoc(snapshot=True)
             finally:
                 store.close()

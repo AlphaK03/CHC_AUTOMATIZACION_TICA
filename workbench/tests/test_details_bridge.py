@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 
@@ -45,6 +46,20 @@ def wait_until(predicate, timeout=45000):
 
 
 class BridgeTests(unittest.TestCase):
+    def test_manual_all_regenerates_deleted_csvs_and_keeps_selection(self):
+        self.import_table('Primera');self.call('run')
+        self.import_table('Segunda');self.call('run')
+        active=self.bridge.activeTable['id']
+        self.assertFalse(list((self.root/'output').rglob('*.CSV')))
+        result=self.call('export_all',{'exportToken':'manual'})['exportReport']
+        self.assertEqual(result,{'token':'manual','exported':2,'errors':[]})
+        self.assertEqual(self.bridge.activeTable['id'],active)
+        files=list((self.root/'output').rglob('*.CSV'));self.assertEqual(len(files),2)
+        contents={p:p.read_bytes() for p in files}
+        for path in files:path.unlink()
+        self.call('export_all',{'exportToken':'again'})
+        self.assertEqual({p:p.read_bytes() for p in files},contents)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -79,12 +94,12 @@ class BridgeTests(unittest.TestCase):
         return responses[-1]
 
     def source(self):
-        # Archivo de dos identificadores reales, extraído read-only del original.
-        source = HERE.parent / 'runtime' / 'details_validation' / 'sample' / 'muestra_original.xlsx'
-        if not source.is_file():
-            self.skipTest('Preparar primero la muestra original con tools/prepare_details_sample.py.')
+        # Entrada sintética temporal: la prueba offline no depende de OneDrive.
         copy = self.root / 'sample.xlsx'
-        copy.write_bytes(source.read_bytes())
+        subprocess.run([str(HERE.parent/'bots/detalles/.venv/Scripts/python.exe'),'-c',
+            "from openpyxl import Workbook; import sys; b=Workbook(); b.active.title='muestra_original'; "
+            "b.active.append(['NroDUA']); b.active.append(['001-2026-000001']); "
+            "b.active.append(['001-2026-000002']); b.save(sys.argv[1]); b.close()",str(copy)],check=True)
         return copy
 
     def import_table(self, name='Prueba original'):
@@ -121,6 +136,8 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(self.bridge.status, 'Completado')
         self.assertEqual(self.bridge.summary['attempts'], 2)
         folder = Path(self.bridge.outputFolder)
+        self.assertFalse(list(self.root.rglob('*.csv')))
+        self.call('export')
         csv_path = next(folder.glob('DETALLES_*.CSV'))
         with csv_path.open(encoding='utf-8-sig', newline='') as stream:
             reader = csv.DictReader(stream)
@@ -163,6 +180,7 @@ class BridgeTests(unittest.TestCase):
         self.call('view', {'filter': 'succeeded', 'search': '', 'offset': 0})
         self.assertEqual(self.bridge.rowCount, 2)
         old_id = self.bridge.activeTable['id']
+        self.call('export')
         self.call('delete', {'confirmTableId': 'wrong'}, error=True)
         for confirmation in (None, '', 'borrar', ' BORRAR', 'BORRAR '):
             self.call('delete', {'confirmTableId': old_id, 'confirmation': confirmation}, error=True)

@@ -123,6 +123,16 @@ def open_registry(path):
     return db
 
 
+def owns_publication(registry, destination, owner):
+    """El registro durable también acredita propiedad si falta el JSON auxiliar."""
+    registry=Path(registry)
+    if not registry.is_file():return False
+    from contextlib import closing
+    with closing(sqlite3.connect(registry.resolve().as_uri()+'?mode=ro',uri=True)) as db:
+        row=db.execute('SELECT owner FROM exports WHERE path=?',(str(destination),)).fetchone()
+        return bool(row and row[0]==owner)
+
+
 def publish(source,base,spec,owner,registry,final=True,supersede=False):
     source=Path(source)
     if not source.is_file():return None

@@ -40,6 +40,9 @@ class IncrementalConnectionTests(unittest.TestCase):
             try:
                 bridge.connectModule();wait_until(lambda:bridge.ready and not bridge.busy)
                 run();identity=bridge.activeId
+                self.assertFalse(list((root/'bls').rglob('*.csv')))
+                bridge.command('export',{});wait_until(lambda:not bridge.busy)
+                self.assertFalse(bridge.error,bridge.error)
                 database=next((root/'bls/data/jobs/bls').glob('**/SQLite/bls.sqlite3'))
                 with closing(sqlite3.connect(database)) as db:
                     saved=db.execute('SELECT * FROM jobs ORDER BY ordinal').fetchall()
@@ -63,6 +66,8 @@ class IncrementalConnectionTests(unittest.TestCase):
                 self.assertEqual(bridge.activeId,identity)
                 self.assertEqual(len(bridge.history),1)
                 self.assertEqual(len(list((root/'bls/data/jobs/bls').glob('**/SQLite/bls.sqlite3'))),1)
+                bridge.command('export',{});wait_until(lambda:not bridge.busy)
+                self.assertFalse(bridge.error,bridge.error)
                 self.assertEqual((bridge.summary['total'],bridge.summary['succeeded'],bridge.summary['rows']),(3,3,3))
                 self.assertEqual(set((root/'bls/resultados/BLS').rglob('*.CSV')),set(public))
                 with closing(sqlite3.connect(database)) as db:

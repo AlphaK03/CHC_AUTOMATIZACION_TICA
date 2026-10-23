@@ -30,6 +30,7 @@ ApplicationWindow {
     property bool closingRequested: false
     function workersClosed() { return [details,transitBridge,talonBridge,movementsBridge,manifestsBridge,blsBridge,cloudBridge].every(bridge => !bridge || !bridge.enabled || bridge.isClosed) }
     onClosing: function(close) {
+        demo.csvExports.cancel()
         window.closingRequested = true
         if (!workersClosed()) {
             close.accepted = false

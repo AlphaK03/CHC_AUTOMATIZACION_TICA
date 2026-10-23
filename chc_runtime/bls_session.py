@@ -168,6 +168,11 @@ class WorkbenchBLSProcessor(BLSProcessor):
         self._mode_progress = None
 
     def emit(self, kind='summary', **extra):
+        if extra.get('phase') == 'prepare':
+            # El motor original exporta al terminar. En Workbench se pospone
+            # únicamente en esta instancia; el exportador manual sigue intacto.
+            self.store.export = lambda *a, **k: 0
+            self.store.export_review = lambda *a, **k: 0
         accumulation=self.config.get('workbench_bls_accumulation')
         if accumulation and accumulation.get('append',True) and extra.get('phase')=='prepare' and not self._accumulation_started:
             from .bls_incremental import append

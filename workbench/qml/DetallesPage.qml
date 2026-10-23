@@ -216,7 +216,7 @@ ScrollView {
         palette.window: Theme.surface; palette.windowText: Theme.text; palette.text: Theme.text; palette.base: Theme.surface; palette.highlight: Theme.hover
         MenuItem { text: "Calendario diario"; enabled: worker.ready; onTriggered: { worker.loadCalendar(worker.daily.month); calendarDialog.open() } }
         MenuItem { text: "Actualizar"; enabled: worker.ready && !worker.busy; onTriggered: worker.refresh() }
-        MenuItem { text: "Exportar resultados"; enabled: worker.ready && !worker.busy && page.activeId !== "" && !!worker.config.output_base_path; onTriggered: worker.exportResults() }
+        MenuItem { text: "Generar CSV de esta tabla"; enabled: worker.ready && !worker.busy && page.activeId !== ""; onTriggered: worker.exportResults() }
         MenuSeparator {}
         MenuItem { text: "Abrir registros"; onTriggered: worker.openLogs() }
         MenuItem { text: "Interfaz clásica"; visible: worker.supportsClassic; enabled: worker.ready && !worker.busy; onTriggered: worker.openClassic() }
