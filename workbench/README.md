@@ -11,6 +11,11 @@ el icono CHC con varios tamaños. Los recursos están incluidos en
 La visión completa está en el [README principal](../README.md) y en el
 [contexto para futuras sesiones](../docs/CONTEXTO_PROYECTO.md).
 
+Contenedores trabaja exclusivamente con **Marítimo**. La selección aparece fija;
+Aéreo y Terrestre quedan excluidos también al iniciar el mes. Una configuración
+antigua se adapta al abrirla y sus históricos permanecen intactos. Los otros
+procedimientos conservan sus modalidades disponibles.
+
 ## Abrir
 
 Para la distribución Windows x64, ejecutar **Instalar CHC Workbench x64.exe**.

@@ -40,6 +40,11 @@
   procesos independientes. BLs conserva su motor original aislado. Adaptadores:
   `batch_worker.py`, `manifest_service.py`, `manifest_adapters.py` y
   `workbench/batch_bridge.py`. No forzarlos al perfil DUA ni sustituir sus fuentes.
+- Contenedores consulta exclusivamente Marítimo por instrucción del 22/10.
+  Rechazar Aéreo/Terrestre en el worker y excluirlos del inicio mensual,
+  resumen, exportación y cobertura de Contenedores. Adaptar la selección
+  vigente antigua sin borrar SQLite/CSV/históricos. Los otros procedimientos
+  mantienen sus modalidades.
 - Observación Manifiestos: identificar filas y conteos por `(base SQLite, jobId)`;
   nunca solo `listado`, que existe en varias modalidades. Mantener resúmenes por
   modalidad, filtro/paginación del historial y activos visibles independientes.

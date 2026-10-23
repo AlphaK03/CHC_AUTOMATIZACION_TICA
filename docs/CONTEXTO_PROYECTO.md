@@ -2,6 +2,34 @@
 
 ## Estado vigente — 22 de octubre de 2026
 
+- Contenedores consulta exclusivamente Marítimo, por instrucción del 22/10.
+  Interfaz, worker e inicio mensual rechazan/excluyen Aéreo y Terrestre.
+  Al reabrir configuraciones antiguas se selecciona Marítimo; los SQLite,
+  CSV y registros históricos de otras modalidades permanecen intactos,
+  fuera de su resumen, exportación y cobertura mensual. Los otros cuatro
+  procedimientos mantienen sus modalidades. Código en `849c2cf`, aplicado
+  también a la instalación de C (cinco archivos, respaldo y hashes en
+  `runtime/diagnostics/containers-maritime/install-update/20261023T024810Z/`).
+  Pasaron 41 pruebas: nombres/selección histórica, inicio mensual, bitácora,
+  QML y los cinco motores con portales locales, sin TICA. Instalación
+  comprobada en QML: solo Marítimo, 281/281 manifiestos y 41.044 filas.
+
+- Diagnóstico de carga BLs/XMovimientos del 22/10: SQLite real leído en modo
+  solo lectura; BLs conserva 36.650 BLs guardados y 63.942 filas entre septiembre
+  y octubre. Octubre activo: 27.884 guardados, seis pendientes y 47.839 filas;
+  septiembre: 8.766 guardados y 16.103 filas. XMovimientos octubre conserva
+  26.086 guardados y 15.308 vacíos verificados (41.394 en total).
+  Los dos puentes y la interfaz instalada cargaron sin error por separado
+  y junto con los seis módulos/bitácora (9,141 s), usando copias SQLite
+  temporales con respaldo consistente y rutas aisladas. Cero avisos QML,
+  sin consultas TICA y copias eliminadas automáticamente al terminar.
+  Informe/capturas: `runtime/diagnostics/two-loads/full.json` y PNG cercanos.
+  No se reprodujo el error de carga comunicado por el usuario ni se atribuye
+  a una causa no comprobada; falta su texto exacto si reaparece. BLs tiene
+  un error histórico «database is locked» en septiembre, distinto de una
+  carga actual. La app instalada quedó abierta antes de documentar, sin
+  iniciar descargas ni reiniciar una instancia activa.
+
 - El usuario autorizó eliminar residuos de pruebas/compilación/migración y pidió
   limpieza al cerrar futuras entregas; preferencia guardada en `AGENTS.md`.
   Pendientes `C:/CHC_Build`, `C:/CHC_QA`, `C:/CHC_Install_QA`,

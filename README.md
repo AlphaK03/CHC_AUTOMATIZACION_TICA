@@ -11,6 +11,9 @@ datos por usuario separados del programa. [Instalación, construcción y límite
 de verificación](docs/DISTRIBUCION_WINDOWS.md).
 
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
+Contenedores consulta solo **Marítimo**, también en el inicio mensual; los
+históricos aéreos se conservan fuera de su avance. Cambio aplicado a la
+instalación local de C y verificado con portales locales, sin consultar TICA.
 XMovimientos guarda evidencia resumida de vacíos y errores, limitada a 32 KiB
 por HTML. `Resumir_Evidencias_XMovimientos.bat` revisa y convierte diagnósticos
 anteriores con confirmación `BORRAR`, conservando sus rutas, SQLite y CSV.

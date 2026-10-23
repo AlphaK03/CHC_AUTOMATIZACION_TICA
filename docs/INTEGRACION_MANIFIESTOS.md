@@ -7,6 +7,26 @@ y pruebas, más requisitos y documentación de referencia, a `bots/manifiestos/`
 Los hashes de esos 28 archivos están en `source_manifest.json`; sus extractores
 permanecen intactos. Los cambios funcionales viven en adaptadores nuevos.
 
+## Contenedores: solo Marítimo (22/10/2026)
+
+Por instrucción del usuario, Contenedores no consulta Aéreo ni Terrestre.
+El panel fija Marítimo y el worker rechaza solicitudes incompatibles antes de
+persistir configuración o iniciar el portal. El inicio mensual toma únicamente
+Marítimo para este procedimiento; si solo se seleccionó Aéreo, informa que debe
+marcarse Marítimo. Los otros cuatro procedimientos mantienen sus modalidades.
+
+Al cargar o seleccionar una ejecución antigua se adapta la selección vigente.
+No se borran ni modifican sus bases/CSV históricos aéreos o terrestres; quedan
+fuera del resumen activo, exportación y comprobación mensual de Contenedores.
+La reanudación marítima conserva trabajos, intentos y resultados confirmados.
+
+Pruebas: `test_manifest_names`, `test_month_launcher`, `test_monthly_progress`,
+`test_manifest_modes_qml` y `test_manifest_incremental_workers`: 41 pruebas,
+incluidos cinco procedimientos con portales locales, sin TICA. La instalación
+local recibió los cinco archivos de runtime/QML y su manifiesto de hashes;
+se comprobó su interfaz con copias temporales y sin avisos QML. El instalador
+anterior de `runtime/releases/` aún contiene el payload anterior.
+
 ## Objetivo dentro del proyecto
 
 CHC Workbench debe reunir los motores y los generadores de bases en un repositorio,
