@@ -1,0 +1,34 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Formulario local de prueba; sin conexión a TICA</title>
+<select id="vCODI_REGI"><option value="80">TRANSITO</option></select>
+<input id="vVFCHINI" readonly><button id="vVFCHINI_dp_trigger" onclick="showCalendar('vVFCHINI')">Desde</button>
+<input id="vVFCHFIN" readonly><button id="vVFCHFIN_dp_trigger" onclick="showCalendar('vVFCHFIN')">Hasta</button>
+<div class="calendar" style="display: none"><table><tbody id="days"></tbody></table></div>
+<div id="captchaImage"><img src="Captcha/images/1.jpg" alt="local"></div>
+<input id="_cfield" onblur="if(location.hash === '#change-start') document.getElementById('vVFCHINI').value='02/03/2026'">
+<button name="BUTTON1" onclick="submitCount++; document.getElementsByName('BUTTON6')[0].hidden=false">Consultar</button>
+<button name="BUTTON6" hidden onclick="exportXml()">XML</button>
+<script>
+let submitCount = 0;
+let current = new Date(2026, 9, 1), field;
+const months = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+function render() {
+  const body = document.getElementById('days');
+  body.innerHTML = '<tr><td class="calendar-nav" onclick="move(-1)">‹</td><td class="calendartitle">' + months[current.getMonth()] + ', ' + current.getFullYear() + '</td><td class="calendar-nav" onclick="move(1)">›</td></tr>';
+  for (let day = 1; day <= new Date(current.getFullYear(), current.getMonth()+1, 0).getDate(); day++) {
+    const row = body.insertRow(), cell = row.insertCell();
+    cell.className = 'day'; cell.textContent = day;
+    cell.onclick = () => {
+      document.getElementById(field).value = day + '/' + (current.getMonth()+1) + '/' + current.getFullYear();
+      document.querySelector('.calendar').style.display = 'none';
+    };
+  }
+}
+function move(delta) { current.setMonth(current.getMonth()+delta); render(); }
+function showCalendar(id) { field=id; render(); document.querySelector('.calendar').style.display='block'; }
+function exportXml() {
+  const year = document.getElementById('vVFCHINI').value.split('/')[2];
+  document.body.innerHTML = '<root><dua><aduana>001</aduana><ano>' + year + '</ano><numero>000001</numero></dua></root>';
+}
+</script>

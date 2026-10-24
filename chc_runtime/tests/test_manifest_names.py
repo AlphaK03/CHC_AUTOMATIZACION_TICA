@@ -12,6 +12,72 @@ from chc_runtime.manifest_service import BatchService
 
 
 class ManifestNamesTests(unittest.TestCase):
+    def test_consulting_never_requires_or_overwrites_an_existing_csv(self):
+        from unittest.mock import AsyncMock, patch
+        from chc_runtime import output_layout as layout
+        with tempfile.TemporaryDirectory() as folder:
+            service=self.service(folder);record=service.prepare()
+            spec=layout.manifest_spec('conocimientos',record,'maritimo')
+            csv=service.public_root().joinpath(*spec['relativeFolders'],spec['filename'])
+            csv.parent.mkdir(parents=True);csv.write_bytes(b'external CSV\n')
+            with patch.object(service,'run_manifests',new=AsyncMock()) as run:
+                service.run()
+                run.assert_awaited_once()
+            self.assertEqual(csv.read_bytes(),b'external CSV\n')
+            with self.assertRaises(ValueError):service.publication_target(record,spec=spec)
+
+    def test_registered_csv_without_auxiliary_json_belongs_to_same_batch(self):
+        from chc_runtime import output_layout as layout
+        with tempfile.TemporaryDirectory() as folder:
+            service=self.service(folder);record=service.prepare()
+            source=Path(folder)/'example.csv';source.write_text('code\n0001\n',encoding='utf-8')
+            spec=layout.manifest_spec('conocimientos',record,'maritimo')
+            result=layout.publish(source,service.public_root(),spec,'conocimientos:'+record['id'],layout.registry_path(service.root))
+            destination,marker=service.publication_target(record,spec=spec)
+            self.assertEqual(destination,Path(result['path']))
+            self.assertFalse(marker.exists())
+            with self.assertRaises(ValueError):
+                service.publication_target({**record,'id':'other'},spec=spec)
+            layout.registry_path(service.root).unlink()
+            with self.assertRaises(ValueError):service.publication_target(record,spec=spec)
+    def test_containers_reject_non_maritime_before_saving_or_running(self):
+        with tempfile.TemporaryDirectory() as folder:
+            service = self.service(folder, 'contenedores')
+            self.assertEqual(manifest_scope('contenedores',service.index['config'])['modes'],['maritimo'])
+            for modes in (['aereo'], ['terrestre'], ['maritimo','aereo']):
+                for command in ('configure','run'):
+                    with self.subTest(modes=modes,command=command), self.assertRaisesRegex(ValueError,'solo consulta'):
+                        service.execute(command,{'config':{'modes':modes}})
+                self.assertEqual(service.index['config']['modes'],['maritimo'])
+            self.assertEqual(manifest_scope('conocimientos',{**service.index['config'],'modes':['aereo']})['modes'],['aereo'])
+
+    def test_containers_resume_old_selection_without_modifying_air_database(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);service=self.service(root,'contenedores');record=service.prepare()
+            record['config']['modes']=['maritimo','aereo']
+            record['spec']['modes']=['maritimo','aereo']
+            service.index['config']['modes']=['aereo']
+            for mode,state in [('maritimo','Guardado'),('aereo','Pendiente')]:
+                path=root/(mode+'.sqlite3')
+                with closing(sqlite3.connect(path)) as db:
+                    import json
+                    db.executescript('CREATE TABLE metadata(scope); CREATE TABLE jobs(id,ordinal,state,attempts,kept_count,error); CREATE TABLE rows(value);')
+                    db.execute('INSERT INTO metadata VALUES (?)',(json.dumps({'mode':mode}),))
+                    db.execute('INSERT INTO jobs VALUES (?,?,?,?,?,?)',(mode,1,state,1,0,''));db.commit()
+                record['databases'].append(str(path))
+            service.save()
+            hashes={p:hashlib.sha256(p.read_bytes()).hexdigest() for p in root.glob('*.sqlite3')}
+            reopened=self.service(root,'contenedores')
+            self.assertEqual(reopened.index['config']['modes'],['maritimo'])
+            reopened.execute('select',{'id':record['id']})
+            self.assertEqual(reopened.index['config']['modes'],['maritimo'])
+            self.assertEqual(reopened.snapshot()['summary']['total'],1)
+            self.assertEqual(reopened.snapshot()['summary']['pending'],0)
+            self.assertEqual({row['mode'] for row in reopened.snapshot()['jobs']},{'maritimo'})
+            self.assertEqual(reopened.active()['config']['modes'],['maritimo','aereo'])
+            self.assertFalse(reopened.includes_database(root/'aereo.sqlite3'))
+            self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in hashes},hashes)
+
     def service(self, root, flow='conocimientos'):
         service = BatchService(root, flow, lambda *args, **kwargs: None, Event())
         service.index['config'].update(year=2026, month=10)
@@ -25,12 +91,13 @@ class ManifestNamesTests(unittest.TestCase):
             config.update(year=2027, month=1)
             self.assertEqual(manifest_name(manifest_scope(service.flow, config)), 'enero27')
             config.update(year=2026, month=10)
-            for changes in ({'start':'2026-10-02'}, {'courier':'N'}, {'limit':2},
-                            {'manifestIds':'001-2026-000001'}, {'modes':['aereo']}):
+            for changes in ({'courier':'N'}, {'limit':2}, {'manifestIds':'001-2026-000001'}):
                 with self.subTest(changes=changes):
                     name = manifest_name(manifest_scope(service.flow, {**config, **changes}))
                     self.assertTrue(name.startswith('octubre26_'))
                     self.assertNotEqual(name, 'octubre26')
+            for changes in ({'start':'2026-10-02'},{'modes':['aereo']},{'modes':['maritimo','aereo']}):
+                self.assertEqual(manifest_name(manifest_scope(service.flow,{**config,**changes})),'octubre26')
 
     def test_resume_ignores_manual_name_and_mode_order(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -42,7 +109,11 @@ class ManifestNamesTests(unittest.TestCase):
             self.assertIs(second, first)
             self.assertEqual(len(service.index['history']), 1)
             self.assertEqual(service.index['active'], first['id'])
-            service.index['config']['month'] = 11
+            service.index['config'].update(modes=['maritimo'],end='2026-10-17')
+            self.assertIs(service.prepare(),first)
+            service.index['config'].update(modes=['aereo'],end='2026-10-31')
+            self.assertIs(service.prepare(),first)
+            service.index['config'].update(month=11,end='')
             self.assertNotEqual(service.prepare()['id'], first['id'])
 
     def test_legacy_progress_and_paths_survive_reload(self):
@@ -56,7 +127,9 @@ class ManifestNamesTests(unittest.TestCase):
             service.index['active'] = old_id
             database = root/'original.sqlite3'
             with closing(sqlite3.connect(database)) as db:
-                db.executescript('''CREATE TABLE jobs (id TEXT, ordinal INTEGER, state TEXT,
+                db.executescript('''CREATE TABLE metadata(scope TEXT);
+                    INSERT INTO metadata VALUES ('{"mode":"maritimo"}');
+                    CREATE TABLE jobs (id TEXT, ordinal INTEGER, state TEXT,
                     attempts INTEGER, kept_count INTEGER, error TEXT);
                     CREATE TABLE rows (value TEXT);
                     INSERT INTO jobs VALUES ('000001', 1, 'Guardado', 1, 1, '');

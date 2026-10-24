@@ -1,5 +1,29 @@
 # Mantenimiento de CHC Workbench
 
+- Regla de oro del usuario (23/10/2026): al cerrar cada entrega, confirmar los
+  cambios en Git y subirlos al remoto de la rama de trabajo. No dejar commits
+  solamente locales; comprobar que HEAD coincide con su rama remota después
+  del push. Mantener fuera de Git bases, progreso, configuración privada,
+  credenciales y entornos regenerables, según el .gitignore.
+- El proyecto y sus datos de trabajo deben permanecer fuera de OneDrive.
+  Ubicación local prevista: `C:/Proyectos/CHC_AUTOMATIZACION_TICA`.
+
+- Preferencia y autorización permanente del usuario (22/10/2026): al cerrar cada
+  entrega revisar y retirar los residuos pesados generados por el trabajo, como
+  copias temporales de diagnóstico, instalaciones QA, paquetes intermedios de
+  compilación y migraciones incompletas ya reemplazadas por una migración verificada.
+  Usar TemporaryDirectory/context managers y limpieza en finally para las pruebas;
+  conservar recibos y métricas pequeños en vez de bases o programas completos.
+  Comprobar el destino absoluto, procesos y accesos directos antes de eliminar;
+  no tocar la instalación activa, fuentes, entornos de desarrollo, bases,
+  calendarios, checkpoints, CSV, configuración, tokens ni respaldos útiles.
+  Conservar el entregable final vigente y al menos un respaldo válido donde aplique.
+  La autorización cubre esos residuos propios sin pedir permiso repetido; no es
+  permiso para purgar datos de bots ni cualquier archivo grande por su tamaño.
+  Descontar enlaces duros y comprobar almacenamiento real al estimar lo recuperable.
+  Si la revisión automática bloquea la limpieza, informar la acción y el motivo
+  recibido, registrar lo pendiente y no presentar el espacio como liberado.
+  Ver `docs/MANTENIMIENTO_ALMACENAMIENTO.md` para la limpieza residual pendiente.
 - Leer primero `docs/CONTEXTO_PROYECTO.md`: objetivo final, stack, decisiones,
   restricciones y estado real para retomar desde otra sesión.
 - Destino: una plataforma de escritorio modular Python + PySide6 + Qt Quick/QML
@@ -24,6 +48,31 @@
   procesos independientes. BLs conserva su motor original aislado. Adaptadores:
   `batch_worker.py`, `manifest_service.py`, `manifest_adapters.py` y
   `workbench/batch_bridge.py`. No forzarlos al perfil DUA ni sustituir sus fuentes.
+- Preferencia explícita del 22/10: CSV de resultados solo por acción manual,
+  individual o conjunta para todos los lotes guardados. No exportar durante
+  consultas/reintentos, al detener/terminar ni al importar progreso, ni siquiera
+  en almacenamiento interno. SQLite conserva el estado y la recuperación.
+  Mantener export/export_all y omitir módulos ocupados sin detenerlos. Un CSV
+  existente nunca bloquea consultar; al exportar, conservar propiedad y evitar
+  sobrescribir lotes ajenos. Leer `docs/EXPORTACION_MANUAL.md`.
+- Contenedores consulta exclusivamente Marítimo por instrucción del 22/10.
+  Rechazar Aéreo/Terrestre en el worker y excluirlos del inicio mensual,
+  resumen, exportación y cobertura de Contenedores. Adaptar la selección
+  vigente antigua sin borrar SQLite/CSV/históricos. Los otros procedimientos
+  mantienen sus modalidades.
+- Observación Manifiestos: identificar filas y conteos por `(base SQLite, jobId)`;
+  nunca solo `listado`, que existe en varias modalidades. Mantener resúmenes por
+  modalidad, filtro/paginación del historial y activos visibles independientes.
+  TICA debe capturar la base de la fila y validarla dentro del lote en modo lectura.
+- Manifiestos acumula por procedimiento/mes/Courier sin IDs ni límite:
+  `manifest_incremental.py` agrega manifiestos al recibir otro listado confirmado,
+  conserva Guardado/intentos/checkpoints y restringe los pendientes a la consulta
+  actual. Cambiar fechas/modalidades reutiliza el lote; no fusionar bases históricas.
+  Fuentes copiadas intactas; respaldar la adaptación en `data/backups/`, fuera de
+  fuentes. `manifest_coverage.py` exige cantidad/firma/lista/finalización verificables
+  por rango/modalidad; no usar el último scope ni el nombre como cobertura.
+  Los filtros IDs/límite conservan selección fija. CSV mensual por modalidad;
+  parciales reemplazados dejan de ser finales sin borrar archivos ni subir solos.
 - Mantener instancia única con `single_instance.py`: otra apertura activa la
   ventana existente antes de crear workers. No interrumpir consultas al actualizar.
   Capturas y smoke quedan aislados, sin una nueva ventana interactiva.
@@ -82,8 +131,11 @@
   quedan pendientes. Regímenes vacíos confirmados no impiden formar la base;
   si todos están vacíos y confirmados, registrar el día igualmente.
 - El calendario permite elegir rangos pasados, incluso antes de Desde y entre
-  meses. Hasta vacío mantiene el ciclo continuo; un rango con Hasta se detiene
-  al completarse. No consultar pendientes de otros días de la tabla mensual:
+  meses. Por petición del 16/10, el diario normal continúa tras el rango elegido
+  hasta ponerse al día y espera a las 00:01 de Costa Rica; al reabrir basta Iniciar.
+  Mostrar el rango pendiente sin mover el origen persistido ni reabrir omitidos.
+  Solo el inicio conjunto por mes y los reintentos explícitos se mantienen acotados.
+  No consultar pendientes de otros días de la tabla mensual:
   conservar la selección diaria de DailyJobStore y el CSV mensual acumulado.
 - Aislar cada motor en su propio proceso: la GUI Qt no importa paquetes de bots.
   El backend de demo nunca realiza consultas reales. No anunciar demos como éxitos.
@@ -101,7 +153,18 @@
 - Bitácora de Vista general: `workbench/monthly_progress.py` lee únicamente
   catálogos, calendarios y lotes existentes; `monthly_bridge.py` lo ejecuta fuera
   de Qt. No importar motores, iniciar descargas ni escribir en el progreso.
-  Mes completo requiere cobertura y resultados verificados, sin pendientes;
+  La comprobación automática de Detalles requiere todos los DUAs confirmados. Los demás admiten omitidos fuera
+  del resultado final sin borrar sus pendientes; días omitidos/base omitida y
+  excepciones de lotes finalizados cuentan aparte. Mes actual puede estar «Al día»
+  hasta la última fecha consultable (00:01 Costa Rica). Cierre manual por bot/
+  procedimiento en metadatos separados; reversible, invalida al cambiar datos o
+  intentos. Por petición del 17/10, todos los bots, incluido Detalles, admiten
+  cierre manual con pendientes conservados para reintento. Las marcas de día en
+  `data/daily/manual_completed_days.json` cuentan para cobertura mensual y SharePoint;
+  distinguir días verificados de manuales y conservar las marcas tras reintentos.
+  No cambiar estados del motor ni sus selecciones; BLs/Manifiestos usan cierre mensual.
+  La comprobación
+  automática sigue exigiendo cobertura del período disponible;
   el nombre mensual de un archivo no prueba cobertura. Separar meses de BLs por
   payload y modalidades de Manifiestos; no sumar rangos entre modalidades.
   Pruebas aisladas en `test_monthly_progress.py` y `test_monthly_qml.py`.
@@ -115,12 +178,17 @@
 - Preferencia explícita del usuario: interfaz sencilla, similar a la clásica.
   Mostrar el flujo principal; evitar tarjetas, textos técnicos y opciones extra
   a la vista. Conservar funciones secundarias en menús, ventanas o secciones plegadas.
-- En Resultados mostrar únicamente el CSV, en una carpeta con el nombre elegido
-  de la tabla, sin subcarpetas de UUID. TXT/JSON y diagnósticos son internos en
+- En Resultados mostrar únicamente el CSV con el contrato común de bot/mes/modo,
+  sin subcarpetas de UUID. TXT/JSON y diagnósticos son internos en
   `bots/<id>/data/exports/<id>/`; mantener SQLite y recuperación intactos.
 - Ajustar la verificación al riesgo. En cambios visuales hacer una comprobación
   breve de carga/captura; no repetir suites completas ni consultas reales.
   Reservar pruebas amplias para cambios sensibles de motor, datos o recuperación.
+- Para ajustes globales de interfaz usar `workbench/tests/test_platform_layout.py`
+  con datos temporales/en memoria y `CHC_LAYOUT_CAPTURES` para evidencia. Comprobar
+  geometría y acceso con desplazamiento en 1280×774, 1000×680 y 1000×600, no solo
+  existencia de nodos: dos filas y sus botones deben caber en la tabla. Reutilizar
+  `components/AppDialog.qml` y centrar en Overlay para no limitar diálogos a la página.
 - Al terminar cambios de código, abrir la app antes de documentar, por petición
   explícita del usuario. Mantener este orden en futuras sesiones.
 - Si el usuario está ejecutando consultas, conservar su instancia abierta.
@@ -149,6 +217,12 @@
 - Preservar identificadores como texto, ceros iniciales, formatos de salida y
   resultados confirmados. No convertir índices de sesión en prueba de éxito.
 - No borrar bases, progreso, entradas ni resultados durante reorganizaciones.
+- Borrado explícito por el usuario: exigir `BORRAR` exacto en interfaz y worker
+  para todas las eliminaciones/limpiezas DUA y para ejecuciones Manifiestos/BLs.
+  `chc_runtime/batch_deletion.py` archiva solo el work propio en `data/deleted/`,
+  fuera de fuentes y bitácora; preservar entradas, CSV públicos y checkpoints
+  en el respaldo. Mantener bloqueos compatibles, diario recuperable y recibo por
+  operación `deletedBatches`: recrear un ID no debe resucitar un borrado confirmado.
 - La entrega inicial conserva las fuentes copiadas byte a byte. Una modificación
   futura del motor debe documentarse: el manifiesto registra la línea base inicial.
 - Leer las instrucciones internas de cada módulo antes de cambiar su motor.
@@ -165,6 +239,44 @@
   para la señal de cierre: imports tardíos y lectores buffered bloquearon pruebas.
 - El diario conserva `daily_automatic_attempts` entre reinicios y limita a tres
   oportunidades por pendiente; cancelar devuelve la oportunidad. `omitted` no
-  se reabre automáticamente ni cuenta como completado. Solo `retry_month` o
+  se reabre automáticamente ni cambia a `completed` en el calendario. La bitácora
+  mensual sí admite omitidos para los bots distintos de Detalles. Solo `retry_month` o
   `retry_day` rearman los pendientes del rango explícito, conservando guardados,
   historial y configuración. El mes actual se limita a días anteriores a hoy.
+- SharePoint es opcional y exclusivo para copias CSV: leer `docs/SHAREPOINT.md`.
+  Cliente público MSAL/PKCE, único directorio CHC y registro reutilizado
+  `077e19a4-ab53-4e55-8286-ec02dc3cf36c`, solicitado por el usuario. Pedir solo
+  `Sites.Read.All`, `Files.ReadWrite.All` y `User.Read` delegados; el usuario autorizó
+  el 18/10 aprovechar User.Read ya concedido para nombre/foto de perfil. Mantener
+  su token opcional separado para no bloquear archivos con sesiones anteriores.
+  No usar `.default`, secretos
+  ni permisos de correo/Power BI que también existen en ese registro.
+  Caché DPAPI, configuración y cola solo en `runtime/workbench/sharepoint`.
+  Los eventos `published` se emiten después del reemplazo atómico local, sin
+  importar librerías cloud en bots. Preservar worker online aislado, cola
+  durable, cuenta/destino capturados, conflictos de propietario y `eTag`.
+  Sin sitio elegido no hacer subidas reales; pruebas aisladas con Graph simulado.
+- Todos los CSV públicos comparten carpeta madre local y destino SharePoint único.
+  Contrato en `chc_runtime/output_layout.py`: nombres/carpetas en mayúsculas,
+  bot/procedimiento, mes/año y modo real donde aplica. Preservar columnas, ceros,
+  resultados originales y checkpoints; los auxiliares siguen en almacenamiento interno.
+  BLs separa salidas por mes/modo del manifiesto. Nunca iniciar subidas al exportar,
+  conectar ni abrir la app: solo `Subir a SharePoint` o reintento explícito, con
+  estado completo, al día o cierre manual vigente en la bitácora. Avisos antiguos automáticos
+  se conservan sin enviarlos. Reexportar históricos desde SQLite sin consultar TICA.
+- Por instrucción del usuario, guardar los cambios en Git al cerrar cada entrega.
+  Lo anterior a SharePoint quedó en `main` y `origin/main` en `93ceb44`;
+  desarrollar SharePoint en `feature/sharepoint-oauth2` hasta indicación de integrar.
+- El usuario autorizó explorar todos los sitios de su cuenta y luego reutilizar
+  **OAuth2 par CHC REPORTES**, con lectura y escritura delegadas ya configuradas.
+  OAuth y rutas reales Graph verificadas: 7 sitios; el selector Qt recorre
+  bibliotecas y carpetas. Escritura real autorizada explícitamente por el usuario:
+  archivo de texto en carpeta nueva de pruebas, lectura idéntica y actualización
+  con eTag verificadas. No configurar destinos de bots ni subir sus resultados
+  durante una prueba de conexión; ver `docs/SHAREPOINT.md` para evidencia.
+  Aceptar Bibliotecas/places y FileBrowser/Forms con id/listurl/RootFolder;
+  normalizar sitio y validar host sin reenviar tokens fuera de Microsoft Graph.
+- En el selector SharePoint ejecutar navegación desde funciones del diálogo;
+  cambiar el modelo destruye los delegados de ListView y su contexto de clic.
+  Pasar identidad antes del cambio, probar sitio/biblioteca/subcarpeta con
+  notificaciones síncronas y permitir elegir carpetas sin subcarpetas.

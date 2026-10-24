@@ -13,10 +13,13 @@ import threading
 from zoneinfo import ZoneInfo
 
 from .job_store import JobStore, RunLock
+from .activity import observed, stage
+from .distribution import data_root, bot_data_root, daily_driver, missing_driver_message
 
 ZONE = ZoneInfo('America/Costa_Rica')
 MONTHS = ('enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
           'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre')
+
 SOURCE = Path(__file__).resolve().parents[1] / 'integrations' / 'duas_source'
 
 
@@ -40,24 +43,32 @@ class DailyJobStore(JobStore):
     def __init__(self, path, duas, automatic=False):
         self.automatic = automatic
         super().__init__(path)
-        with self.transaction() as db:
-            db.execute('CREATE TEMP TABLE daily_scope (dua TEXT PRIMARY KEY)')
-            db.executemany('INSERT OR IGNORE INTO daily_scope VALUES (?)', ((dua,) for dua in duas))
-            db.execute('''CREATE TABLE IF NOT EXISTS daily_automatic_attempts (
-                job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
-                used INTEGER NOT NULL DEFAULT 0 CHECK(used>=0))''')
-            if automatic:
-                # Fallos históricos también agotaron oportunidades; no repetirlos
-                # indefinidamente al estrenar la actualización. Interrupciones no cuentan.
-                db.execute('''INSERT OR IGNORE INTO daily_automatic_attempts
-                    SELECT j.id,MIN(3,(SELECT count(*) FROM attempts a WHERE a.job_id=j.id AND a.outcome='retry'))
-                    FROM jobs j WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=j.dua)''')
+        try:
+            with stage('Preparando pendientes e intentos del día'):
+                with self.transaction() as db:
+                    db.execute('CREATE TEMP TABLE daily_scope (dua TEXT PRIMARY KEY)')
+                    db.executemany('INSERT OR IGNORE INTO daily_scope VALUES (?)', ((dua,) for dua in duas))
+                    db.execute('''CREATE TABLE IF NOT EXISTS daily_automatic_attempts (
+                        job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+                        used INTEGER NOT NULL DEFAULT 0 CHECK(used>=0))''')
+                    if automatic:
+                        # Una sola lectura del historial, no una por cada DUA.
+                        # Los presupuestos existentes (también los rearmados) prevalecen.
+                        db.execute('''INSERT OR IGNORE INTO daily_automatic_attempts
+                            SELECT j.id,MIN(3,COALESCE(a.used,0)) FROM jobs j
+                            LEFT JOIN (SELECT job_id,count(*) used FROM attempts
+                                       WHERE outcome='retry' GROUP BY job_id) a ON a.job_id=j.id
+                            WHERE j.dua IN (SELECT dua FROM daily_scope)
+                            AND NOT EXISTS (SELECT 1 FROM daily_automatic_attempts b WHERE b.job_id=j.id)''')
+        except BaseException:
+            self.close()
+            raise
 
     def claim(self, round_number):
         with self.transaction() as db:
             row = db.execute('''SELECT id,dua FROM jobs INDEXED BY jobs_ready
                 WHERE status IN ('pending','retry') AND run_attempts < ?
-                AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)
+                AND dua IN (SELECT dua FROM daily_scope)
                 AND (?=0 OR COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=jobs.id),0)<3)
                 ORDER BY run_attempts, rowid LIMIT 1''', (round_number,self.automatic)).fetchone()
             if row is None:
@@ -70,14 +81,14 @@ class DailyJobStore(JobStore):
 
     def summary(self):
         with self.lock:
-            counts = dict(self.db.execute('''SELECT status,COUNT(*) FROM jobs
-                WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua) GROUP BY status''').fetchall())
-            attempts = self.db.execute('''SELECT COALESCE(SUM(attempts),0) FROM jobs
-                WHERE EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)''').fetchone()[0]
+            grouped = self.db.execute('''SELECT status,COUNT(*),SUM(attempts) FROM jobs
+                WHERE dua IN (SELECT dua FROM daily_scope) GROUP BY status''').fetchall()
+            counts = {row[0]:row[1] for row in grouped}
+            attempts = sum(row[2] for row in grouped)
             total = self.db.execute('SELECT COUNT(*) FROM daily_scope').fetchone()[0]
-            active = [r[0] for r in self.db.execute("SELECT dua FROM jobs WHERE status='running' AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua) ORDER BY rowid LIMIT 20")]
+            active = [r[0] for r in self.db.execute("SELECT dua FROM jobs WHERE status='running' AND dua IN (SELECT dua FROM daily_scope) ORDER BY rowid LIMIT 20")]
             ready = self.db.execute('''SELECT count(*) FROM jobs WHERE status IN ('pending','retry')
-                AND EXISTS (SELECT 1 FROM daily_scope s WHERE s.dua=jobs.dua)
+                AND dua IN (SELECT dua FROM daily_scope)
                 AND COALESCE((SELECT used FROM daily_automatic_attempts a WHERE a.job_id=jobs.id),0)<3''').fetchone()[0] if self.automatic else None
         return {**{state: counts.get(state, 0) for state in ('pending', 'running', 'retry', 'succeeded', 'invalid', 'empty')},
                 'total': sum(counts.values()), 'attempts': attempts, 'source_rows': total,
@@ -190,6 +201,7 @@ class DailyCoordinator:
         self.day = ''
         self.wake = ''
         self.month = now().strftime('%Y-%m')
+        self.bounded_end = None
 
     def start_date(self):
         return date.fromisoformat(self.service.machine.get('daily_start_date') or (self.now().date() - timedelta(days=1)).isoformat())
@@ -199,12 +211,21 @@ class DailyCoordinator:
         return date.fromisoformat(value) if value else None
 
     def snapshot(self):
+        now = self.now()
+        last = eligible_day(now)
+        if self.active and self.bounded_end:
+            last = min(last, self.bounded_end)
+        pending = self.ledger.next_day(self.start_date(), last)
+        # El rango mostrado avanza; el origen guardado sigue protegiendo huecos.
+        resume = pending or (self.bounded_end if self.active and self.bounded_end else max(self.start_date(), last + timedelta(days=1)))
         return {'active': self.active, 'phase': self.phase, 'day': self.day, 'wakeAt': self.wake,
                 'tableId': self.ledger.get(date.fromisoformat(self.day)).get('table_id', '') if self.day else '',
                 'startDate': self.start_date().isoformat(), 'endDate': self.service.machine.get('daily_end_date', ''), 'month': self.month,
+                'resumeDate': resume.isoformat(), 'resumeEndDate': max(resume, last).isoformat(),
+                'waitingForDay': pending is None and not self.bounded_end,
                 'monthLabel': f'{MONTHS[int(self.month[5:]) - 1].capitalize()} {self.month[:4]}',
                 'days': self.ledger.month(self.month, self.start_date(), self.now()),
-                'driverReady': (SOURCE / 'drivers' / 'msedgedriver.exe').is_file()}
+                'driverReady': daily_driver().is_file()}
 
     def emit(self, phase, message='', wake='', refresh=False):
         self.phase, self.wake = phase, wake
@@ -213,16 +234,17 @@ class DailyCoordinator:
             values['snapshot'] = self.service.snapshot()
         self.service.protocol.emit('daily', **values)
 
+    @observed('Descargando base automática del día', lambda self,day:day.isoformat())
     def download(self, day):
         database = self.service.root / 'data' / 'daily' / 'bases.sqlite3'
         if (self.service.profile['selection'] == 'importacion' and not self.offline
-                and self.service.root.resolve() == self.service.profile['root'].resolve()):
+                and self.service.root.resolve() == bot_data_root(self.service.module_id).resolve()):
             # Ambos consumidores reutilizan descargas verificadas. Sus colas,
             # calendarios y resultados siguen perteneciendo a cada bot.
-            database = SOURCE / 'data' / 'importacion' / 'bases.sqlite3'
-        driver = SOURCE / 'drivers' / 'msedgedriver.exe'
+            database = data_root() / 'integrations/duas_source/data/importacion/bases.sqlite3'
+        driver = daily_driver()
         if not self.offline and not driver.is_file():
-            raise RuntimeError('Ejecuta Instalar_Base_Diaria.bat para preparar el navegador de descarga.')
+            raise RuntimeError(missing_driver_message())
         args = [sys.executable, '-u', str(SOURCE / 'worker.py'), '--day', day.isoformat(),
                 '--database', str(database), '--driver', str(driver), '--selection', self.service.profile['selection']]
         if self.offline:
@@ -271,6 +293,7 @@ class DailyCoordinator:
             raise DownloadPending(result.get('message') or 'Quedan regímenes pendientes de descarga.')
         return result['duas']
 
+    @observed('Incorporando la base del día al mes', lambda self,day,duas:day.isoformat())
     def append_day(self, day, duas):
         catalog = self.service.catalog
         period = day.strftime('%Y-%m')
@@ -307,6 +330,7 @@ class DailyCoordinator:
         self.service.protocol.emit('daily', daily=self.snapshot(), snapshot=self.service.snapshot())
         return catalog.get(table_id)
 
+    @observed('Verificando resultados del día')
     def confirmed(self, record, duas):
         success = set()
         verified = "status='succeeded'"
@@ -370,6 +394,7 @@ class DailyCoordinator:
                             db.execute(f"INSERT OR REPLACE INTO daily_automatic_attempts SELECT id,0 FROM jobs WHERE dua IN ({marks}) AND status IN ('pending','retry')",chunk)
                 finally:store.close()
 
+    @observed('Procesando día del calendario', lambda self,day:day.isoformat())
     def cycle(self, day):
         self.day = day.isoformat()
         self.month = day.strftime('%Y-%m')
@@ -401,17 +426,19 @@ class DailyCoordinator:
                   f'{day:%d/%m/%Y}: {confirmed} de {len(duas)} consultados.', refresh=True)
         return complete
 
-    def run(self, start=None, end=None, manual=False):
+    def run(self, start=None, end=None, manual=False, bounded=False):
         start = start or self.start_date()
-        end = end if manual else self.end_date()
+        # Diario normal continúa al ponerse al día. Mes y reintento explícitos
+        # conservan su alcance acotado y no inician días ajenos a esa acción.
+        end = end if manual else self.end_date() if bounded else None
         if start >= self.now().date():
             raise ValueError('La fecha inicial debe ser anterior a hoy.')
         if end and (end < start or end >= self.now().date()):
             raise ValueError('El rango debe terminar entre Desde y ayer.')
-        if not self.service.machine.get('output_base_path'):
+        if not self.service.local_root():
             raise ValueError('Elige la carpeta de resultados antes de iniciar.')
-        if not self.offline and not (SOURCE / 'drivers' / 'msedgedriver.exe').is_file():
-            raise ValueError('Ejecuta Instalar_Base_Diaria.bat antes de iniciar el modo diario.')
+        if not self.offline and not daily_driver().is_file():
+            raise ValueError(missing_driver_message())
         with RunLock(self.ledger.path):
             if manual:self.reset_manual_range(start,end)
             # Preserve the initial date across restarts; "yesterday" is only
@@ -419,6 +446,7 @@ class DailyCoordinator:
             if not manual and (not self.service.machine.get('daily_start_date') or not self.service.machine.get('daily_mode')):
                 self.service.configure({'daily_start_date': start.isoformat(), 'daily_mode': True})
             self.active = True
+            self.bounded_end = end
             finished = False
             try:
                 while not self.service.stop_event.is_set():
@@ -432,7 +460,8 @@ class DailyCoordinator:
                         wake = next_midnight(now)
                         self.emit('waiting', f'Esperando al {wake:%d/%m} a las 00:01', wake.isoformat())
                         # Re-evaluate the wall clock so clock changes do not skip days.
-                        self.service.stop_event.wait(min(30, max(.1, (wake - now).total_seconds())))
+                        with stage(f'Esperando al {wake:%d/%m} a las 00:01 de Costa Rica'):
+                            self.service.stop_event.wait(min(30, max(.1, (wake - now).total_seconds())))
                         continue
                     try:
                         complete = self.cycle(day)
@@ -442,13 +471,15 @@ class DailyCoordinator:
                         complete = False
                     if not complete and not self.service.stop_event.is_set() and self.ledger.get(day)['state']!='omitted':
                         self.emit('retrying', 'Reintentando la base pendiente; máximo tres intentos.')
-                        self.service.stop_event.wait(min(2**self.ledger.get(day).get('retry_cycles',1),5))
+                        with stage('Pausa antes de reintentar la base pendiente'):
+                            self.service.stop_event.wait(min(2**self.ledger.get(day).get('retry_cycles',1),5))
             except Exception as error:
                 if self.day:
                     self.ledger.update(date.fromisoformat(self.day), state='pending', error=str(error))
                 raise
             finally:
                 self.active = False
+                self.bounded_end = None
                 with self.ledger.connect(True) as db:
                     omitted=db.execute("SELECT count(*) FROM days WHERE state='omitted' AND day BETWEEN ? AND ?",(start.isoformat(),(end or eligible_day(self.now())).isoformat())).fetchone()[0]
                 self.emit('finished_with_pending' if finished and omitted else 'completed' if finished else 'stopped',

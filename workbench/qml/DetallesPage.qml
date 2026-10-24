@@ -15,6 +15,8 @@ ScrollView {
     property string activeId: worker.activeTable.id || ""
     property bool configDirty: false
     property bool startAfterSave: false
+    property bool dailyStartEdited: false
+    property bool dailyEndEdited: false
     property bool dailyMode: worker.config.daily_mode === true
     property string confirmAction: ""
     property string confirmTable: ""
@@ -25,16 +27,23 @@ ScrollView {
     contentWidth: availableWidth
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical.active: true
     function selectedIndex() { for(let i=0;i<worker.tables.length;i++) if(worker.tables[i].id === page.activeId) return i; return -1 }
     function filterName() { return (worker.moduleId === "xmovimientos" ? ["all", "pending", "succeeded", "retry", "empty", "unverified_empty", "manual_pending"] : ["all", "pending", "succeeded", "retry", "manual_pending"])[filterBox.currentIndex] || "all" }
     function refreshRows(offset) { worker.searchRows(filterName(), rowSearch.text.trim(), offset); page.selectedIds = [] }
     function toggleRow(key, checked) { let values = page.selectedIds.slice(); if(checked && values.indexOf(key)<0) values.push(key); if(!checked) values = values.filter(x => x !== key); page.selectedIds = values }
     function currentConfig() {
         let values = {cant_hilos:workerSpin.value, timeout:timeoutSpin.value, max_retries:retrySpin.value, headless:headlessToggle.checked, reuse_context:reuseToggle.checked, lightweight_details:lightToggle.checked, dark_mode:Theme.dark, daily_mode:page.dailyMode}
-        if(dailyStart.text.trim()) values.daily_start_date = dailyStart.text.trim()
-        values.daily_end_date = dailyEnd.text.trim()
+        const start = page.dailyStartEdited ? dailyStart.text.trim() : worker.config.daily_start_date || worker.daily.startDate || ""
+        if(start) values.daily_start_date = start
+        values.daily_end_date = page.dailyEndEdited ? dailyEnd.text.trim() : worker.config.daily_end_date || ""
         return values
     }
+    function syncDailyRange() {
+        if(!page.dailyStartEdited) dailyStart.text = worker.daily.resumeDate || worker.config.daily_start_date || worker.daily.startDate || ""
+        if(!page.dailyEndEdited) dailyEnd.text = worker.daily.resumeEndDate || worker.config.daily_end_date || ""
+    }
+    Component.onCompleted: page.syncDailyRange()
     function beginRun() { if(page.dailyMode) worker.startDaily(); else worker.startQueries() }
     function startQueries() { if(page.configDirty) { page.startAfterSave = true; worker.saveConfig(page.currentConfig()) } else page.beginRun() }
     function requestDelete(action) {
@@ -48,12 +57,13 @@ ScrollView {
     onActiveIdChanged: { page.selectedIds = []; rowSearch.text = ""; filterBox.currentIndex = 0 }
     Connections {
         target: worker
+        function onChanged() { page.syncDailyRange() }
         function onFilePrepared() { Qt.callLater(function() { importSheet.currentIndex = 0; importTableName.text = worker.fileInfo.sheets[0] || ""; importDialog.open() }) }
         function onImportPlanReady() { Qt.callLater(function() { importDialog.close(); importConfirm.open() }) }
         function onDetailReady() { Qt.callLater(function() { detailLine.currentIndex = 0; detailDialog.open() }) }
         function onEventReceived(event) {
             if(event.command === "configure" && event.event === "error") page.startAfterSave = false
-            if(event.command === "configure" && event.event === "result") page.configDirty = false
+            if(event.command === "configure" && event.event === "result") { page.configDirty = false; page.dailyStartEdited = false; page.dailyEndEdited = false; page.syncDailyRange() }
             if(event.event === "idle" && page.startAfterSave && !event.readonly) { page.startAfterSave = false; Qt.callLater(function() { page.beginRun() }) }
         }
     }
@@ -71,8 +81,9 @@ ScrollView {
             Text { text: worker.error || worker.status; color: worker.error ? "#ef9ea2" : Theme.muted; font.family: Theme.family; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true }
             ActionButton { visible: !worker.ready; text: "Reconectar"; enabled: !worker.busy; onClicked: worker.connectModule() }
         }
+        SectionLoading { Layout.fillWidth: true; loading: worker.loading; title: worker.moduleTitle }
         ColumnLayout {
-            visible: page.tab !== 2; Layout.fillWidth: true; spacing: 12
+            visible: page.tab !== 2 && !worker.loading; Layout.fillWidth: true; spacing: 12
             Panel {
                 Layout.fillWidth: true; implicitHeight: sourceColumn.implicitHeight + 32
                 ColumnLayout {
@@ -87,9 +98,9 @@ ScrollView {
                     RowLayout {
                         visible: page.dailyMode; Layout.fillWidth: true; spacing: 12
                         Text { text: "Desde:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; Layout.preferredWidth: 61 }
-                        Field { id: dailyStart; objectName: "detailsDailyStart"; Layout.preferredWidth: 170; text: worker.config.daily_start_date || worker.daily.startDate || ""; placeholderText: "AAAA-MM-DD"; enabled: worker.ready && !worker.busy; onTextEdited: page.configDirty = true }
+                        Field { id: dailyStart; objectName: "detailsDailyStart"; Layout.preferredWidth: 170; placeholderText: "AAAA-MM-DD"; enabled: worker.ready && !worker.busy; onTextEdited: { page.dailyStartEdited = true; page.configDirty = true } }
                         Text { text: "Hasta:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
-                        Field { id: dailyEnd; objectName: "detailsDailyEnd"; Layout.preferredWidth: 140; text: worker.config.daily_end_date || ""; placeholderText: "Continuo"; enabled: worker.ready && !worker.busy; onTextEdited: page.configDirty = true }
+                        Field { id: dailyEnd; objectName: "detailsDailyEnd"; Layout.preferredWidth: 140; placeholderText: "Continuo"; enabled: worker.ready && !worker.busy; onTextEdited: { page.dailyEndEdited = true; page.configDirty = true } }
                         Item { Layout.fillWidth: true }
                         ActionButton { objectName: "detailsCalendarButton"; text: "Calendario"; enabled: worker.ready; onClicked: { worker.loadCalendar(dailyStart.text.trim().slice(0,7) || worker.daily.month); calendarDialog.open() } }
                     }
@@ -118,23 +129,18 @@ ScrollView {
                     id: progressColumn
                     anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 16; spacing: 10
                     RowLayout {
+                        visible: String(worker.activeTable.source_path || "").startsWith("daily://")
                         Layout.fillWidth: true
-                        Text { text: page.confirmed + " / " + worker.summary.total; color: Theme.text; font.family: Theme.family; font.pixelSize: 25; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                        Text { text: (worker.summary.total ? 100 * page.confirmed / worker.summary.total : 0).toFixed(1) + "%"; color: Theme.accent; font.family: Theme.family; font.pixelSize: 17 }
+                        Text { text: "Calendario mensual"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 12; Layout.fillWidth: true }
                         ActionButton { objectName: "retryMonthButton"; visible: String(worker.activeTable.source_path || "").startsWith("daily://"); text: "Reintentar mes"; enabled: worker.ready && !worker.busy; onClicked: worker.retryMonth(String(worker.activeTable.source_path).slice(8)); ToolTip.visible: hovered; ToolTip.text: "Da hasta tres intentos nuevos a los pendientes del mes y consulta sus días sin completar" }
                     }
-                    Rectangle {
-                        Layout.fillWidth: true; height: 6; radius: 3; color: Theme.raised
-                        Rectangle { width: parent.width * (worker.summary.total ? page.confirmed / worker.summary.total : 0); height: parent.height; radius: 3; color: Theme.success }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 22
-                        Text { text: "Guardados: " + worker.summary.succeeded; color: Theme.success; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { visible: worker.moduleId === "xmovimientos"; text: "Vacíos: " + (worker.summary.empty || 0); color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { text: "Pendientes: " + (worker.summary.pending + worker.summary.retry); color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { text: "En curso: " + worker.summary.running; color: Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Text { text: "Revisar: " + worker.summary.invalid; color: worker.summary.invalid ? Theme.accent : Theme.muted; font.family: Theme.family; font.pixelSize: 11 }
-                        Item { Layout.fillWidth: true }
+                    ProgressSummary {
+                        objectName: "botProgressSummary"; Layout.fillWidth: true
+                        title: "Avance de la tabla"; unit: "DUAs verificados"
+                        total: worker.summary.total; succeeded: worker.summary.succeeded
+                        pending: worker.summary.pending + worker.summary.retry; running: worker.summary.running
+                        invalid: worker.summary.invalid; empty: worker.summary.empty || 0
+                        emptyAddsToCompleted: true; showEmpty: worker.moduleId === "xmovimientos"; busy: worker.running
                     }
                     RowLayout {
                         Layout.fillWidth: true
@@ -143,27 +149,14 @@ ScrollView {
                     }
                 }
             }
-            Panel {
-                Layout.fillWidth: true; implicitHeight: 150
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 16; spacing: 8
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text { text: "Actividad"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                        ActionButton { text: "Limpiar vista"; subtle: true; implicitHeight: 26; onClicked: worker.clearActivity() }
-                    }
-                    Text {
-                        objectName: "detailsActiveJobs"
-                        visible: worker.activeJobs.length > 0; text: "Descargando: " + worker.activeJobs.join("   ·   ")
-                        color: Theme.accent; font.family: "Consolas"; font.pixelSize: 11
-                        Layout.fillWidth: true; wrapMode: Text.WordWrap
-                    }
-                    ActivityView {
-                        Layout.fillWidth: true; Layout.fillHeight: true; model: worker.activityModel
-                    }
-                }
+            ActivityConsole {
+                Layout.fillWidth: true
+                activityModel: worker.activityModel; monitor: worker.consoleMonitor
+                activeObjectName: "detailsActiveJobs"
+                activeText: worker.activeJobs.length ? "Descargando: " + worker.activeJobs.join("   ·   ") : ""
+                onClearRequested: worker.clearActivity()
             }
-            Text { text: !worker.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? worker.dailyActive ? worker.status : dailyEnd.text.trim() ? "Se detiene al completar el rango elegido." : "Al terminar espera hasta las 00:01. Detener conserva el progreso." : !page.activeId ? "Elige un Excel o una tabla para empezar." : worker.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: worker.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
+            Text { text: !worker.config.output_base_path ? "Elige dónde guardar los resultados." : page.dailyMode ? worker.dailyActive ? worker.status : worker.daily.waitingForDay && !page.dailyStartEdited && !page.dailyEndEdited ? "Al día. Al iniciar esperará hasta las 00:01 de Costa Rica." : "Retoma los días pendientes y continúa cada día a las 00:01." : !page.activeId ? "Elige un Excel o una tabla para empezar." : worker.summary.invalid ? "Hay entradas que revisar en Base de datos." : "Los resultados se guardan automáticamente."; color: worker.summary.invalid ? Theme.accent : Theme.faint; font.family: Theme.family; font.pixelSize: 11 }
             RowLayout {
                 Layout.fillWidth: true; spacing: 8
                 ActionButton { text: "Resultados"; iconName: "folder"; enabled: worker.outputFolder !== ""; onClicked: worker.openOutput() }
@@ -181,7 +174,7 @@ ScrollView {
             }
         }
         Panel {
-            visible: page.tab === 2
+            visible: page.tab === 2 && !worker.loading
             Layout.fillWidth: true; implicitHeight: configColumn.implicitHeight + 44
             ColumnLayout {
                 id: configColumn
@@ -223,20 +216,23 @@ ScrollView {
         palette.window: Theme.surface; palette.windowText: Theme.text; palette.text: Theme.text; palette.base: Theme.surface; palette.highlight: Theme.hover
         MenuItem { text: "Calendario diario"; enabled: worker.ready; onTriggered: { worker.loadCalendar(worker.daily.month); calendarDialog.open() } }
         MenuItem { text: "Actualizar"; enabled: worker.ready && !worker.busy; onTriggered: worker.refresh() }
-        MenuItem { text: "Exportar resultados"; enabled: worker.ready && !worker.busy && page.activeId !== "" && !!worker.config.output_base_path; onTriggered: worker.exportResults() }
+        MenuItem { text: "Generar CSV de esta tabla"; enabled: worker.ready && !worker.busy && page.activeId !== ""; onTriggered: worker.exportResults() }
         MenuSeparator {}
         MenuItem { text: "Abrir registros"; onTriggered: worker.openLogs() }
         MenuItem { text: "Interfaz clásica"; visible: worker.supportsClassic; enabled: worker.ready && !worker.busy; onTriggered: worker.openClassic() }
     }
-    Dialog {
+    AppDialog {
         id: databaseDialog; objectName: "detailsDatabaseDialog"
+        parent:Overlay.overlay
         title: "Base de datos"; modal: true; anchors.centerIn: parent
-        width: Math.min(940, page.width - 20); height: Math.min(690, page.height - 20)
+        width: Math.min(940, parent.width - 32); height: Math.min(690, parent.height - 32)
         padding: 16; standardButtons: Dialog.Close
         palette.windowText: Theme.text; palette.buttonText: Theme.text; palette.button: Theme.raised
         background: Panel {}
         contentItem: ScrollView {
             id: databaseScroll; contentWidth: availableWidth; clip: true
+            ScrollBar.vertical.active:true
+            ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
             Panel {
                 width: databaseScroll.availableWidth
             implicitHeight: databaseColumn.implicitHeight + 44
@@ -272,7 +268,7 @@ ScrollView {
                 ListView {
                     id: jobList
                     objectName: "detailsJobList"
-                    Layout.fillWidth: true; implicitHeight: 350; clip: true; model: worker.rows
+                    Layout.fillWidth: true; implicitHeight: Math.min(350,Math.max(112,worker.rows.length*56)); clip: true; model: worker.rows
                     ScrollBar.vertical: ScrollBar {}
                     delegate: Rectangle {
                         id: rowDelegate
@@ -322,15 +318,16 @@ ScrollView {
     }
 
     Native.FileDialog { id: excelDialog; title: "Seleccionar Excel de DUAs"; nameFilters: ["Excel (*.xlsx)"]; onAccepted: worker.inspectExcel(String(selectedFile)) }
-    Native.FolderDialog { id: outputDialog; title: "Seleccionar carpeta de resultados"; onAccepted: worker.setOutput(String(selectedFolder)) }
+    Native.FolderDialog { id: outputDialog; title: "Carpeta madre común a todos los bots"; onAccepted: worker.setOutput(String(selectedFolder)) }
     DailyCalendar {
         id: calendarDialog; moduleBridge: page.worker; anchors.centerIn: parent; width: Math.min(530,page.width - 20)
         initialStart: dailyStart.text.trim(); initialEnd: dailyEnd.text.trim()
-        onRangeSelected: function(start, end) { dailyStart.text = start; dailyEnd.text = end; page.dailyMode = true; page.configDirty = true }
+        onRangeSelected: function(start, end) { page.dailyStartEdited = true; page.dailyEndEdited = true; dailyStart.text = start; dailyEnd.text = end; page.dailyMode = true; page.configDirty = true }
     }
 
-    Dialog {
+    AppDialog {
         id: importDialog
+        parent:Overlay.overlay; objectName:"detailsImportDialog"
         title: "Guardar tabla"; anchors.centerIn: parent; width: Math.min(560, page.width - 30); modal: true; padding: 24
         palette.windowText: Theme.text; palette.buttonText: Theme.text; background: Panel {}
         contentItem: ColumnLayout {
@@ -349,8 +346,9 @@ ScrollView {
             ActionButton { text: "Continuar"; primary: true; enabled: !worker.busy && importTableName.text.trim() !== ""; onClicked: worker.prepareImport(importSheet.currentText, importTableName.text) }
         }
     }
-    Dialog {
+    AppDialog {
         id: importConfirm
+        parent:Overlay.overlay; objectName:"detailsImportConfirm"
         implicitHeight: 270
         title: "Guardar tabla"; anchors.centerIn: parent; width: Math.min(520,page.width - 30); modal: true; padding: 24
         palette.windowText: Theme.text; background: Panel {}
@@ -361,8 +359,9 @@ ScrollView {
             ActionButton { text: worker.importPlan.appended ? "Agregar DUAs" : "Crear tabla"; primary: true; enabled: !worker.busy; onClicked: { worker.confirmImport(); importConfirm.close() } }
         }
     }
-    Dialog {
+    AppDialog {
         id: renameDialog
+        parent:Overlay.overlay; objectName:"detailsRenameDialog"
         title: "Renombrar tabla"; anchors.centerIn: parent; width: Math.min(450,page.width - 30); modal: true; padding: 24
         palette.windowText: Theme.text; background: Panel {}
         contentItem: Field { id: renameInput; placeholderText: "Nombre de la tabla" }
@@ -372,30 +371,30 @@ ScrollView {
             ActionButton { text: "Guardar nombre"; primary: true; onClicked: { worker.renameTable(renameInput.text); renameDialog.close() } }
         }
     }
-    Dialog {
-        id: deleteDialog
-        title: "Confirmar eliminación"; anchors.centerIn: parent; width: Math.min(540,page.width - 30); modal: true; padding: 24
-        palette.windowText: Theme.text; background: Panel {}
-        contentItem: ColumnLayout {
-            spacing: 14
-            Text { text: page.confirmText; color: Theme.text; font.family: Theme.family; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-            Text { text: "Se creará un respaldo SQLite antes de cambiar la tabla."; color: Theme.accent; font.family: Theme.family; font.pixelSize: 11; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-        }
-        footer: RowLayout {
-            ActionButton { text: "Cancelar"; onClicked: deleteDialog.close() }
-            Item { Layout.fillWidth: true }
-            ActionButton { text: "Confirmar eliminación"; primary: true; enabled: !worker.busy; onClicked: { if(page.confirmAction === "rows") worker.removeRows(page.confirmIds,page.confirmTable); if(page.confirmAction === "clean") worker.cleanCompleted(page.confirmTable); if(page.confirmAction === "table") worker.deleteTable(page.confirmTable); page.selectedIds = []; deleteDialog.close() } }
+    DeleteConfirmation {
+        id: deleteDialog; objectName: "detailsDeleteDialog"
+        anchors.centerIn: parent; width: Math.min(540,page.width - 30)
+        details: page.confirmText
+        allowed: worker.ready && !worker.busy && !worker.closing && page.confirmTable === page.activeId
+        onConfirmed: function(confirmation) {
+            if(page.confirmAction === "rows") worker.removeRows(page.confirmIds,page.confirmTable,confirmation)
+            if(page.confirmAction === "clean") worker.cleanCompleted(page.confirmTable,confirmation)
+            if(page.confirmAction === "table") worker.deleteTable(page.confirmTable,confirmation)
+            page.selectedIds = []
         }
     }
-    Dialog {
+    AppDialog {
         id: detailDialog
+        parent:Overlay.overlay; objectName:"detailsResultDialog"
         title: "DUA · " + (worker.jobDetail.dua || worker.jobDetail.original || "Entrada inválida")
-        anchors.centerIn: parent; width: Math.min(840,page.width - 20); height: Math.min(700,page.height - 30); modal: true; padding: 22
+        anchors.centerIn: parent; width: Math.min(840,parent.width - 32); height: Math.min(700,parent.height - 32); modal: true; padding: 22
         palette.windowText: Theme.text; palette.buttonText: Theme.text; palette.button: Theme.raised
         standardButtons: Dialog.Close; background: Panel {}
         contentItem: ScrollView {
             id: detailScroll
             contentWidth: availableWidth; clip: true
+            ScrollBar.vertical.active:true
+            ScrollBar.horizontal.policy:ScrollBar.AlwaysOff
             ColumnLayout {
                 width: detailScroll.availableWidth; spacing: 14
                 Text { text: worker.jobDetail.status === "empty" ? "Vacío: sin movimientos por ahora" : "Resultado"; color: Theme.text; font.family: Theme.family; font.pixelSize: 14; font.weight: Font.DemiBold }

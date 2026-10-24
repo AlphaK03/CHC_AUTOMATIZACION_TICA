@@ -26,3 +26,11 @@
   temporal y consultas de red deshabilitadas; no usar lotes de producción como prueba.
 - La integración comprobada es mensual y por intervalos dentro del mes.
   No presentar como implementado un calendario diario continuo para este módulo.
+- Desde el 17/10, sin IDs/límite hay acumulación por mes/procedimiento/Courier,
+  incluso al cambiar fechas o modalidades. Adaptación en
+  `chc_runtime/manifest_incremental.py` y `manifest_adapters.py`, fuentes intactas.
+  Conservar jobs confirmados, ordinales e intentos; consultar pendientes solo de
+  la selección fresca. No inferir cobertura del último scope: usar el historial
+  `workbench_queries` con miembros/cantidad/firma y finalización verificables.
+  Respaldo fuera de `data/jobs/` para que no sea fuente. Preservar filtros aislados,
+  checkpoints, Courier N y validación completa al entregar a BLs.

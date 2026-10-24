@@ -2,15 +2,112 @@
 
 Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón,
 XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada.
+La limpieza de residuos pesados al cerrar entregas está descrita en
+[mantenimiento del almacenamiento](docs/MANTENIMIENTO_ALMACENAMIENTO.md).
+
+Disponible distribución para **Windows 10/11 x64** con instalador, Python y
+navegador incluidos. No lleva bases ni credenciales del desarrollo; guarda los
+datos por usuario separados del programa. [Instalación, construcción y límites
+de verificación](docs/DISTRIBUCION_WINDOWS.md).
 
 **Estado actual: seis módulos integrados en QML, incluidos BLs y Manifiestos.**
+Los **CSV de resultados se generan solo manualmente**: en cada bot, desde Más;
+en Vista general, **Generar todos los CSV** reúne los lotes guardados de todos los
+meses. Consultar y detener guardan en SQLite sin exportar. Cambio ya instalado en
+C. [Uso, verificación y borrado pendiente](docs/EXPORTACION_MANUAL.md).
+Contenedores consulta solo **Marítimo**, también en el inicio mensual; los
+históricos aéreos se conservan fuera de su avance. Cambio aplicado a la
+instalación local de C y verificado con portales locales, sin consultar TICA.
+XMovimientos guarda evidencia resumida de vacíos y errores, limitada a 32 KiB
+por HTML. `Resumir_Evidencias_XMovimientos.bat` revisa y convierte diagnósticos
+anteriores con confirmación `BORRAR`, conservando sus rutas, SQLite y CSV.
+[Formato, conversión y límites](docs/INTEGRACION_IMPORTACION.md#evidencia-resumida-de-xmovimientos).
+La instalación local de C ya incorpora esta corrección; el instalador anterior
+guardado en `runtime/releases/` todavía conserva su payload previo.
+El panel utiliza el símbolo vectorial de CHC en la navegación y Acerca de,
+con icono propio de Windows y recursos incluidos en el repositorio.
+Al iniciar abre siempre **Vista general**, mientras cada bot carga sus bases en
+segundo plano. Solo la sección que sigue preparando datos muestra una animación;
+la navegación y los bots listos siguen disponibles. Terminar una carga conserva
+la vista actual. Se evitan lecturas duplicadas de la tabla DUA activa y recargas
+de BLs/Manifiestos por navegar, manteniendo el análisis y la actualización explícita.
+Los auxiliares de bases y catálogo BLs no ocultan procedimientos ya listos.
+La carga de BLs/Manifiestos muestra su etapa; una lectura local sin terminar
+en 60 segundos cierra únicamente ese lector y permite reconectar. Este límite
+no se aplica a descargas, generación de bases, importaciones ni exportaciones.
+La preparación diaria agrupa el historial de intentos en una sola lectura.
+La bitácora limita sus lecturas largas para liberar SQLite y evitar que la vista
+de progreso retenga a los escritores; una lectura incompleta queda sin verificar.
+[Diagnóstico y comprobaciones de bloqueos](docs/BLOQUEOS_Y_CARGA.md).
+Revisión sobre el entorno real del 20/10: BLs consulta checkpoints solo para
+los trabajos visibles, conservando los totales del lote. Los lectores de
+progreso usan acceso mapeado de SQLite y comprueban con más frecuencia sus
+plazos para liberar los bloqueos de lectura; no se cambian bases ni journal.
+Los seis bots comparten un resumen visual de progreso: cifras destacadas,
+porcentaje, barra por estados y contadores alineados. BLs y Manifiestos muestran
+las modalidades juntas para comparar su avance; se adapta a ambos temas y al ancho.
+Actividad funciona como consola en los seis bots: hora/nivel, consultas, páginas,
+reintentos, esperas HTTP, lectura de progreso y exportación de CSV. Muestra las
+etapas en curso, su duración y la última señal del proceso. Se puede ampliar y
+leer mensajes anteriores sin perder la posición. [Funcionamiento y límites](docs/ACTIVIDAD_CONSOLA.md).
 Manifiestos reúne cinco procedimientos independientes y genera bases locales
 para BLs. Una segunda apertura activa la misma ventana de la plataforma.
+La preparación y el motor de BLs admiten números de manifiesto con una letra
+final, como `2601287L`, conservando el identificador y sus ceros sin cambios.
+En **BLs → Más → Reconsultar BLs con 0 filas…** se pueden volver a consultar
+los guardados vacíos del lote elegido, con confirmación y respaldo. Conserva
+historial, BLs con líneas y otros pendientes; incluye las líneas nuevas al generar el CSV manualmente.
+BLs muestra un resumen por modalidad con **guardados/total**, estado, pendientes,
+trabajos en curso, filas confirmadas y BLs sin líneas. Permite ver si Marítimo
+terminó mientras Aéreo sigue descargando, contando todo el lote.
+La lista de los cinco procedimientos de Manifiestos distingue **Marítimo,
+Aéreo y Terrestre** en cada fila, con conteos propios y filtro de modalidad.
+Las descargas existentes se muestran desde SQLite sin volver a consultarlas.
+La interfaz reserva espacio para varias filas y adapta navegación, páginas y
+ventanas al tamaño disponible. Los contenidos largos tienen desplazamiento
+visible; calendarios, bases y SharePoint conservan sus controles dentro de la ventana.
+Los seis bots permiten eliminar sus tablas/ejecuciones guardadas con respaldo y
+confirmación escrita **BORRAR**. En Manifiestos y BLs: seleccionar una ejecución
+y abrir **Más → Eliminar base de datos…**; conserva entradas originales y CSV.
+En los cuatro DUA se encuentra en **Base de datos**; limpiar o quitar filas
+también exige **BORRAR**. Las operaciones quedan bloqueadas mientras trabajan.
+Los cuatro bots DUA recuperan transacciones SQLite interrumpidas al arrancar,
+con respaldo previo y bloqueo exclusivo; abrir el panel conserva resultados,
+intentos y reservas sin iniciar consultas.
+En Diario automático basta pulsar Iniciar para retomar el primer día pendiente.
+El rango visible avanza con el progreso, continúa con los días disponibles y
+espera hasta las 00:01 de Costa Rica cuando queda al día.
+Si una actualización de la lista coincide con un guardado y SQLite está ocupada,
+conserva la vista y vuelve a leerla sin marcar la descarga como fallida.
+En el calendario de los cuatro bots DUA, **Marcar completado** pone un día en
+verde como **Completado manual**. La marca es reversible y se conserva al reabrir;
+**Reintentar día/mes** sigue consultando sus pendientes. Los días aceptados cuentan
+en Vista general para completar el mes y habilitar **Subir a SharePoint**, con
+conteos separados de días verificados y manuales; no modifica resultados.
 Vista general incluye una bitácora mensual de los seis bots: estados reales,
 meses completos verificados y detalle de los cinco procedimientos de Manifiestos.
+Cada bot muestra el conteo de días como **16/31**, en blanco y negrita.
 Se actualiza leyendo el progreso guardado, sin iniciar consultas.
-La cobertura parcial y los archivos terminados sin cobertura acreditada se distinguen
-de un mes completo. [Uso de la bitácora](workbench/README.md#bitácora-mensual).
+La comprobación automática de Detalles exige todos los DUAs descargados; los otros
+bots admiten omitidos fuera del resultado final. Todos aceptan cierre manual con
+pendientes conservados. El mes actual puede aparecer **Al día** hasta la última
+fecha consultable. **Cierre manual…** permite cerrar un bot/procedimiento o volver
+a la comprobación automática, conservando pendientes para reintento.
+En DUAs por manifiesto, las exclusiones por `frmAmbiente` cuentan como omitidas:
+una ejecución **Finalizada con exclusiones** permite **Al día** o **Completado**
+según su cobertura. El reintento normal no reabre estas exclusiones.
+[Uso de la bitácora](workbench/README.md#bitácora-mensual).
+
+**SharePoint** conecta opcionalmente una cuenta CHC y permite elegir una
+carpeta madre local y una online para todos los bots. Los CSV públicos comparten
+nombres en mayúsculas y organización por bot, mes y modo cuando aplica.
+La subida se inicia solo mediante **Subir a SharePoint** o un reintento explícito.
+El selector recorre sitios, bibliotecas y subcarpetas; también permite elegir la
+raíz de una biblioteca o una carpeta sin subcarpetas. [Guía de SharePoint](docs/SHAREPOINT.md).
+El círculo de cuenta de la barra superior muestra la foto o las iniciales del
+usuario, con menú de conexión y perfil. SharePoint reúne Resultados, Archivos y
+Actividad: exploración con tamaño/fecha, creación explícita de carpetas y filtros
+del historial de envíos. Abrir o navegar conserva las subidas como acción manual.
 
 Los paneles de actividad conservan el mensaje y la posición al leer el historial.
 Solo siguen automáticamente las novedades cuando el lector está al inicio.
@@ -27,10 +124,15 @@ los procesos ocupados; BLs espera Conocimientos completos del período elegido.
 Los procedimientos de Manifiestos se eligen en una barra horizontal con el estilo de la navegación
 lateral; cada uno ofrece Procesamiento y Configuración, como los otros bots.
 El nombre de tabla se genera por período (`octubre26`, `enero27`) y se retoma la
-misma selección sin duplicarla. Modalidades o filtros distintos añaden un sufijo.
+acumulación del mes al ampliar fechas o cambiar las modalidades: consulta de nuevo
+el listado y descarga únicamente manifiestos nuevos o pendientes. Los CSV siguen
+separados por modalidad; los filtros de Courier, IDs o límite permanecen aislados.
 [Uso, contratos y límites comprobados](docs/INTEGRACION_MANIFIESTOS.md).
 BLs permite elegir directamente meses y modalidades con descargas completas de
 Conocimientos; genera su base Courier=N e inicia su motor sin elegir archivos.
+Al repetir la misma selección de meses y modalidades, amplía el lote existente
+con los BLs nuevos y retoma sus pendientes sin repetir los guardados. Conserva
+sus páginas, historial y CSV acumulados; otra selección de mes/modo queda separada.
 Su lista muestra la fila, manifiesto y BL originales; conserva los contadores
 durante la preparación y permite continuar únicamente los pendientes.
 También muestra página y filas acumuladas por BL. Las páginas verificadas se
@@ -151,6 +253,18 @@ ejecución**, no como bases de trabajo. Detalles usa `config/captcha_lookup.json
 - [Piloto diario de Detalles: uso y calendario](docs/PILOTO_DETALLES_DIARIO.md).
 
 ## Comprobar esta entrega
+
+**SharePoint** permite conectar opcionalmente una cuenta CHC y elegir
+una carpeta madre online para todos los bots. La carpeta madre local es también
+común; los CSV se organizan por bot, mes y modo, con nombres en mayúsculas.
+**Subir a SharePoint** envía únicamente resultados de bots completos, al día o
+cerrados manualmente en la bitácora, cuando el usuario lo solicita.
+Exportar localmente no inicia subidas. La aplicación conserva su funcionamiento
+y resultados locales sin cuenta. Registro OAuth2 de escritorio
+reutilizado de CHC REPORTES con `Sites.Read.All`, `Files.ReadWrite.All` y `User.Read`
+delegados, para sitios/archivos y perfil/foto del usuario. La lectura opcional del
+perfil no bloquea la publicación si su sesión requiere renovar el permiso.
+Véase [configuración y uso](docs/SHAREPOINT.md).
 
 Los casos pendientes y guardados cuentan con **Abrir en TICA**, que abre un navegador visible
 para revisar el DUA, BL o manifiesto sin cambiar su estado ni detener descargas.

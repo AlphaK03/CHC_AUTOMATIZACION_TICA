@@ -1,0 +1,5 @@
+{
+  "clientId": "077e19a4-ab53-4e55-8286-ec02dc3cf36c",
+  "tenantId": "f7015bc9-c229-413a-ab08-e1e5a76a09f1",
+  "scopes": ["Sites.Read.All", "Files.ReadWrite.All", "User.Read"]
+}

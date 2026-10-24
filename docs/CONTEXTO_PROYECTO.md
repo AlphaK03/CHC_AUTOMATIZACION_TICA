@@ -1,4 +1,750 @@
+## Pausa segura para salir de OneDrive — 23/10/2026
+
+- El usuario confirmó que primero se corrige en desarrollo; NO actualizar ni
+  instalar la distribución hasta resolver la causa. En esta sesión no se tocó
+  el código ni la instalación de C. Las pruebas anteriores eran sobre la app
+  instalada; no demostraban que funcionara la copia de desarrollo en OneDrive.
+- Causas reproducidas en este proyecto: el worker BLs termina antes de `ready`
+  al importar pandas (`core/indexes/api.py` y dependencias), con `OSError:
+  [Errno 22] Invalid argument` por archivos de nube no disponibles. También
+  fallan la lectura binaria y SQLite solo lectura de
+  `bots/xmovimientos/data/queues/catalog.sqlite3` y `daily-2026-10.sqlite3`.
+  La cola local mide 33.796.096 bytes, frente a 36.888.576 en la instalación;
+  son estados diferentes: NO sustituir una por otra ni confundir sus contadores.
+  Los SQLite BLs locales sí existen (95.776.768 y 33.128.448 bytes).
+- Se inició el OneDrive existente en segundo plano y se marcaron disponibles
+  localmente (+P -U) las dos colas, los entornos BLs/XMovimientos,
+  `chc_runtime/` y `workbench/qml/`. El catálogo y la cola volvieron a ser
+  legibles; pandas todavía presentó una espera superior a 12 s al comprobarlo.
+  No se regeneraron bases ni se sobreescribieron datos con copias instaladas.
+  Los logs/inventarios de diagnóstico están en `runtime/diagnostics/dev-loading/`.
+- Hay un segundo defecto de observación pendiente: DetailsBridge._finished
+  reemplaza el error real por «el proceso se cerró»; BLs muestra contenido en
+  cero cuando el worker falla y el error queda al pie. Conservar causa y stderr,
+  mostrar el fallo antes del resumen, y comprobar reconexión/cierre/reapertura.
+- El usuario autorizó detenerse cuando fuera seguro para copiar/mover el proyecto
+  fuera de OneDrive. Comprobación de cierre: no había GUI, workers Python del
+  proyecto ni operaciones attrib/copia activas. No se iniciaron consultas TICA.
+  Copiar a una carpeta local fuera de OneDrive y conservar el original hasta
+  verificar la copia. Tras cambiar ruta, adaptar los metadatos absolutos de
+  lotes/entradas/publicaciones con respaldo, sin cambiar firmas ni resultados,
+  y revisar los entornos. No dar por resuelto el problema hasta probar la app de
+  desarrollo desde esa nueva ruta, con BLs y XMovimientos mostrando sus datos.
+
 # Contexto de CHC Workbench para una nueva sesión
+
+## Estado vigente — 22 de octubre de 2026
+
+- Por instrucción del 22/10, los CSV de resultados se generan únicamente
+  manualmente en los seis bots: Más → Generar CSV de esta tabla/ejecución;
+  Vista general → Generar todos los CSV recorre todos los lotes/meses guardados
+  sin cambiar selecciones ni consultar TICA. Omite módulos ocupados e informa
+  errores. No exportar durante consultas, reintentos, parada o importación de
+  progreso. SQLite sigue confirmando resultados y recuperando pendientes.
+  Se quitó la comprobación de CSV antes de consultar y la generación periódica
+  DUA/final BLs/Manifiestos, también la interna, sin modificar fuentes copiadas.
+  La exportación manual BLs siempre relee SQLite; el registro durable acredita
+  propiedad si falta el JSON auxiliar (causa del aviso falso de Conocimientos).
+  Código `15a6fbc`, instalado en C con 13 archivos y hashes/respaldo en
+  `runtime/diagnostics/manual-csv/install-update/20261023T045603Z/`.
+  Pasaron 35 pruebas offline; seis módulos instalados listos en 9,516 s,
+  cero avisos QML y cero CSV antes de la acción manual, con copias temporales.
+  La app instalada quedó abierta antes de documentar. No se consultó TICA.
+  Borrado solicitado de 44 CSV (638.547.240 bytes): NO realizado; revisión
+  automática rechazó la operación con `blocked by policy`, sin más detalle.
+  También bloqueó limpiar una copia de prueba de 147.710.122 bytes en
+  `%TEMP%/CHC-two-loads-2qxrzjw2`; conserva solo una copia, sin uso activo.
+  El fallo de limpieza original del arnés se corrigió esperando al lector
+  mensual; su segunda ejecución sí limpió todos sus datos. Ver
+  `EXPORTACION_MANUAL.md` y `runtime/diagnostics/manual-csv/cleanup-status.json`.
+
+- Contenedores consulta exclusivamente Marítimo, por instrucción del 22/10.
+  Interfaz, worker e inicio mensual rechazan/excluyen Aéreo y Terrestre.
+  Al reabrir configuraciones antiguas se selecciona Marítimo; los SQLite,
+  CSV y registros históricos de otras modalidades permanecen intactos,
+  fuera de su resumen, exportación y cobertura mensual. Los otros cuatro
+  procedimientos mantienen sus modalidades. Código en `849c2cf`, aplicado
+  también a la instalación de C (cinco archivos, respaldo y hashes en
+  `runtime/diagnostics/containers-maritime/install-update/20261023T024810Z/`).
+  Pasaron 41 pruebas: nombres/selección histórica, inicio mensual, bitácora,
+  QML y los cinco motores con portales locales, sin TICA. Instalación
+  comprobada en QML: solo Marítimo, 281/281 manifiestos y 41.044 filas.
+
+- Diagnóstico de carga BLs/XMovimientos del 22/10: SQLite real leído en modo
+  solo lectura; BLs conserva 36.650 BLs guardados y 63.942 filas entre septiembre
+  y octubre. Octubre activo: 27.884 guardados, seis pendientes y 47.839 filas;
+  septiembre: 8.766 guardados y 16.103 filas. XMovimientos octubre conserva
+  26.086 guardados y 15.308 vacíos verificados (41.394 en total).
+  Los dos puentes y la interfaz instalada cargaron sin error por separado
+  y junto con los seis módulos/bitácora (9,141 s), usando copias SQLite
+  temporales con respaldo consistente y rutas aisladas. Cero avisos QML,
+  sin consultas TICA y copias eliminadas automáticamente al terminar.
+  Informe/capturas: `runtime/diagnostics/two-loads/full.json` y PNG cercanos.
+  No se reprodujo el error de carga comunicado por el usuario ni se atribuye
+  a una causa no comprobada; falta su texto exacto si reaparece. BLs tiene
+  un error histórico «database is locked» en septiembre, distinto de una
+  carga actual. La app instalada quedó abierta antes de documentar, sin
+  iniciar descargas ni reiniciar una instancia activa.
+
+- El usuario autorizó eliminar residuos de pruebas/compilación/migración y pidió
+  limpieza al cerrar futuras entregas; preferencia guardada en `AGENTS.md`.
+  Pendientes `C:/CHC_Build`, `C:/CHC_QA`, `C:/CHC_Install_QA`,
+  `runtime/diagnostics/batch-loading` y la copia incompleta
+  `%LOCALAPPDATA%/CHC Consultores/Workbench.migracion-20261022-003022`.
+  Almacenamiento real de ese conjunto: 3.539.491.158 bytes, descontando enlaces
+  duros Build/QA. Acceso directo e instalación activa comprobados fuera del alcance.
+  NO se borraron: revisión automática rechazó la operación conjunta y la carpeta
+  de diagnóstico aislada con `blocked by policy`, sin explicación más específica.
+  No presentar esos 3,54 GB como liberados. Ver `MANTENIMIENTO_ALMACENAMIENTO.md`
+  e inventarios de `runtime/diagnostics/storage-audit/`. La limpieza XMovimientos
+  anterior sí se completó y es independiente de este bloqueo.
+
+- Limpieza de evidencias XMovimientos completada por instrucción expresa del
+  usuario: eliminados únicamente 31.242 HTML/JSON de
+  `%LOCALAPPDATA%/CHC Consultores/Workbench/bots/xmovimientos/data/exports/daily-2026-10/diagnosticos`.
+  Total retirado: 10.753.741.896 bytes (10,75 GB); carpeta sin archivos, cero
+  errores. Se tomaron los bloqueos de cola del motor y se verificaron iguales
+  los SHA-256 de SQLite/CSV antes y después. No se consultó TICA, reabrieron
+  trabajos ni borraron resultados/calendarios. Otras copias y respaldos intactos.
+  Recibo en `runtime/diagnostics/movement-evidence/deleted-20261023T003540.json`
+  (fecha UTC). La falta del HTML no reconsulta DUAs confirmados ni reconstruye
+  evidencia: Abrir evidencia de esos históricos ya no encontrará el archivo.
+  Las futuras consultas que lo requieran usarán el resumen acotado ya instalado.
+
+- XMovimientos: 11,84 GB de HTML de diagnóstico frente a 36,9 MB de SQLite mensual
+  en los datos instalados de C. Guardaba páginas completas para Vacío, incluidas
+  tablas de manifiestos ajenas a movimientos. Ahora `movement_evidence.py`
+  conserva fichas HTML verificables de hasta 32 KiB, con identidad/fecha,
+  encabezados/conteos/errores/paginación, tres filas de muestra y firma/tamaño
+  originales. El lector acepta resúmenes y HTML antiguos; formatos corruptos o
+  incompletos nunca confirman Vacío. No cambia parsers copiados, resultados,
+  calendario ni los diagnósticos de los otros bots.
+  `tools/compact_movement_evidence.py` y `Resumir_Evidencias_XMovimientos.bat`
+  convierten históricos tras `BORRAR` exacto; revisión por defecto sin cambios,
+  bloqueos compatibles, reemplazo atómico, rutas/fechas conservadas, diario con
+  hashes y operación repetible. No abre SQLite ni elimina CSV.
+  Históricos conservados en la entrega inicial: conversiones probadas en almacenamiento temporal y
+  ejemplos existentes solo en lectura. Mayor HTML: 14.145.681 → 1.746 bytes con
+  la misma comprobación de vacío. Pasaron 13 pruebas evidencia/vacíos, 21 de
+  puentes/bitácora y smoke de seis vistas. Ver `INTEGRACION_IMPORTACION.md`.
+  Antes de documentar se abrió la app del repositorio usando datos C mediante
+  `CHC_WORKBENCH_HOME`, sin consultas. No había instancia previa.
+  Actualización posterior: el usuario descartó convertir históricos por tiempo
+  y energía y considera volver a descargar. Se recomendó retirar solo diagnósticos
+  conservando resultados; después autorizó la limpieza indicada arriba, sin conversión masiva.
+  La instalación C ya incorpora los cuatro archivos de runtime de `e45654d`
+  (40.463 bytes), con respaldo previo, metadatos y hashes instalados actualizados.
+  Evidencia/respaldo en `runtime/diagnostics/movement-evidence/install-update/20261023T002359/`.
+  Verificado con Python instalado y almacenamiento temporal: respuesta sintética
+  de 2.000.268 bytes → 1.779 bytes, Vacío durable al reabrir, sin red; smoke del
+  EXE correcto. App instalada abierta antes de documentar, sin consultas.
+  El acceso directo habitual carga la corrección; el instalador anterior en
+  `runtime/releases/` aún conserva el payload previo (no se reempaquetó).
+
+- Migración de datos a la instalación C autorizada después por el usuario para
+  probar la carga. Instalada en `%LOCALAPPDATA%/Programs/CHC Workbench/20261022-002420-76a546`;
+  datos en `%LOCALAPPDATA%/CHC Consultores/Workbench`. Se cerró normalmente la
+  instancia D sin consultas activas. Copiados 35.542 archivos, 13.487.958.875 bytes,
+  incluidos diagnósticos, resultados, calendarios, configuraciones y SharePoint
+  del mismo usuario. Hashes originales intactos; SQLite de bots idénticos byte a
+  byte antes de abrir, 54 quick_check correctos. Ajustadas 46 entradas de metadatos
+  JSON/rutas de registros de publicación, conservando firmas y resultados.
+  Respaldo de los datos previos de C: carpeta hermana
+  `Workbench.antes-migracion-20261022-003401`. D permanece completo e independiente.
+  Prueba con intérprete instalado: seis bots listos en 11,4–14,3 s; todos los
+  procedimientos de Manifiestos cargan sin errores. Bitácora D/C idéntica: 60,203 s
+  frente a 1,766 s en esta lectura. Para leer D se amplió a 60 s únicamente el
+  plazo del diagnóstico; la app conserva 2 s. Sin descargas TICA ni subidas de prueba.
+  App instalada abierta al terminar, procesos con almacenamiento C comprobado.
+  Evidencia en `runtime/diagnostics/migration/20261022-003401/` y scripts puntuales
+  en `runtime/migrate_installed_data.py`, `verify_migrated_load.py` y
+  `compare_migrated_progress.py`. Quedó una copia temporal incompleta
+  `Workbench.migracion-20261022-003022`: revisión automática bloqueó su limpieza;
+  no es almacenamiento activo. No confundirla con el respaldo previo de C.
+
+- Distribución Windows x64 en `distribution/windows/`: lanzador e instalador C#,
+  Python privado por motor, paquetes comunes deduplicados y un Chromium para
+  Playwright/Selenium. Sin datos, sesiones ni rutas del equipo en el paquete.
+  `chc_runtime/distribution.py` separa código y datos por usuario; desarrollo
+  conserva sus rutas. `selenium_browser.py` adapta solo el navegador del proveedor.
+  Ver `DISTRIBUCION_WINDOWS.md` para comandos, limitaciones y verificaciones.
+  Carpeta QA trasladada con espacios/acento: puentes Qt y BLs verificados offline.
+  App empaquetada abierta con almacenamiento vacío propio antes de documentar;
+  no se interrumpieron consultas ni se migraron bases actuales. Queda pendiente
+  aceptación en otro equipo físico limpio. Instalador y mediciones finales en
+  `runtime/releases/`; evidencia en `runtime/diagnostics/distribution/`.
+  Recomendación solicitada: código/entornos/SQLite activos en C SSD y respaldos
+  en D HDD. El repositorio sigue en D; posteriormente se migraron los datos a
+  la instalación C, según la nota anterior.
+
+- Revisión posterior **sobre el entorno real**, solicitada expresamente: logs
+  07:10–07:11 confirman COMMIT bloqueado en Detalles/Talón y claim de XMovimientos.
+  Se inspeccionó con py-spy la instancia 30412 y sus workers; Tránsito está en
+  automático esperando la siguiente fecha, se conserva abierto. No reiniciar
+  esta instancia sin autorización: los otros tres motores terminaron por error.
+  BLs reprodujo en sus SQLite originales una lectura >30 s: primero conteo de
+  resultados, después agregación de TODOS los checkpoints para mostrar 200 jobs.
+  Disco D: HDD, muestra de cola 4 y ~1,18 MB/s; no se identificó retrospectivamente
+  el PID lector exacto que causó cada COMMIT fallido. No atribuirlo a duplicación
+  de workers: los pares de PID son launcher venv + intérprete.
+  Correcciones: inspect BLs obtiene la página visible primero, agrega checkpoints
+  por claves exactas vigentes de esos jobs, preservando los filtros originales.
+  `sqlite_read.prepare_reader` aplica query_only/mmap 256 MiB por conexión, sin
+  cambiar archivo/journal; plazo comprobado cada 10 instrucciones (antes 1000).
+  Bitácora conserva 2 s; summary/lista DUA tienen 10 s; view interrumpida durante
+  descarga se difiere igual que SQLITE_BUSY. No cambian parsers ni motor escritor.
+  Validación real: worker BLs refresh 0,156 s; comparación antigua/nueva en caliente
+  0,422/0,172 s, snapshot idéntico en cuatro vistas (inicio, final, búsqueda, vacía),
+  hashes de todos sus SQLite intactos. Bitácora real de seis módulos idéntica,
+  cero errores, 1,500/1,235 s. Lecturas DUA 0,016–0,110 s y BEGIN EXCLUSIVE/ROLLBACK
+  inmediato sin DML/DDL en los tres archivos; no consultas TICA de prueba.
+  Evidencia local en `runtime/diagnostics/live-locks/`, detalles y límites en
+  `docs/BLOQUEOS_Y_CARGA.md`. Cambios requieren cargar de nuevo los procesos;
+  la instancia existente conserva código anterior y automático de Tránsito.
+
+- Incidente posterior: Conocimientos/DUAs permanecían en «Cargando». Con la app
+  cerrada se copiaron sus cuatro SQLite y sesiones a almacenamiento de diagnóstico,
+  reescribiendo rutas; pruebas sin consultas TICA. No se reprodujo la espera de
+  minutos: refresh SQLite 0,03–0,08 s, primer proceso frío 10,6 s. En QML con
+  seis módulos concurrentes Conocimientos listo en 1,44 s y DUAs aproximadamente
+  1,8 s desde seleccionar; resúmenes, modalidades, trabajos visibles y hashes
+  antes/después idénticos (446.522 y 1.595.374 filas respectivamente).
+  Se corrigió un defecto comprobado de `BatchBridge.loading`: un auxiliar ocupado
+  ocultaba un procedimiento ya listo o su error. El auxiliar conserva sus propios
+  indicadores. Cargas locales refresh/select/knowledge_catalog tienen supervisor
+  Qt de 60 s; termina solo ese lector, descarta mensajes tardíos y permite
+  reconectar. Nunca aplicar a run/export/import/base_build/knowledge_build.
+  SectionLoading muestra etapas/señales y batch_worker registra inicio/fin y
+  duración de lecturas; inspect distingue estados y conteo de resultados.
+  11 pruebas pasaron, más smoke y recorrido QML de seis módulos/cinco procedimientos
+  con las copias, sin avisos. App actualizada abierta en Vista general antes
+  de documentar; carga real de Conocimientos registrada en 0,063 s. No atribuir
+  la demora histórica exclusivamente al defecto visual: no hubo traza del bloqueo.
+  Evidencia y límites en `docs/BLOQUEOS_Y_CARGA.md`.
+
+- Revisada la espera larga de Detalles tras regímenes: log 20/10 00:27:06 base
+  completa; 00:31:30 `database is locked` al confirmar preparación diaria.
+  El plan de solo lectura mostró conteo correlacionado del historial sin índice.
+  `DailyJobStore` ahora agrupa los intentos una sola vez, conserva presupuestos
+  existentes y consulta la selección diaria para resúmenes/reservas. Cierra su
+  conexión al fallar la preparación. Sin migración ni cambios de journal/formato.
+  Consola distingue incorporación, preparación de pendientes y verificación.
+  Bitácora compartida Qt/SharePoint: lectura limitada a 2 s por conexión mediante
+  progress handler; una consulta interrumpida queda sin verificar, nunca completa.
+  Conteo de omitidos sin subconsulta correlacionada. Reproducción aislada de lector
+  que impide COMMIT; el log no identifica al lector exacto del incidente histórico.
+  Se observaron también bloqueos en Talón/BLs y reemplazos JSON con WinError 5:
+  historial Batch con temporal único y hasta cinco intentos breves de reemplazo.
+  63 pruebas offline pasaron; preparación sintética anterior/nueva 5,461/0,038 s,
+  con presupuestos, resumen y exportaciones idénticos. Bitácora antes/después
+  idéntica sobre 10.000 DUAs/20 días; hashes SQLite intactos. Evidencia, comandos y
+  límites en `docs/BLOQUEOS_Y_CARGA.md`. App activa conservada antes de documentar;
+  cambios al próximo arranque voluntario, sin consultas reales de prueba.
+
+- Arranque y carga independientes por petición del usuario: el inicio normal
+  abre siempre Vista general, incluso si un acceso antiguo pasa `--page`.
+  Capturas, smoke y demo conservan la elección de vista. `app.py` crea QML antes
+  de encolar las conexiones; cada bot carga en su QProcess y la bitácora conserva
+  su lector en un hilo. No se esperan todos los motores para poder navegar.
+  `SectionLoading.qml` sustituye el bloqueo global anterior: animación local en
+  Detalles/Tránsito/Talón/XMovimientos y BLs/Manifiestos. Conserva la navegación
+  entre procedimientos y la ruta/pestaña al terminar cualquier carga. Las tarjetas
+  distinguen Cargando de Consultando. Error/cierre/descargas conservan sus controles.
+  `DetailsService.snapshot` reutiliza el resumen activo calculado en la misma
+  petición: no cambia SQL ni mantiene caché entre peticiones. Batch `connectModule`
+  es idempotente al navegar; `refreshModule` conserva la recarga explícita de
+  Más → Reconectar y `refreshKnowledge` sigue atendiendo cambios del productor,
+  incluso si llegan durante otra lectura. La preparación de BLs y sus firmas
+  no cambian. No se modificaron los motores copiados ni datos originales.
+  Comparación offline en `chc_runtime/tests/test_loading_snapshot.py`: dos SQLite
+  sintéticos de 18.000 trabajos cada uno, seis estados, revisiones y retenidos;
+  lectura anterior y nueva sobre los mismos archivos en los cuatro perfiles.
+  Resúmenes/tablas idénticos, hashes intactos y escrituras nuevas visibles en la
+  siguiente petición. Con dos tablas pasa de tres lecturas a dos; medición local
+  anterior/nueva en segundos: Detalles 0,0278/0,0223; Tránsito 0,0283/0,0215;
+  Talón 0,0265/0,0194; XMovimientos 0,0339/0,0250. No es una medición del arranque
+  con bases de producción ni una garantía de tiempos en otro equipo.
+  Validación: comparación con el Python de Detalles; 1 prueba de conexiones Qt
+  con proveedor real y fuentes temporales; 5 de carga/QML Manifiestos/Detalles;
+  2 de integración offline (cinco procedimientos, BLs y reanudación); 3 de
+  actividad/filas activas; smoke de las seis vistas. Capturas claro/oscuro en
+  `runtime/diagnostics/loading-independent/`, sin avisos QML. La app estaba cerrada:
+  se abrió la versión actualizada antes de documentar, sin iniciar consultas.
+
+- Actividad convertida en consola común para los seis bots y cinco procedimientos
+  de Manifiestos. `chc_runtime/activity.py` observa etapas con contextvars, pilas
+  por tarea/hilo y un hilo de señal cada segundo (también durante exportaciones
+  síncronas); cada 15 s registra la etapa que sigue esperando. No impone plazos,
+  consulta bases ni confirma resultados. El cierre del supervisor retira también
+  etapas de tareas abandonadas para no mostrarlas como consultas vigentes.
+  `worker.py` y `batch_worker.py` envuelven inicialización/comandos de primer
+  plano; las lecturas Qt concurrentes no reinician el monitor. Batch transmite
+  también logging original por JSONL y conserva sus logs persistentes.
+  `manifest_activity.py` instrumenta métodos y funciones en memoria, sin editar
+  fuentes copiadas: HTTP, parser, formulario, modalidad y exportación. DUAs sigue
+  con timeout HTTP 0, un intento y sin recuperación de errores dentro de la misma
+  consulta. Los cuatro DUA observan formulario/CAPTCHA/respuesta, páginas, pausas,
+  diagnósticos y CSV; BLs búsqueda/identidad/HTTP/páginas/checkpoints. Diario muestra
+  proveedor base, día y espera de 00:01. Sin cambios de calendarios/colas/datos.
+  Qt usa `live_activity.py`, `ActivityConsole.qml` y `ActivityView.qml` incremental:
+  etapas, segundos, última señal real, ampliación y limpieza visual. El reloj
+  no acredita avance de TICA. Tras 10 s sin mensajes advierte falta de señales.
+  Historial y etapas conservan el desplazamiento manual; modelos no se resetean
+  en cada tick. Pruebas y límites en `docs/ACTIVIDAD_CONSOLA.md`. Capturas sintéticas
+  aisladas en `runtime/workbench/captures/activity-console/`. App abierta conservada
+  antes de documentar; cargar la nueva interfaz al próximo arranque voluntario.
+
+- SharePoint rediseñado y acceso a cuenta en el avatar superior: navegación se
+  llama solo SharePoint; diálogo Resultados/Archivos/Actividad, destino + local,
+  selección mensual, exploración de archivos con tamaño/fecha y apertura, creación
+  explícita de subcarpetas y búsqueda/filtros de últimos 50 envíos. Totales de
+  toda la cola aparte. Conservar navegación desde funciones del diálogo, no desde
+  contextos de delegados destruidos; búsqueda reinicia sitio/biblioteca elegidos.
+  `AccountAvatar.qml` dibuja foto circular local o iniciales. Menú con nombre,
+  correo, conexión/cambio, actualizar perfil, desconectar y SharePoint.
+  Se revisó el registro OAuth2 par CHC REPORTES en Edge: mismo appId, 17 permisos
+  configurados y User.Read delegado concedido para CHC. El usuario autorizó usar
+  los necesarios: se añadió User.Read a `sharepoint_app.json`, sin cambiar Entra,
+  sumar correo/Power BI, secretos o .default. Actualizada la restricción de AGENTS.
+  `chc_cloud/profile.py` guarda nombre/foto opcionales ligados a hash de cuenta;
+  desconectar limpia, otro usuario nunca hereda foto. Errores no bloquean archivos.
+  Auth separa adquisición User.Read de Files/Sites para no romper sesiones previas;
+  reconectar por acción del usuario si falta perfil. JPEG/PNG ≤4 MiB, 404 sin foto,
+  sin redirecciones ni tokens en Qt. API nueva destination_contents valida cuenta;
+  create_folder valida padre consultado/nombre y usa fail en conflictos. No cambia
+  destino ni inicia envíos. Se conservan SQLite, CSV, eTag y propiedad de subidas.
+  Pasaron 31 pruebas offline + smoke seis vistas; capturas sintéticas en
+  `runtime/diagnostics/sharepoint-ui/`, oscuro 1280×820 y claro 1000×600 sin avisos.
+  Sin consultas de perfil/escrituras cloud reales como prueba. App activa conservada
+  antes de documentar; la interfaz se carga al próximo arranque.
+
+- Progreso visual común en los seis bots y cinco procedimientos de Manifiestos:
+  `workbench/qml/components/ProgressSummary.qml` presenta cantidad/total destacados,
+  porcentaje, estado y barra con segmentos verde (confirmados), naranja (en curso),
+  dorado (por revisar) y gris (excluidos), más contadores alineados que ajustan
+  filas. El fondo conserva el trabajo sin confirmar. `DetallesPage.qml` lo usa
+  para los cuatro DUA; mantiene Reintentar mes, estado y tiempo restante.
+  `ManifiestosPage.qml` agrupa total y modalidades dentro de una sola sección,
+  con dos columnas desde 640 px interiores y una en anchos menores; actividad,
+  búsqueda, filtro e historial siguen disponibles debajo. Sin tarjetas por cifra.
+  Theme incorpora warning en ambos temas. Las modalidades sin actividad muestran
+  En espera si el bot está ocupado; no cambia planificación ni hilos.
+  Porcentaje = confirmados/total; vacíos DUA se agregan como antes, vacíos BLs
+  ya incluidos en Guardado y excluidos separados. No cambiar fuentes, estados,
+  datos ni reglas del backend por esta presentación. Cambio solo QML.
+  Pasaron 5 pruebas QML enfocadas y smoke visual aislado de las seis páginas y
+  cinco procedimientos, oscuro a 1280×820 y claro a 1000×600, sin avisos QML.
+  Doce capturas y report.json en `runtime/diagnostics/progress/`; script local
+  `runtime/diagnostics/preview_progress.py`, sin workers ni consultas.
+  Al finalizar la app estaba cerrada: se abrió actualizada en BLs antes de
+  documentar. No se interrumpió la revisión Edge existente ni se iniciaron consultas.
+
+- BLs muestra resúmenes independientes por modalidad: guardados/total y estado
+  Completado/Descargando/Con pendientes, más pendientes, en curso, inválidos,
+  filas confirmadas y vacíos. `bls_observation.py` deriva el modo del IDManifiesto
+  (también archivos externos/antiguos), lee todos los trabajos en ready/finished
+  y actualiza deltas en memoria por evento, sin SQL por página. No sumar páginas
+  parciales como confirmadas ni depender de las 200 filas/búsqueda. Repeticiones
+  de página no inflan conteos. `manifest_service.py` recupera en solo lectura y
+  transmite `modeSummaries` por el puente existente; reservas huérfanas se muestran
+  pendientes al detener. QML conserva el resumen global y añade dos resúmenes
+  de modo, con modalidad también en Descargando ahora. No cambia colas, firmas,
+  datos ni exportaciones. Completado de modo describe el lote, no prueba cobertura
+  mensual. 11 pruebas offline enfocadas pasaron; captura compacta aislada en
+  `runtime/diagnostics/bls-modes.png`, QML sin avisos a 1280×820 y 1000×600.
+  Al terminar la instancia anterior ya estaba cerrada; se abrió la app actualizada
+  en BLs antes de documentar, sin iniciar consultas ni detener la revisión Edge.
+
+- BLs acumula desde Conocimientos dentro de la **misma selección exacta de meses
+  y modalidades** y configuración de búsqueda. Pasar de 250 a 251 conserva el
+  lote/SQLite/CSV existentes: añade solo nuevos, consulta pendientes presentes
+  en la instantánea actual y omite Guardado, incluidos vacíos. Una selección menor
+  o vacía conserva resultados; otro mes/modo queda separado. No fusionar lotes
+  históricos duplicados: elegir activo compatible o mayor avance.
+  `chc_runtime/bls_incremental.py` fija la firma/ruta originales del motor y sus
+  páginas, conserva ordinales, payloads, intentos y generaciones de reconsulta.
+  Valida mes/modalidad e identidad manifiesto/secuencia/BL contra lo persistido;
+  contradicciones detienen la ampliación. Adopción de lote antiguo con respaldo
+  en `data/backups/bls_incremental/`, fuera de jobs; inserción transaccional,
+  prueba hash de entrada acumulada y solicitudes/miembros auditados en SQLite.
+  `bls_session.py` conecta el adaptador bajo la reserva original;
+  `manifest_service.py` conserva identidad/publicSpecs y reconsulta explícita
+  de vacíos. El alcance de cola compartido con `bls_empty_retry.py` mantiene
+  todas las rondas dentro de la solicitud. Las fuentes copiadas siguen intactas.
+  Pasaron 35 pruebas offline (24 runtime y 11 puente/proveedor/QML), incluidas
+  adopción antigua, crecimiento/reordenación, separación de mes/modo, menor/vacía,
+  conflicto, rollback, respaldo fallido y paginación/reconsulta tras ampliar.
+  App activa conservada antes de documentar, sin consultas reales ni cambios
+  de bases del usuario. La mejora se carga al próximo arranque.
+
+- La espera global anterior fue sustituida por carga local de cada sección
+  (véase el primer punto). Se conservan los estados `loading` de los puentes:
+  inicialización/lectura/selección/importación y acuse idle después de ready/result.
+  Demostración, errores, cierre, run/retry_empty/diario y las lecturas de progreso
+  durante descargas no activan la espera. Tampoco la preparación para iniciar BLs.
+
+- Identidad visual CHC actualizada desde las opciones proporcionadas en
+  `SYS_CARGA_TRANSITO/Logos_CHC`. Copias propias en `workbench/assets/branding`:
+  símbolo SVG de `CHC_vectorizados.zip` e ICO `Logo_CHC_REPORTES.ico` con seis
+  tamaños (16–256 px). `components/BrandMark.qml` presenta el símbolo sobre blanco
+  en la barra lateral (expandida/contraída) y Acerca de; colores originales.
+  `app.py` configura `QGuiApplication.setWindowIcon` y el AppUserModelID de Windows
+  `CHC.Consultores.Workbench`, sin cambiar instancia única, motores o datos.
+  Los recursos externos permanecen intactos y no son una dependencia de ejecución.
+  Smoke de las seis vistas y tres capturas aisladas (oscuro, claro/contraído y
+  Acerca de a 1000×600) pasaron sin avisos QML; ICO comprobado en todos sus tamaños.
+  Capturas en `runtime/diagnostics/branding`. Se conservó la app activa, sin
+  reiniciarla; logo/icono se cargan completamente al siguiente arranque.
+
+- BLs incorpora **Más → Reconsultar BLs con 0 filas…**, con conteo/confirmación
+  para el lote activo y resumen de guardados sin líneas. Comando `retry_empty`
+  independiente del proveedor: reconstruir la entrada desde `inputs`, comprobar
+  firma/ruta/configuración original y no crear otra identidad ni leer de nuevo el
+  archivo de entrada. `bls_empty_retry.py` respalda SQLite fuera de `data/jobs`,
+  conserva intentos y registra solicitud/miembros; reabre solo Guardado con
+  `result_count=0` y cero resultados reales. Cola acotada a esos miembros en
+  todas las rondas; preservar los pendientes anteriores y los BLs con líneas.
+  Se mantiene el bloqueo original y se rechazan selección cambiada/lote ocupado.
+  Cada reconsulta inicia un avance por páginas nuevo mediante generación
+  persistida por job; las páginas anteriores permanecen intactas. `PageStore`
+  y la observación de página/filas resuelven únicamente la generación vigente.
+  Ante fallo/detención, los reabiertos quedan pendientes y el inicio normal
+  recupera ese avance nuevo; ese inicio normal conserva su alcance habitual.
+  El guardado original actualiza filas y CSV acumulado sin duplicar resultados.
+  Sin consultas/subidas automáticas ni cambios en fuentes copiadas. 23 pruebas
+  locales pasaron (14 páginas/portal, 2 cola/respaldo y 7 puente/QML/recuperación),
+  incluida conversión vacío→con líneas, repetición vacía, reanudación, alcance de
+  rondas, entrada externa ausente y bloqueos. Captura compacta en
+  `runtime/diagnostics/bls-empty-retry.png`. La app se encontró cerrada y se abrió
+  la versión actualizada en BLs antes de documentar, sin iniciar consultas reales.
+
+- BLs acepta números de manifiesto con una letra ASCII final (`2601287L`),
+  además de los numéricos. La consulta manual solicitada confirmó en TICA
+  `4-1-2601287L-P001-13/10/26`, con 22 conocimientos (20 Courier N y 2 S).
+  El rechazo anterior provenía del generador y de `core.inputs`, ambos numéricos.
+  `chc_runtime/bls_identifiers.py` adapta sus validaciones solo en los procesos
+  correspondientes, sin modificar fuentes copiadas. Una copia numérica se usa
+  exclusivamente para validar el resto de los campos y ordenar la exportación;
+  consultas, filas, auditoría, claves y payloads conservan el texto original.
+  Se habilita en proveedor, generador manual y entrada BLs (SQLite/XLSX).
+  Números anteriores mantienen claves/firmas; letras distintas no se fusionan.
+  No aceptar otros patrones desconocidos ni saltar Courier N, conflictos,
+  fechas, secuencia, identidad, checkpoints o reservas. No migrar trabajos
+  antiguos ni reconstruir éxitos desde la auditoría de una preparación rechazada.
+  26 pruebas offline pasaron: generador automático/manual, ceros, firmas,
+  conflictos y formatos rechazados, portal local con paginación/reanudación,
+  BLs–Conocimientos/QML y repetición sin reconsultar Guardado. Datos temporales,
+  sin consultas TICA nuevas como pruebas. App activa conservada; cambio completo
+  al próximo arranque (Reconectar solo refresca, no recarga procesos).
+
+- Corrección de bitácora para DUAs por manifiesto: reconocer el estado real
+  `Finalizada con exclusiones`, además de `Finalizada`. Las exclusiones por
+  frmAmbiente cuentan como omitidas fuera del CSV y permiten Al día/Completado
+  solo con cobertura verificada de cada modalidad, selección terminada y ausencia
+  de parciales en los trabajos guardados. Antes Aéreo podía mostrar Pendiente
+  pese a tener cobertura y cero pendientes. El reintento normal sigue saltando
+  Excluido; no hay control para reabrir esas exclusiones. Más → Pendientes y
+  exclusiones permite revisar el motivo. Sin cambios en motores ni datos reales.
+  21 pruebas offline de bitácora/QML pasaron, con diez exclusiones, ambas
+  modalidades, cobertura acumulativa/antigua y lectura sin escrituras. La app
+  abierta se conservó; el cambio se carga al próximo arranque.
+
+- Seis módulos operativos: Detalles, DUAs Tránsito, Talón, XMovimientos, BLs y
+  Manifiestos; este último tiene cinco procedimientos y genera bases para BLs.
+  Motores separados, SQLite/progreso conservados, actividad estable y revisión
+  visible en TICA sin cambiar el estado de una descarga.
+- Ajuste visual global, 17/10: la captura real confirmó 250 filas Marítimo,
+  1833 Aéreo y 2083 totales; la tabla de 90 px dejaba oculta una de las dos filas.
+  Manifiestos/BLs reservan altura para 2–5 filas, con filas de 42/66 px para
+  acomodar TICA. DUA adapta la altura de listas cortas. Cabecera/márgenes compactos,
+  navegación lateral desplazable y procedimientos en dos filas al reducir ancho.
+  Barras visibles cuando se necesita desplazar. `components/AppDialog.qml` centra
+  ventanas en Overlay, comparte tema y Cerrar; calendario con contenido desplazable
+  y pie fijo. Se conservaron las funciones, fuentes, motores y almacenamiento.
+  Pruebas: 13 tests locales pasaron; `test_platform_layout.py` genera 229 capturas
+  de páginas/diálogos, tres tamaños (1280×774, 1000×680, 1000×600), temas y demo,
+  sin controles fuera del ancho, verificando ambas filas y sus botones completos,
+  acceso al final del contenido y cierre real de diálogos. Capturas en
+  `runtime/diagnostics/layout/` al fijar `CHC_LAYOUT_CAPTURES`; fixture solo memoria/
+  temporales, sin red ni motores. La app inicial se conservó mientras estuvo abierta;
+  al comprobar que ya estaba cerrada se abrió la versión ajustada sin iniciar consultas.
+- Observación de Manifiestos por modalidad: columna y resumen para Marítimo,
+  Aéreo y Terrestre, filtro del historial y paginación conjunta sin perder filas.
+  La clave interna de observación es `(base SQLite, jobId)`; no usar solo el ID:
+  dos bases tienen `listado` y antes una ocultaba a la otra en la GUI. SQLite y
+  CSV estaban separados y conservan sus datos. `BatchService` agrega resúmenes
+  por base/modalidad, tanto en progreso como al inspeccionar históricos; callbacks
+  capturan modalidad/ruta por iteración. Activos visibles antes del límite de 200
+  e independientes del filtro. TICA recibe la base elegida y `manual_review_data`
+  comprueba pertenencia al lote antes de leer en modo solo lectura. Fuentes
+  originales intactas; no hay migración ni descargas nuevas al abrir esta vista.
+  Diez pruebas offline pasaron, incluidos los cinco procedimientos con ambas
+  modalidades, reintentos, carga posterior, paginación, conteos y QML/TICA.
+  La instancia activa se conservó; cambio completo al próximo arranque.
+- Borrado seguro disponible en los seis bots. Los cuatro DUA exigen **BORRAR**
+  para quitar filas, limpiar completados o eliminar tabla, validado por el worker.
+  Manifiestos (sus cinco procedimientos) y BLs añaden **Más → Eliminar base de
+  datos…** sobre la ejecución elegida, también con **BORRAR** exacto. Conservar
+  bases de entrada y CSV públicos; archivar solo el trabajo interno propio en
+  `data/deleted/<flow>/<operación>/`, fuera de las fuentes/bitácora. Validar ID,
+  nombre, procedimiento, ruta y bloqueos del motor. Traslado reversible con
+  diario y recibo `deletedBatches` en session.json: revertir cierres antes del
+  commit sin resucitar borrados confirmados al recrear el mismo ID. Recuperación
+  de un borrado confirmado manual, sin botón Restaurar. La app activa se conserva;
+  estos cambios se cargan al próximo arranque.
+  Validación: 20 pruebas offline (8 de borrado/recuperación, 9 de integración
+  Manifiestos/BLs/Detalles/QML y 3 de Tránsito/Talón/XMovimientos). Las pruebas
+  antiguas de rango diario ahora envían `bounded=True`; el modo normal conserva
+  su ejecución continua. No se borraron bases reales ni se consultó TICA.
+- Manifiestos acumula los cinco procedimientos por mes/Courier sin IDs/límite.
+  Repetir, ampliar fechas o cambiar modalidades reutiliza la ejecución y agrega
+  manifiestos nuevos, conservando Guardado/intentos/checkpoints. Los CSV siguen
+  separados por modalidad. Cobertura exacta en `workbench_queries` y miembros
+  firmados; bitácora y proveedor BLs no deducen el mes desde el último intervalo.
+  Migraciones con respaldo en `data/backups/`, fuentes copiadas intactas. No se
+  fusionan bases históricas ni se cambian firmas/checkpoints del motor BLs.
+- Vista general: cada bot de la bitácora muestra el conteo **16/31**, solo números,
+  blanco y negrita a 22 px, junto al nombre. Incluye aceptación manual; en
+  Manifiestos cuenta fechas comunes a los cinco procedimientos y sus modalidades.
+  El tema claro añade fondo oscuro al número para conservar el contraste.
+- Calendario de los cuatro DUA: **Marcar completado** / **Quitar marca manual**
+  permite poner un día en verde bajo criterio del usuario, incluso con consultas
+  activas. Persistencia por bot en `data/daily/manual_completed_days.json`,
+  independiente de SQLite y del estado real. Las marcas cuentan para completar
+  el mes en Vista general y habilitar SharePoint, con días verificados y manuales
+  separados. Los pendientes siguen entrando en **Reintentar mes/día** aunque el
+  día esté verde; las marcas se conservan al reintentar. La app activa se mantuvo
+  abierta; este cambio se carga en el próximo arranque.
+- Contención en lecturas de la lista corregida el 16/10: un `view` en segundo
+  plano con SQLITE_BUSY/LOCKED se difiere al próximo refresco, sin declarar fallo
+  del motor. Qt conserva filas/offset, ejecución y estado; un error real del motor
+  no se borra al recargar la lista. La instancia activa se conservó; este ajuste
+  se carga en el próximo arranque. Cuatro pruebas nuevas offline pasaron.
+- Carga DUA tras cierre inesperado corregida: `chc_runtime/sqlite_recovery.py`
+  recupera únicamente `SQLITE_READONLY_ROLLBACK` antes de las vistas de lectura.
+  Exige lote libre y respaldo byte a byte; no rearma reservas ni migra esquemas.
+  Detalles real recuperado el 16/10 con 52.154 guardados y contenido confirmado
+  íntegro; nueve pruebas offline pasaron. Ver evidencia en el historial siguiente.
+- Inicio mensual conjunto con selección de bots/procedimientos y trabajadores.
+  Los cuatro DUA tienen proveedor/calendario diario, tres intentos automáticos
+  persistentes y reintentos explícitos por día/mes. BLs conserva checkpoints por
+  página y validación antes de reanudar.
+- Diario DUA continuo confirmado el 16/10: Iniciar retoma el primer día pendiente;
+  Desde/Hasta y Calendario avanzan sin cambiar el origen persistido. Continúa tras
+  el rango elegido hasta ayer y espera a las 00:01 de Costa Rica. La app no inicia
+  consultas al abrir. Inicio conjunto por mes y reintentos explícitos acotados.
+- Bitácora: la comprobación automática de Detalles exige todos los DUAs guardados; los demás admiten omitidos
+  fuera del resultado final. **Al día** cubre hasta la última fecha consultable.
+  **Cierre manual…** es reversible, no altera SQLite y se invalida al cambiar
+  datos/intentos. Por petición del 17/10, el cierre manual acepta pendientes en
+  todos los bots, incluido Detalles. BLs y los cinco procedimientos de Manifiestos
+  usan este cierre mensual; los cuatro DUA también aceptan las marcas diarias.
+  Estas últimas no caducan con nuevos intentos y no modifican el motor.
+- SharePoint opcional mediante OAuth2/PKCE y el registro CHC REPORTES existente.
+  Una carpeta madre local y una online; solo CSV públicos, nombres en mayúsculas
+  y subcarpetas por bot/procedimiento y mes. BLs separa mes/modo reales.
+  Subidas únicamente por acción explícita, para bots completos, al día o cerrados
+  manualmente. La navegación sitio → biblioteca → subcarpeta está corregida y
+  comprobada con la cuenta real; una carpeta sin subcarpetas también se puede elegir.
+- Git: el trabajo previo a SharePoint está en `main`/`origin/main` (`93ceb44`).
+  La integración y correcciones continúan en `feature/sharepoint-oauth2`;
+  la corrección del selector está en `bdf2bcd`. Mantener la rama separada hasta
+  que el usuario solicite integrar. Código, pruebas, instaladores y documentación
+  son versionables; tokens DPAPI, rutas elegidas, bases, resultados y runtime no.
+- Validación ya realizada: 19 pruebas cloud, dos de Qt/DPAPI, cuatro del contrato
+  de salidas, 17 de bitácora, una de bitácora Qt y 12 integraciones de exportación/
+  recuperación de los seis bots, además del smoke QML. Lectura/escritura real de
+  SharePoint comprobada con un archivo de prueba; no acredita actualización de Power BI.
+- Pendientes: distribución ejecutable/equipo limpio, más variantes reales,
+  calendario diario continuo de BLs y generadores/separadores todavía externos.
+
+Guías vigentes: `README.md`, `workbench/README.md` y `docs/SHAREPOINT.md`.
+Los apartados siguientes son el historial de las entregas y pueden describir
+reglas anteriores; este resumen y las guías vigentes tienen prioridad.
+
+## Historial de implementación
+
+Actualización acumulativa de Manifiestos, 17/10: el usuario preguntó por descargar
+Marítimo/Aéreo de octubre al 17 y completar al 1 de noviembre sin repetir datos.
+Antes el rango/modalidades formaban la identidad y las colas congelaban el listado.
+Ahora los cinco procedimientos sin IDs/límite comparten identidad mensual por
+Courier; se conserva el lote compatible, incluso con nombre antiguo, y se procesan
+solo novedades y pendientes de la consulta actual. Selecciones filtradas siguen
+aisladas; bases históricas independientes no se fusionan automáticamente.
+
+`manifest_incremental.py` adapta los stores en el proceso propio de Manifiestos.
+Agrega jobs con ordinales estables, conserva resultados/intentos/exclusiones/
+parciales y valida la familia de mes/modalidad/filtros antes de ampliar. La primera
+adaptación crea respaldo SQLite en `data/backups/` fuera de `data/jobs/` para no
+ofrecerlo como fuente. `manifest_adapters.py` conserva la reparación de identidades
+antes del append y valida el listado principal contra las identidades confirmadas.
+El listado agrega filas; los cuatro procesos con detalle conservan los Guardado.
+
+`manifest_coverage.py` comprueba cantidad y firma de miembros, existencia de jobs,
+resultados y fin de consulta. Une únicamente fechas acreditadas por modalidad,
+conservando huecos y el corte de 00:01 Costa Rica; la cobertura legada se limita
+a su primera selección. `MonthlyReader` y `KnowledgeSource` usan ese historial.
+BLs sigue exigiendo trabajos Guardado y ausencia de páginas parciales; Courier N
+puede alimentar BLs pero no acredita una descarga sin filtro en la bitácora.
+La unidad guardada sigue siendo el manifiesto: no se vuelven a extraer detalles
+confirmados para detectar cambios internos posteriores. El motor BLs mantiene
+su identidad de entrada; esta entrega no convierte bases BLs diferentes en un lote.
+
+CSV canónico mensual por modo: un parcial sustituido del mismo propietario/mes/
+modalidad deja de ser salida final; no se borra el archivo. SharePoint pausa los
+envíos antiguos sustituidos y solo sube el acumulado por acción explícita; no borra
+históricos remotos ni cambia otras modalidades/propietarios.
+
+Validación: 62 pruebas offline (7 nuevas de acumulación/recuperación/cobertura,
+matriz Qt→cinco workers→portal local con ampliación por modalidad/reapertura,
+entrega de base BLs, nombres, bitácora, Qt, inicio mensual, exportaciones y 20 cloud).
+Guardados mantienen intentos/datos, nuevos IDs se agregan una sola vez y no hay
+CSV duplicados. Verificador de copia correcto: 166 archivos y 138 sintaxis,
+reporte local `runtime/diagnostics/validacion-copia-acumulacion-manifiestos.json`.
+Se abrió Workbench en Vista general antes de documentar, sin iniciar consultas
+reales; se mantuvo esa ventana abierta. Cambios completos disponibles al próximo
+arranque. No se hicieron consultas de prueba a TICA ni subidas reales a SharePoint.
+
+Conteo visible de días añadido el 17/10 por petición del usuario: solo números,
+medianos/grandes y blancos. `MonthlyLog.qml` muestra `displayDays/daysInMonth`
+junto al nombre de cada bot. `MonthlyReader` expone esos datos de presentación
+desde la cobertura ya calculada; para cierres mensuales manuales cuenta los días
+disponibles aceptados y para Manifiestos intersecta fechas entre modalidades y
+procedimientos. No cambia estados, recuperación, reintentos ni habilitación cloud.
+Dos comprobaciones Qt offline pasaron, con 16/31 y mes de 30 días, marca manual,
+actualización, dos anchos y temas claro/oscuro. Capturas aisladas verificadas antes
+de documentar en `runtime/diagnostics/bitacora-contador-dias-20261017*.png`.
+Se conservó la app abierta y sus consultas; disponible al próximo arranque.
+
+Aceptación manual global ampliada el 17/10 por instrucción expresa del usuario,
+que sustituye la limitación visual de `04c3c0d` y la restricción anterior de
+Detalles para cierres manuales. Marcar un día en el calendario ahora cuenta para
+completar el mes del bot en Vista general y habilitar su CSV para SharePoint,
+conservando sus pendientes y el comportamiento del reintento explícito.
+
+`MonthlyReader` lee las marcas de los cuatro DUA sin importar motores ni escribir
+SQLite. Cuenta las excepciones solo en los días aceptados y distingue cobertura
+verificada/manual; también reconoce días aceptados sin base, sin crear resultados.
+Un mes pasado cubierto aparece «Completado manual»; el actual, «Al día (manual)»
+hasta la fecha consultable. Quitar una marca revierte la aceptación de ese día.
+Un trabajo activo o una fuente de resultados ilegible siguen bloqueando la subida.
+El cierre mensual explícito admite pendientes en los seis bots y los cinco
+procedimientos de Manifiestos; conserva su huella e invalidación al cambiar datos.
+Las marcas individuales del calendario persisten al reintentar.
+
+La señal `calendarMarksChanged` refresca la bitácora al guardar/quitar una marca.
+Tras su lectura, la cuenta SharePoint conectada refresca la lista local de meses
+subibles. Los envíos siguen exigiendo **Subir a SharePoint** o reintento explícito.
+No se cambiaron motores, fuentes, calendario operativo, resultados ni CSV.
+La app abierta se conservó; la actualización se carga en el próximo arranque.
+Pruebas offline: 24 de cobertura/cierre/aceptación global (incluidas siete nuevas
+con Graph simulado), 19 cloud, ocho de Qt/calendario/configuración y el worker
+Talón ampliado: su día verde sigue completo en bitácora tras reintentar únicamente
+el pendiente. SQLite permanece idéntica al marcar/quitar, y el CSV simulado se envía
+byte a byte solo por acción explícita en los diez destinos bot/procedimiento.
+Captura aislada `runtime/diagnostics/mes-completado-manual-20261017.png`, verificada
+antes de documentar; sin consultas de prueba a TICA ni envíos reales a SharePoint.
+
+Marca manual diaria añadida el 17/10 por petición del usuario tras revisar Talón:
+solo el 04/10 tenía todos sus DUAs guardados; los demás días atendidos conservaban
+pendientes sin filas de tributos o con timeout. El usuario pidió poder marcar
+un día en verde sin impedir que Reintentar mes consulte esos pendientes.
+
+`workbench/daily_marks.py` guarda las decisiones visuales por bot con reemplazo
+atómico. `DetailsBridge.daily` agrega `manualCompleted` sin modificar la respuesta
+del worker, sus contadores ni sus órdenes; el botón no requiere detener consultas.
+`DailyCalendar.qml` muestra el verde y «Completado manual» conservando estado real,
+cantidades y error; permite quitar la marca. No se cambiaron coordinador, motores,
+esquemas SQLite, CSV, cobertura, bitácora mensual ni fuentes copiadas.
+
+Siete pruebas offline pasaron: cuatro nuevas de persistencia, separación por bot,
+fallos de escritura/lectura, marca durante ejecución y acciones QML; dos existentes
+de rangos/configuración QML; y el ciclo real del worker Talón con fixture local,
+ampliado para marcar un omitido, reintentar el mes y reabrir. Los guardados y sus
+intentos permanecen idénticos; solo los pendientes reciben nuevas oportunidades.
+Captura aislada `runtime/diagnostics/calendario-completado-manual-20261017.png`.
+Se verificó QML antes de documentar y se conservaron los mismos procesos activos
+de la app y Talón, sin reinicios ni consultas nuevas a TICA como prueba.
+
+Revisión de «database is locked» en Detalles el 16/10, tras el cambio de continuidad.
+El traceback de las 13:00:29 corresponde a `view` → `catalog.read_rows` al leer
+`sqlite_master`; el lector superó su espera durante un guardado. No falló el
+comando de descarga: el registro y SQLite confirman 63 guardados posteriores y
+53.520 guardados totales en la comprobación de las 13:23, con cinco trabajos activos.
+La GUI convertía cualquier error de consulta de la lista en «No se pudo completar
+la operación» y mantenía el aviso incluso cuando la siguiente lectura funcionaba.
+
+`worker.py` emite `view_deferred` solo ante SQLITE_BUSY/LOCKED (incluidos códigos
+extendidos) en un `view` de segundo plano, y conserva `idle(readonly=True)` para
+liberar únicamente esa lectura. El refresco existente vuelve a solicitarla sin
+acumular lectores. No se cambiaron tiempos, modo de SQLite, commits ni reservas.
+`details_bridge.py` mantiene el estado operativo ante errores de `view`, limpia
+solo el error de lectura al aceptar una vista posterior y preserva fallos reales
+del motor frente a respuestas tardías o errores secundarios de lectura.
+
+Cuatro pruebas nuevas: dos ejercitan el protocolo real con bloqueo EXCLUSIVE en
+una SQLite aislada, lectura posterior del dato confirmado y fallos que deben
+seguir visibles; dos del puente cubren los cuatro perfiles, filas/offset,
+refresco, estado activo, limpieza del aviso y conservación del fallo de escritura.
+Sin consultas de prueba a TICA. Se mantuvo la instancia abierta y sus workers;
+la corrección queda en disco para el próximo arranque y los avisos de esa instancia
+pueden seguir visibles mientras conserva el código anterior en memoria.
+
+Continuidad diaria y rango visible ajustados el 16/10 por petición del usuario.
+`DailyCoordinator.snapshot` calcula `resumeDate`, `resumeEndDate` y `waitingForDay`
+desde el calendario; la fecha inicial guardada sigue siendo el límite inferior
+de búsqueda para no perder huecos. `DetallesPage.qml` sigue esas fechas y
+`DailyCalendar.qml` actualiza la selección mientras no haya una edición manual.
+Guardar trabajadores/configuración no persiste la vista móvil como un nuevo
+origen. Las ediciones del usuario conservan prioridad hasta guardar o iniciar.
+
+El diario normal sigue con los días disponibles después del rango elegido,
+omite completados/omitidos y espera al siguiente 00:01 local cuando está al día.
+Al reabrir no corre nada hasta Iniciar. `daily_run` admite `bounded=True` para
+el inicio conjunto por mes; `month_launcher.py` lo envía tras confirmar su
+configuración. Reintentar día/mes sigue acotado y conserva resultados e historial.
+No se cambiaron fuentes originales, parsers, salidas ni la política de intentos.
+
+Comprobaciones offline: seis de coordinador/intentos, dos QML (los cuatro
+perfiles, selección móvil, origen estable y edición manual), once de inicio
+mensual, reintento mensual Talón y ciclo local de los cuatro workers: dos días,
+continuidad más allá de Hasta, cierre/reapertura, espera y ausencia de redescarga.
+La prueba de reloj cubre 00:00/00:01 de Costa Rica y cambio de mes; el flujo mensual
+acotado no incorpora días ajenos. La carga simultánea de parsers nativos excedió
+el límite inicial del fixture; se verificaron los cuatro en secuencia aislada.
+
+Por autorización del usuario se registraron los cuatro diarios que estaban
+activos (Detalles, Tránsito, Talón y XMovimientos), se pidió Detener, se cerró
+ordenadamente y se reabrió una sola vez antes de documentar. Se pulsó Iniciar
+únicamente en esos cuatro. No se iniciaron consultas nuevas para probar; su
+reanudación real fue la solicitada por el usuario. El registro local está en
+`runtime/diagnostics/bots-activos-20261016.json` y `bots-reanudados-20261016.json`.
+
+Corrección del 16/10: Detalles no cargaba y mostraba «attempt to write a readonly
+database». El primer SELECT fallaba con `SQLITE_READONLY_ROLLBACK` (776), por un
+journal pendiente desde el 15/10 a las 16:27, no por atributos de solo lectura.
+Se reprodujo en copia física; la recuperación nativa SQLite dio `quick_check=ok`.
+El arranque común de los cuatro DUA comprueba las tablas registradas antes de
+las vistas `mode=ro`. Solo ante ese código específico adquiere `RunLock`, copia
+base y auxiliares a `data/queues/backups/rollback-*`, abre con `mode=rw` sin crear
+bases y permite el rollback nativo. No crea JobStore, cambia estados, reinicia
+intentos ni inicia descargas; las vistas y la bitácora siguen siendo de lectura.
+Errores de permisos reales y fallos de respaldo se propagan sin intentar reparar.
+
+Validación: seis pruebas nuevas, con procesos terminados abruptamente y journal
+real, respaldo idéntico, contenido SQL completo conservado, bloqueo de otro dueño,
+fallo de respaldo, base inexistente y arranque del worker Detalles aislado/offline.
+Tres pruebas de intentos/omitidos también pasaron; su fixture se adaptó al método
+`local_root` ya existente. Sin consultas nuevas a TICA. El usuario autorizó cerrar
+la ventana ociosa: cierre ordenado y una reapertura antes de documentar. El
+arranque recuperó octubre26, con respaldo local
+`bots/detalles/data/queues/backups/rollback-20261016-102903-jhaffvo5/`.
+La base real y la copia recuperada producen el mismo SHA-256 de todo `iterdump`:
+52.154 guardados, 4.630 pendientes, 37 reintentos y cinco reservas previas intactas.
+Estas reservas solo se rearman al iniciar consultas. Integridad correcta y panel
+sin error, captura local `runtime/diagnostics/detalles-recuperado-20261016.png`.
+El primer respaldo físico de diagnóstico está en
+`bots/detalles/data/queues/backups/readonly-20261016-102615/`.
 
 Inicio mensual conjunto añadido el 13/10/2026. Vista general muestra **Iniciar bots
 por mes → Elegir bots…** con mes/año, casillas de los cuatro DUA, cinco procedimientos
@@ -533,3 +1279,131 @@ Ampliación de revisión: **TICA / Abrir en TICA** también está disponible en 
 filas guardadas de DUA, BLs y Manifiestos, y en el detalle del DUA. Solo se quitaron
 las restricciones de visibilidad por estado: se conserva el mismo inspector de
 solo lectura, sin extraer resultados a la base/CSV ni cambiar progreso.
+
+### SharePoint opcional y respaldo Git
+
+Por instrucción explícita se consolidó todo el trabajo anterior en `93ceb44`,
+se avanzó `main` mediante fast-forward en su worktree limpio y se subió a
+`origin/main`. Se creó `feature/sharepoint-oauth2` desde esa principal.
+
+Implementado `chc_cloud/`, proceso `sharepoint_bridge.py` y diálogo **Cuenta y
+SharePoint**: OAuth2/PKCE con MSAL, caché DPAPI, selección de sitio/biblioteca/
+carpeta por bot o flujo y copia opcional de CSV. Eventos `published` tras exportar
+localmente; outbox y cola SQLite durables, deduplicación, cuenta/destino capturados,
+conflictos y actualizaciones condicionadas por `eTag`. Fallos cloud no modifican
+descargas, SQLite de bots, calendario ni resultados locales. La app puede operar
+sin cuenta y no inicia sesión automáticamente.
+
+En la pestaña Entra abierta por el usuario se creó **CHC Workbench · Resultados
+SharePoint**: cliente `da7ff4b7-8a2e-4c49-9338-17975a058a99`, directorio CHC
+`f7015bc9-c229-413a-ab08-e1e5a76a09f1`, solo inquilino CHC, escritorio con retorno
+`http://localhost`. Único permiso Graph `Sites.Selected` delegado, User.Read
+predeterminado retirado, ningún secreto ni permiso de aplicación. Ver
+`docs/SHAREPOINT.md` para asignar acceso `write` cuando se elija el sitio.
+
+El usuario indicó que elegirá los destinos después. No se hizo login OAuth ni
+subida real: falta autorización explícita al sitio y selección de carpeta.
+Validación: 12 pruebas cloud, dos Qt/worker/DPAPI, dos integraciones Talón/XMov,
+tres de Manifiestos (incluye cinco procedimientos y BLs), smoke QML y diff limpio.
+La instancia anterior había sido cerrada por el usuario; app nueva abierta en
+Vista general antes de documentar. Dependencias cloud instaladas solo en el
+entorno Workbench; bots originales/copias preservados.
+
+### Exploración de sitios y consentimiento de lectura
+
+El usuario proporcionó la página **Bibliotecas** de CHC y autorizó expresamente
+explorar todos los sitios a los que tenga acceso su cuenta. Se agregó
+`Sites.Read.All` delegado a los ámbitos de la app, conservando `Sites.Selected`
+para escritura. El usuario lo agregó manualmente en Entra; el botón de
+consentimiento administrativo estaba deshabilitado.
+
+Implementados catálogo Graph `/sites?search=...`, paginación, filtro al host CHC,
+búsqueda por nombre y selección de sitio/biblioteca/carpeta. La URL
+`/_layouts/15/sharepoint.aspx/onedrive/places` abre el catálogo; los enlaces
+FileBrowser con id/listurl y Forms con RootFolder se normalizan al sitio real.
+Se comprobaron en Edge seis entradas y sus URL, conservadas solo en runtime.
+
+La sesión OAuth inicial del usuario está conectada; prueba real de lectura raíz
+con `Sites.Selected` devolvió 403. Se renovó la conexión desde la app nueva y
+Microsoft mostró **Se necesita la aprobación del administrador** para el ámbito
+nuevo. Falta esa aprobación para comprobar sitios/bibliotecas/carpetas reales
+por Graph. No subir resultados ni configurar destinos como parte de esta prueba.
+15 pruebas cloud y dos Qt/worker/DPAPI, más smoke QML, pasaron. Se reabrió la app
+una vez tras confirmar que sus procesos no tenían navegadores de bots activos.
+
+### Registro reutilizado y comprobaciones reales satisfactorias
+
+El usuario propuso usar **OAuth2 par CHC REPORTES**, cliente
+`077e19a4-ab53-4e55-8286-ec02dc3cf36c`, y dejó su pestaña de permisos abierta.
+Se comprobaron `Sites.Read.All` y `Files.ReadWrite.All` delegados y retornos de
+escritorio existentes `http://localhost:62190/` y `http://localhost:5000`.
+No se modificó ese registro. Workbench cambió al cliente existente y solicita
+solo los dos ámbitos anteriores; no usa secretos ni permisos de correo/Power BI.
+La conexión OAuth con la cuenta CHC fue satisfactoria. El bloqueo administrativo
+del registro nuevo ya no aplica al cliente usado por la app.
+
+Graph devolvió 7 sitios. Se leyeron bibliotecas y carpetas de Automatización TIC@
+(Documentos, 15 carpetas originales) y TIC@_DUASxREGIMEN (Documents, 8). Se verificó
+también el selector de la app con esos 7 sitios y Automatización TIC@ / Documentos.
+El usuario autorizó expresamente una prueba de escritura con un archivo cualquiera:
+se creó `CHC_Workbench_Prueba_20261014_163132/prueba_conexion.txt` en Automatización
+TIC@ / Documentos, se subió y descargó idéntico; después se actualizó con eTag y se
+comparó otra vez. Se conserva en SharePoint para revisión; informe privado en
+`runtime/sharepoint-write-test/report.json`, enlace en `docs/SHAREPOINT.md`.
+
+No se configuraron rutas de bots ni se enviaron CSV de producción. Se mantiene
+la sesión conectada y la app abierta en el selector de esa biblioteca. 15 pruebas
+cloud, dos Qt/worker/DPAPI y smoke pasaron; el registro nuevo inicial se conserva.
+
+### Carpeta común, nombres estandarizados y subida exclusivamente manual
+
+Alcance final solicitado: una sola carpeta madre local y una sola de SharePoint
+para todos los bots, solo CSV públicos, nombres en mayúsculas con bot, mes/año y
+modo cuando aplica. `chc_runtime/output_layout.py` define el contrato y registro
+local común; `RESULTADOS/` es el valor predeterminado y queda fuera de Git.
+Auxiliares y progreso permanecen internos. BLs separa sus filas por mes/modo real
+del manifiesto. Selecciones parciales y lotes manuales conservan sufijos distintos.
+Los históricos originales se conservan: **Exportar** los regenera desde SQLite
+en la estructura común sin consultar TICA. Cambiar carpeta no mueve archivos.
+
+La pantalla **Cuenta y resultados** reúne cuenta, carpeta local, carpeta online
+y selector de mes. Elegir una carpeta no publica archivos. **Subir a SharePoint**
+solo envía los CSV registrados de bots/procedimientos con ese mes cerrado y
+completo verificado por `MonthlyReader`. No hay temporizador ni conexión de
+eventos de exportación a subidas. Envíos fallidos requieren reintento explícito;
+rutas por bot y avisos automáticos antiguos se conservan sin enviarlos.
+
+Verificado: 18 pruebas cloud, dos Qt/DPAPI, cuatro del contrato de nombres y
+12 integraciones de Detalles, Tránsito, Talón, XMovimientos, calendario diario,
+cinco procedimientos de Manifiestos y BLs; smoke QML. La app actualizada quedó
+abierta, con cuenta CHC conectada y destino común pendiente de elegir por el
+usuario. No se subieron CSV de producción. README y `docs/SHAREPOINT.md` describen
+el comportamiento vigente; los apartados anteriores registran su evolución.
+
+Última aclaración del usuario: solo Detalles exige 100 % de DUAs guardados.
+Los demás pueden completar excluyendo omitidos del resultado final, conservando
+pendientes/páginas parciales para reintento. La bitácora incluye días omitidos
+(y bases omitidas) para Tránsito/Talón/XMovimientos; Manifiestos y BLs admiten
+exclusiones/intentos agotados en ejecuciones finalizadas, sin confundir una parada
+con finalización. Mes actual pasa a **Al día** al cubrir hasta la última fecha
+consultable, respetando 00:01 Costa Rica, y vuelve a comprobarse al avanzar fecha.
+
+**Cierre manual…** en cada mes permite elegir bot/procedimiento y marcar completo
+o restablecer comprobación automática. Metadatos separados en
+`runtime/workbench/monthly_overrides.json`; no escribe en SQLite de bots.
+Marca ligada a cobertura, contadores y revisión de intentos, invalidada al cambiar
+datos. Detalles no permite cierre con DUAs sin guardar. SharePoint acepta estados
+completos, al día y cierres manuales vigentes, solo mediante acción del usuario;
+subir un mes no envía pendientes de otro mes. 19 pruebas cloud y 18 de bitácora/Qt
+verifican las reglas vigentes, además de las integraciones de exportación anteriores.
+
+### Corrección del selector de carpetas SharePoint
+
+El usuario reportó bibliotecas visibles pero sin carpetas al elegirlas. Reproducido
+en Qt: al cambiar el modelo desde el clic se destruía el delegado y aparecía
+`ReferenceError: dialog is not defined`, interrumpiendo la petición. Navegación
+movida a funciones del diálogo con identidad capturada antes del cambio de lista.
+Prueba Qt recorre sitio/biblioteca/subcarpeta, notificaciones síncronas, carpeta sin
+subcarpetas y selección correcta. App actualizada abierta antes de documentar;
+cuenta real recorre Automatización TIC@ → Documentos y muestra sus carpetas.
+No se guardó un destino ni se subieron resultados durante la comprobación.

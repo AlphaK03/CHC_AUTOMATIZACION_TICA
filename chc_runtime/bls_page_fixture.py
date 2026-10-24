@@ -7,10 +7,13 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 
 class BLSPagePortal:
-    def __init__(self, fail_offset=None, changed_offset=None, repeated_last=False, empty=False, search_get=False):
+    def __init__(self, fail_offset=None, changed_offset=None, repeated_last=False, empty=False, search_get=False,
+                 manifest='1-0-00001-A01-01/09/26', sequences=None):
         self.fail_offset, self.changed_offset = fail_offset, changed_offset
         self.repeated_last, self.empty = repeated_last, empty
         self.search_get = search_get
+        self.manifest = manifest
+        self.sequences = sequences or {}
         self.offsets, self.searches = [], []
         portal = self
         class Handler(BaseHTTPRequestHandler):
@@ -48,9 +51,10 @@ class BLSPagePortal:
                 return 200,'text/html',body
             bl = form['vCGNROCON'][0] if post else query['bl'][0]
             self.searches.append(bl)
-            mid = '1-0-00001-A01-01/09/26'
-            href = 'hcglineas.aspx?'+urlencode({'mid':mid,'bl':bl,'seq':'1'})
-            row = mid.split('-')+['img','img','1',bl]+['']*15
+            mid = getattr(self, 'manifest', '1-0-00001-A01-01/09/26')
+            sequence = getattr(self,'sequences',{}).get(bl,'1')
+            href = 'hcglineas.aspx?'+urlencode({'mid':mid,'bl':bl,'seq':sequence})
+            row = mid.split('-')+['img','img',sequence,bl]+['']*15
             payload = {'gxHiddens':{'GXH_vCGNROCON':bl,'GXH_vVFCH1':form.get('vVFCH1',[''])[0],
                 'GXH_vVFCHF':form.get('vVFCHF',[''])[0],'Grid2ContainerDataV':json.dumps([row]),'nRC_Grid2':'1'},
                 'gxGrids':[{'GridName':'Grid2','Count':1,'0':{'Props':[['vVLIN_0001',href]]}}],

@@ -17,6 +17,7 @@ class BrowserTests(unittest.TestCase):
         self.bot = TICADUAExtractor({'edge_driver_path': os.environ['DUA_TEST_DRIVER'], 'mostrar_navegador': False}, cancel_event=self.cancel)
         self.addCleanup(self.bot.close)
         self.url = (Path(__file__).parent / 'fixtures/form.html').resolve().as_uri()
+        self.assertTrue((Path(__file__).parent / 'fixtures/form.html').is_file(), 'Falta el formulario local de prueba')
 
     def test_dates_over_twelve_months_and_focus_changes(self):
         with patch('tica_dua_bot.URL', self.url):

@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 from activity_model import ActivityModel
 from month_launcher import MonthLauncher
+from csv_exports import CsvExports
 
 PRESENTATION = {
     'manifiestos': {'title':'Manifiestos', 'subtitle':'Manifiestos y conocimientos', 'icon':'ship',
@@ -57,10 +58,15 @@ class DemoBackend(QObject):
         self._bridges = {'detalles': details, 'duas_transito': transit, 'talon': talon, 'xmovimientos': movements,
                          'manifiestos': manifests, 'bls': bls}
         self._month_launcher=MonthLauncher(self._bridges,parent=self)
+        self._csv_exports=CsvExports(self._bridges,parent=self)
+        self._csv_exports.toast.connect(self.toast.emit)
         for bridge in self._bridges.values():
             if bridge and bridge.enabled:
                 bridge.changed.connect(self.changed.emit)
-                if monthly:bridge.changed.connect(monthly.schedule)
+                if monthly:
+                    bridge.changed.connect(monthly.schedule)
+                    if hasattr(bridge,'calendarMarksChanged'):
+                        bridge.calendarMarksChanged.connect(monthly.refresh)
         self._timer = QTimer(self)
         self._timer.setInterval(350)
         self._timer.timeout.connect(self._tick)
@@ -73,7 +79,7 @@ class DemoBackend(QObject):
             item['mode'] = 'demo'
             bridge = self._bridges.get(item['id'])
             if bridge and bridge.enabled:
-                item.update(mode='real', status='running' if bridge.running or bridge.dailyActive else 'available' if bridge.ready else 'unavailable',
+                item.update(mode='real', status='loading' if bridge.loading else 'running' if bridge.running or bridge.dailyActive else 'available' if bridge.ready else 'unavailable',
                             progress=bridge.summary['succeeded'] + bridge.summary.get('empty', 0), total=bridge.summary['total'])
         return modules
 
@@ -88,6 +94,9 @@ class DemoBackend(QObject):
 
     @Property(QObject, constant=True)
     def monthLauncher(self):return self._month_launcher
+
+    @Property(QObject, constant=True)
+    def csvExports(self):return self._csv_exports
 
     @Property('QVariantMap', notify=changed)
     def selectedModule(self):
@@ -112,6 +121,10 @@ class DemoBackend(QObject):
     @Slot()
     def refreshMonthly(self):
         if self.monthly:self.monthly.refresh()
+
+    @Slot(str,str,bool)
+    def setMonthComplete(self,key,target,enabled):
+        if self.monthly:self.monthly.setComplete(key,target,enabled)
 
     @Property(int, notify=changed)
     def runningCount(self):

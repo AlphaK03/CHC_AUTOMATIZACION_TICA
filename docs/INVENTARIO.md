@@ -1,7 +1,18 @@
 # Inventario del código actual
 
-Revisión por lectura local, 12 de octubre de 2026. Todos los bots tienen cambios
-sin confirmar. Consultar los manifiestos para las ramas, commits y hashes exactos.
+El inventario de fuentes que sigue corresponde a la copia inicial del 12 de
+octubre de 2026; sus cambios locales quedaron descritos en los manifiestos.
+No representa el estado Git actual ni las entradas del Workbench integrado.
+Consultar `CONTEXTO_PROYECTO.md` para estado vigente, ramas y funcionalidad.
+
+Al 14 de octubre están integrados seis módulos: los cinco de la copia inicial
+y Manifiestos, con cinco procedimientos. Los cuatro consumidores DUA utilizan
+SQLite, cola y calendario en `chc_runtime/`; BLs y Manifiestos conservan procesos
+y contratos propios. Exportación común en `chc_runtime/output_layout.py`, conexión
+opcional en `chc_cloud/` e interfaz en `workbench/`. Los datos y la configuración
+operativa permanecen fuera de Git.
+
+## Fuentes de la copia inicial
 
 | ID | Origen relativo a `D:/CHC_CONSULTORES/Repositorios` | Raíz copiada | Entrada nueva | Motor activo observado |
 | --- | --- | --- | --- | --- |

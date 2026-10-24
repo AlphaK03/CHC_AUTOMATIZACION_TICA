@@ -1,10 +1,12 @@
 """Servicio JSONL común: perfiles de extracción aislados, sin Tk ni Qt."""
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+from .activity import ActivityReporter, COMMANDS
 import json
 import logging
 import os
 from pathlib import Path
+from . import output_layout
 import re
 import sqlite3
 import sys
@@ -17,11 +19,13 @@ SHUTDOWN_GRACE_SECONDS = 30
 from .catalog import TableCatalog, table_name
 from .captcha import load_captcha_lookup
 from .job_store import JobStore, RunLock, active_revisions
+from .sqlite_recovery import recover_interrupted_database
 from .messages import pending_reason
 from .playwright_processor import PlaywrightDUAProcessor
 from .profiles import load_profile
 from .daily import DailyCoordinator, DailyJobStore, local_now
 from . import utils
+from .sqlite_read import prepare_reader
 
 
 class Protocol:
@@ -47,6 +51,7 @@ class EventLog(logging.Handler):
 
 class DetailsService:
     def __init__(self, storage_root, protocol, offline=False, module_id="detalles"):
+        self.module_id=module_id
         self.profile = load_profile(module_id)
         self.Store = self.profile["store"]
         self.Processor = self.profile["processor"]
@@ -63,6 +68,13 @@ class DetailsService:
         self.session = utils.load_session()
         self.catalog = TableCatalog(self.root / 'data' / 'queues', store_factory=self.Store)
         self.catalog.discover_legacy()
+        # Recuperar el journal de un cierre abrupto antes de las vistas mode=ro.
+        # No abrir JobStore ni rearmar trabajos al cargar el panel.
+        recovered = []
+        for table in self.catalog.list_tables():
+            backup = recover_interrupted_database(self.catalog.database(table))
+            if backup:
+                recovered.append((table['name'], backup))
         if getattr(self.Store, 'supports_empty', False):
             for table in self.catalog.list_tables():
                 path = self.catalog.database(table)
@@ -97,12 +109,15 @@ class DetailsService:
             self.active_id = ''
         utils.setup_logging(str(self.root / 'logs' / 'workbench.log'))
         logging.getLogger().addHandler(EventLog(protocol))
+        for name, backup in recovered:
+            logging.warning('Transacción interrumpida recuperada en «%s». Respaldo: %s', name, backup)
 
     @contextmanager
     def read_database(self, record):
         db = sqlite3.connect(self.catalog.database(record).as_uri() + '?mode=ro', uri=True, timeout=2)
         db.row_factory = sqlite3.Row
         try:
+            prepare_reader(db,10)
             yield db
         finally:
             db.close()
@@ -130,27 +145,47 @@ class DetailsService:
 
     def paths(self, record=None):
         record = record or self.record()
-        base = self.machine.get('output_base_path', '').strip()
-        if not base:
-            raise ValueError('Selecciona una carpeta de resultados antes de iniciar o exportar.')
+        base = self.local_root()
         if not record:
             raise ValueError('Importa o abre una tabla guardada.')
         name = self.output_name(record['name'])
         for other in self.catalog.list_tables():
             if other['id'] != record['id'] and self.output_name(other['name']).casefold() == name.casefold():
                 raise ValueError('Dos tablas producen el mismo nombre de carpeta. Renombra una antes de exportar.')
-        folder = Path(base).resolve() / name
+        spec=output_layout.dua_spec(self.module_id,record)
+        folder=Path(base).joinpath(*spec['relativeFolders'])
         internal = self.root / 'data' / 'exports' / record['id']
         folder.mkdir(parents=True, exist_ok=True)
         internal.mkdir(parents=True, exist_ok=True)
         return {
-            'output_csv': str(folder / f"{self.profile['prefix']}_{name}.csv"),
+            'output_csv': str(internal / 'resultados.csv'),
             'processed_log': str(internal / 'procesados.txt'),
             'failed_duas': str(internal / 'pendientes.txt'),
             'pending_json': str(internal / 'pendientes.json'),
             'diagnostics': str(internal / 'diagnosticos'),
             'no_rows_duas': str(internal / 'sin_filas.txt'),
         }
+
+    def published(self, record, paths):
+        path = Path(paths['output_csv'])
+        if path.is_file():
+            module=self.module_id
+            spec=output_layout.dua_spec(module,record)
+            result=output_layout.publish(path,self.local_root(),spec,module+':'+record['id'],output_layout.registry_path(self.root))
+            if result:self.protocol.emit('published',**result)
+
+    def export_record(self, record):
+        with RunLock(self.catalog.database(record)):
+            store = self.Store(self.catalog.database(record))
+            try:
+                paths = self.paths(record)
+                store.export(paths, self.fields)
+                self.published(record, paths)
+            finally:
+                store.close()
+
+    def local_root(self):
+        return output_layout.local_root(self.root,self.machine.get('output_base_path',''))
 
     @staticmethod
     def output_name(name):
@@ -182,10 +217,16 @@ class DetailsService:
             except (OSError, sqlite3.Error):
                 item['summary'] = self.summary(None)
                 item['unavailable'] = True
-        return {'tables': tables, 'activeTable': record or {}, 'summary': self.summary(record),
-                'config': self.machine, 'session': self.session, 'fields': self.fields, 'daily': self.daily.snapshot(),
+        # Reutilizar únicamente la lectura de ESTA instantánea. La siguiente
+        # petición vuelve a consultar SQLite y ve resultados nuevos de inmediato.
+        active_summary = next((dict(item['summary']) for item in tables
+                               if record and item['id']==record['id'] and not item.get('unavailable')), None)
+        if active_summary is None:
+            active_summary = self.summary(record)
+        return {'tables': tables, 'activeTable': record or {}, 'summary': active_summary,
+                'config': {**self.machine,'output_base_path':str(self.local_root())}, 'session': self.session, 'fields': self.fields, 'daily': self.daily.snapshot(),
                 'storageRoot': str(self.root),
-                'outputFolder': str(Path(self.paths(record)['output_csv']).parent) if record and self.machine.get('output_base_path') else ''}
+                'outputFolder': str(self.local_root().joinpath(*output_layout.dua_spec(self.module_id,record)['relativeFolders'])) if record else ''}
 
     def runtime(self):
         from playwright.sync_api import sync_playwright
@@ -207,6 +248,7 @@ class DetailsService:
                 updated[key] = values[key]
         if 'output_base_path' in values:
             updated['output_base_path'] = str(values['output_base_path']).strip()
+            if updated['output_base_path']:output_layout.set_local_root(updated['output_base_path'],self.root)
         if 'daily_start_date' in values:
             from datetime import date
             start = date.fromisoformat(str(values['daily_start_date']))
@@ -275,7 +317,7 @@ class DetailsService:
             self.daily.month = month
             return {'daily': self.daily.snapshot()}
         if command == 'daily_run':
-            return self.daily.run()
+            return self.daily.run(bounded=request.get('bounded') is True)
         if command in {'retry_month','retry_day'}:
             from datetime import date
             import calendar
@@ -330,6 +372,8 @@ class DetailsService:
         elif command in {'remove_rows', 'clean', 'delete'}:
             if request.get('confirmTableId') != self.active_id or not self.active_id:
                 raise ValueError('La tabla seleccionada cambió. Confirma de nuevo la operación.')
+            if request.get('confirmation') != 'BORRAR':
+                raise ValueError('Escribe exactamente BORRAR para confirmar.')
             if command == 'delete':
                 backup = self.catalog.delete_table(self.active_id)
                 self.active_id = ''
@@ -343,13 +387,19 @@ class DetailsService:
             record = self.record()
             if not record:
                 raise ValueError('Selecciona una tabla.')
-            with RunLock(self.catalog.database(record)):
-                store = self.Store(self.catalog.database(record))
-                try:
-                    store.export(self.paths(record), self.fields)
-                finally:
-                    store.close()
+            self.export_record(record)
             logging.info('Resultados exportados desde SQLite; no se consultó el portal.')
+        elif command == 'export_all':
+            report = {'token':request.get('exportToken'), 'exported':0, 'errors':[]}
+            for record in self.catalog.list_tables():
+                if self.stop_event.is_set():
+                    report['errors'].append('Generación detenida.');break
+                try:
+                    self.export_record(record)
+                    report['exported'] += 1
+                except Exception as exc:
+                    report['errors'].append(record['name']+': '+str(exc))
+            return {'exportReport':report, 'snapshot':self.snapshot()}
         elif command == 'retry_empty':
             if not getattr(self.Store, 'supports_empty', False):
                 raise ValueError('Este módulo no registra consultas vacías.')
@@ -408,7 +458,8 @@ class DetailsService:
 
 
 def main(module_id="detalles"):
-    root = Path(__file__).resolve().parents[1] / "bots" / module_id
+    from .distribution import bot_data_root
+    root = bot_data_root(module_id)
     profile = load_profile(module_id)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--storage-root', type=Path, default=root)
@@ -436,8 +487,10 @@ def main(module_id="detalles"):
     sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
     sys.stdin.reconfigure(encoding='utf-8')
     protocol = Protocol()
+    reporter = ActivityReporter(protocol.emit)
     try:
-        service = DetailsService(args.storage_root, protocol, offline=args.offline_fixture, module_id=module_id)
+        with reporter.session('Cargando bases de datos'):
+            service = DetailsService(args.storage_root, protocol, offline=args.offline_fixture, module_id=module_id)
     except Exception as error:
         protocol.emit('fatal', message=str(error))
         return 1
@@ -447,9 +500,19 @@ def main(module_id="detalles"):
 
     def execute(request, foreground=True):
         try:
-            result = service.execute(request['command'], request)
+            observation = reporter.session(COMMANDS.get(request['command'], 'Procesando solicitud')) if foreground else nullcontext()
+            with observation:
+                result = service.execute(request['command'], request)
             protocol.emit('result', requestId=request.get('requestId'), command=request['command'], **result)
         except Exception as error:
+            # Un lector de la lista puede coincidir con el COMMIT del motor.
+            # La próxima actualización lo reintenta; no falló la descarga.
+            code = getattr(error, 'sqlite_errorcode', 0)
+            if (not foreground and request.get('command') == 'view'
+                    and isinstance(error, sqlite3.OperationalError)
+                    and code & 0xff in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED, sqlite3.SQLITE_INTERRUPT)):
+                protocol.emit('view_deferred', requestId=request.get('requestId'), command='view')
+                return
             logging.exception('Operación interrumpida: %s', error, extra={'technical_only': True})
             data = {}
             if foreground:

@@ -51,10 +51,9 @@ class ManifestIntegration(unittest.TestCase):
                         self.assertEqual(summary['pending'],0 if flow=='duas' else 1)
                     record = bridge.current().snapshot
                     output = Path(record['outputFolder'])
-                    self.assertTrue(list(output.glob('*.csv')))
-                    self.assertTrue(all(p.suffix=='.csv' for p in output.iterdir()))
-                    prefix = 'manifiestos' if flow=='tabla' else flow
-                    with next(output.glob(prefix+'_*.csv')).open(encoding='utf-8-sig',newline='') as stream:
+                    self.assertTrue(list(output.rglob('*.CSV')))
+                    self.assertTrue(all(p.suffix=='.CSV' for p in output.rglob('*') if p.is_file()))
+                    with next(output.rglob('MANIFIESTOS_*.CSV')).open(encoding='utf-8-sig',newline='') as stream:
                         rows = list(csv.reader(stream))
                     if flow=='contenedores':
                         self.assertEqual(len(rows[0]),19)  # índice + los 18 campos, sin ID duplicado.
@@ -84,7 +83,8 @@ class ManifestIntegration(unittest.TestCase):
                 self.assertEqual(bls.summary['rows'],2)
                 call('bls','run',target=bls)
                 self.assertEqual(bls.summary['succeeded'],2)
-                self.assertTrue(all(p.suffix=='.csv' for p in Path(bls.current().snapshot['outputFolder']).iterdir()))
+                self.assertTrue(list(Path(bls.current().snapshot['outputFolder']).rglob('BLS_*.CSV')))
+                self.assertTrue(all(p.suffix=='.CSV' for p in Path(bls.current().snapshot['outputFolder']).rglob('*') if p.is_file()))
                 # La base anterior no se sustituye sin confirmación.
                 channel = bridge.channels['bases']
                 self.assertTrue(channel.send('base_build',{'periods':['2026-10|maritimo'],'destination':str(destination)}))
@@ -105,6 +105,37 @@ class ManifestIntegration(unittest.TestCase):
                 finally:
                     imported.shutdown()
                     wait_until(lambda:imported.isClosed)
+                # Borrado real del worker, limitado a cada ejecución, con fuentes/CSV intactos.
+                for target,flows in ((bls,('bls',)),(bridge,('tabla','conocimientos','duas','movimientos','contenedores'))):
+                    for flow in flows:
+                        target.setFlow(flow)
+                        channel=target.channels[flow]
+                        wait_until(lambda:not channel.busy)
+                        selected=next(item for item in target.history if item['id']==target.activeId)
+                        files={p:p.read_bytes() for p in (channel.root/'data/jobs'/flow).rglob('*.sqlite3')}
+                        csvs={p:p.read_bytes() for p in Path(channel.snapshot['outputFolder']).rglob('*.CSV')}
+                        self.assertTrue(files,flow)
+                        self.assertFalse(target.deleteDatabase('other',selected['id'],selected['name'],'BORRAR'))
+                        self.assertTrue(target.deleteDatabase(flow,selected['id'],selected['name'],'borrar'))
+                        wait_until(lambda:not channel.busy)
+                        self.assertIn('BORRAR',channel.error)
+                        self.assertEqual(target.activeId,selected['id'])
+                        self.assertTrue(target.deleteDatabase(flow,selected['id'],selected['name'],'BORRAR'))
+                        wait_until(lambda:not channel.busy)
+                        self.assertFalse(channel.error,channel.error)
+                        self.assertFalse(target.activeId)
+                        self.assertFalse(target.history)
+                        self.assertFalse(list((channel.root/'data/jobs'/flow).rglob('*.sqlite3')))
+                        archives=list((channel.root/'data/deleted'/flow).rglob('*.sqlite3'))
+                        self.assertEqual(len(archives),len(files))
+                        for path,content in files.items():
+                            self.assertTrue(any(p.read_bytes()==content for p in archives),path)
+                        for path,content in csvs.items():self.assertEqual(path.read_bytes(),content)
+                        self.assertTrue(destination.is_file())
+                # Volver a iniciar usa una base nueva, sin rescatar archivos del respaldo.
+                call('tabla','run')
+                self.assertEqual(bridge.summary['succeeded'],1)
+                self.assertEqual(bridge.summary['rows'],3)
             finally:
                 bridge.shutdown(); bls.shutdown()
                 wait_until(lambda:bridge.isClosed and bls.isClosed)
@@ -136,7 +167,7 @@ class ManifestIntegration(unittest.TestCase):
     def test_existing_external_csv_is_preserved_before_query(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            output=root/'resultados/octubre26/conocimientos_maritimo_octubre26.csv'
+            output=root/'resultados/MANIFIESTOS/CONOCIMIENTOS/OCTUBRE_2026/MANIFIESTOS_CONOCIMIENTOS_MARITIMO_OCTUBRE_2026.CSV'
             output.parent.mkdir(parents=True)
             output.write_text('archivo anterior',encoding='utf-8')
             bridge=BatchBridge(storage_root=root,offline_fixture=True)

@@ -10,6 +10,7 @@ from pathlib import Path
 import shutil
 import sqlite3
 import tempfile
+from .manifest_coverage import cumulative_days, day_ranges
 
 MONTHS = ('Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto',
           'Septiembre','Octubre','Noviembre','Diciembre')
@@ -53,9 +54,13 @@ def completed_source(db):
     start,end = date.fromisoformat(scope.get('desde') or first.isoformat()),date.fromisoformat(scope.get('hasta') or last.isoformat())
     if start>end or start<first or end>last or start>date.today():
         raise Unavailable('Intervalo inválido o futuro')
+    days=cumulative_days(db)
+    if days is not None and not days:
+        raise Unavailable('Sin cobertura acumulada terminada y verificable')
+    ranges=day_ranges(days) if days is not None else [(start.isoformat(),min(end,date.today()).isoformat())]
     return {'period':f'{year:04d}-{month:02d}','mode':scope['mode'], 'start':start.isoformat(),
             'end':min(end,date.today()).isoformat(), 'rows':db.execute('SELECT count(*) FROM rows').fetchone()[0],
-            'manifests':db.execute('SELECT count(*) FROM jobs').fetchone()[0]}
+            'manifests':db.execute('SELECT count(*) FROM jobs').fetchone()[0],'ranges':ranges}
 
 
 def merge_ranges(ranges):
@@ -71,6 +76,8 @@ def merge_ranges(ranges):
 
 class KnowledgeSource:
     def __init__(self, root, stop, emit):
+        from .bls_identifiers import install_base_support
+        install_base_support()
         self.root,self.stop,self.emit = Path(root).resolve(),stop,emit
 
     def check_stop(self):
@@ -97,7 +104,7 @@ class KnowledgeSource:
             key=info['period']+'|'+info['mode']
             entry=groups.setdefault(key,{'key':key,'period':info['period'],'mode':info['mode'],'sources':[],'ranges':[]})
             entry['sources'].append(str(path))
-            entry['ranges'].append((info['start'],info['end']))
+            entry['ranges'].extend(info['ranges'])
         result=[]
         for entry in groups.values():
             year,month=map(int,entry['period'].split('-'))

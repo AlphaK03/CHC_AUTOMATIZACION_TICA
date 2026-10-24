@@ -3,8 +3,9 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "components"
 
-Dialog {
+AppDialog {
     id:dialog
+    parent:Overlay.overlay
     objectName:"blsKnowledgeDialog"
     required property QtObject moduleBridge
     property var selectedPeriods:[]

@@ -9,6 +9,7 @@ ScrollView {
     objectName: "batchRealPage"
     required property QtObject moduleBridge
     property bool isBls: moduleBridge.isBls
+    property bool maritimeOnly: !isBls && moduleBridge.flow === "contenedores"
     property var flows: ["tabla","conocimientos","duas","movimientos","contenedores"]
     property var titles: ["Tabla de manifiestos","Conocimientos asociados","DUAs por manifiesto","Movimientos de manifiesto","Contenedores asociados"]
     property var navLabels: ["Manifiestos","Conocimientos","DUAs","Movimientos","Contenedores"]
@@ -16,6 +17,10 @@ ScrollView {
     property var navWidths: [116,160,88,134,148]
     property bool optionsVisible: false
     property int rowOffset: 0
+    property string deleteId: ""
+    property string deleteName: ""
+    property string deleteFlow: ""
+    property string deleteLabel: ""
     property var selectedKnowledge:[]
     property var availableKnowledge:moduleBridge.knowledgeCatalog.periods || []
     property bool knowledgeSelectionReady:selectedKnowledge.length>0 && selectedKnowledge.every(k=>availableKnowledge.some(p=>p.key===k))
@@ -28,19 +33,49 @@ ScrollView {
     contentHeight: contentColumn.height
     clip: true
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    ScrollBar.vertical.active: true
     function knowledgeLabel() {
         if(availableKnowledge.length===0) return moduleBridge.knowledgeBusy ? "Buscando descargas completas…" : "Aún no hay descargas completas de Conocimientos"
         let chosen=availableKnowledge.filter(p=>selectedKnowledge.indexOf(p.key)>=0)
         return chosen.length===1 ? chosen[0].label : chosen.length ? chosen.length+" períodos seleccionados" : "Seleccione los meses y modalidades descargados"
     }
     function localPath(url) { return decodeURIComponent(url.toString().replace(/^file:\/\/\//,"")) }
-    function automaticName() {
+    function modeLabel(mode) { return ({maritimo:"Marítimo",aereo:"Aéreo",terrestre:"Terrestre"})[mode] || "Sin modalidad" }
+    function historyPreviewHeight() {
+        const rows = moduleBridge.jobs.slice(0, 5)
+        let height = Math.max(0, rows.length - 1) * 2
+        for (let row of rows) height += row.error ? 66 : 42
+        return Math.max(86, height)
+    }
+    function refreshRows() {
+        page.rowOffset = 0
+        moduleBridge.command("view",{search:search.text,offset:0,mode:page.isBls ? "" : ["","maritimo","aereo","terrestre"][modeFilter.currentIndex]})
+    }
+    function syncView() {
+        modeFilter.currentIndex = Math.max(0,["","maritimo","aereo","terrestre"].indexOf(moduleBridge.viewMode))
+        page.rowOffset = moduleBridge.viewOffset
+        search.text = moduleBridge.viewSearch
+    }
+    function requestDelete() {
+        const selected = moduleBridge.history.find(item => item.id === moduleBridge.activeId)
+        if (!selected) return
+        page.deleteId = selected.id
+        page.deleteName = selected.name
+        page.deleteLabel = selected.label
+        page.deleteFlow = moduleBridge.flow
+        deleteDialog.open()
+    }
+    function selectedModes() {
+        if (page.maritimeOnly) return ["maritimo"]
         let modes = []
         if (maritime.checked) modes.push("maritimo")
         if (air.checked) modes.push("aereo")
         if (land.checked) modes.push("terrestre")
+        return modes
+    }
+    function automaticName() {
         return moduleBridge.automaticTableName({flow:moduleBridge.flow, year:year.value, month:month.currentIndex+1,
-            modes:modes, start:fromDate.text, end:toDate.text,
+            modes:page.selectedModes(), start:fromDate.text, end:toDate.text,
             courier:["todos","N","S"][courier.currentIndex] || "todos",
             manifestIds:manifestIds.text, limit:limit.value})
     }
@@ -55,9 +90,9 @@ ScrollView {
         const c = moduleBridge.config
         if (!c || c.year === undefined) return
         year.value = c.year; month.currentIndex = c.month - 1
-        maritime.checked = c.modes.indexOf("maritimo") >= 0
-        air.checked = c.modes.indexOf("aereo") >= 0
-        land.checked = c.modes.indexOf("terrestre") >= 0
+        maritime.checked = page.maritimeOnly || c.modes.indexOf("maritimo") >= 0
+        air.checked = !page.maritimeOnly && c.modes.indexOf("aereo") >= 0
+        land.checked = !page.maritimeOnly && c.modes.indexOf("terrestre") >= 0
         if (page.isBls) tableName.text = c.name || ""
         threads.value = c.workers
         visibleBrowser.checked = !c.headless
@@ -71,13 +106,10 @@ ScrollView {
         inputMode.currentIndex=c.inputMode==="file" ? 1 : 0
         page.selectedKnowledge=c.knowledgePeriods || []
         history.currentIndex = moduleBridge.history.findIndex(item => item.id === moduleBridge.activeId)
+        page.syncView()
     }
     function configuration() {
-        let modes = []
-        if(maritime.checked) modes.push("maritimo")
-        if(air.checked) modes.push("aereo")
-        if(land.checked) modes.push("terrestre")
-        return {year:year.value, month:month.currentIndex+1, modes:modes, name:tableName.text,
+        return {year:year.value, month:month.currentIndex+1, modes:page.selectedModes(), name:tableName.text,
             workers:threads.value, headless:!visibleBrowser.checked, timeout:timeout.value,
             outputRoot:output.text, start:fromDate.text, end:toDate.text,
             courier:["todos","N","S"][courier.currentIndex], manifestIds:manifestIds.text,
@@ -88,8 +120,9 @@ ScrollView {
     Connections {
         target: moduleBridge
         function onEventReceived(event) {
+            if(event.flow === moduleBridge.flow && event.event === "result" && event.command === "view") { page.syncView(); return }
             if(event.flow === moduleBridge.flow && (event.event === "ready" ||
-               (event.event === "result" && ["configure","refresh","select","import_progress","run","knowledge_empty"].indexOf(event.command) >= 0))) loadConfig()
+               (event.event === "result" && ["configure","refresh","select","import_progress","run","retry_empty","knowledge_empty","delete"].indexOf(event.command) >= 0))) loadConfig()
         }
     }
     ColumnLayout {
@@ -103,22 +136,31 @@ ScrollView {
             ActionButton { visible:!page.isBls; text:"Crear base para BLs"; onClicked:baseDialog.open() }
             ActionButton { text:"Más"; onClicked:more.open(); Menu {
                 id:more
-                MenuItem { text:"Actualizar CSV"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("export",{}) }
+                MenuItem { text:"Generar CSV de esta ejecución"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("export",{}) }
+                MenuItem {
+                    objectName:"blsRetryEmpty"; text:"Reconsultar BLs con 0 filas…"; visible:page.isBls
+                    enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
+                        moduleBridge.activeId!=="" && (moduleBridge.summary.empty || 0)>0
+                    onTriggered:{ emptyRetry.recordId=moduleBridge.activeId; emptyRetry.count=moduleBridge.summary.empty || 0; emptyRetry.open() }
+                }
                 MenuItem { text:"Pendientes y exclusiones"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("review",{}) }
                 MenuItem { text:"Importar progreso SQLite…"; visible:!page.isBls && ["conocimientos","duas","movimientos"].indexOf(moduleBridge.flow)>=0; enabled:!moduleBridge.busy; onTriggered:progressFile.open() }
                 MenuItem { text:"Dividir CSV para Excel"; enabled:!moduleBridge.busy; onTriggered:splitFile.open() }
-                MenuItem { text:"Reconectar"; enabled:!moduleBridge.busy; onTriggered:moduleBridge.connectModule() }
+                MenuItem { objectName:"batchDeleteDatabase"; text:"Eliminar base de datos…"; enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running && moduleBridge.activeId!==""; onTriggered:page.requestDelete() }
+                MenuItem { text:"Reconectar"; enabled:!moduleBridge.busy; onTriggered:moduleBridge.refreshModule() }
             } }
         }
         Rectangle {
             visible: !page.isBls
             Layout.fillWidth: true
-            implicitHeight: 62
+            implicitHeight: procedureNavigation.implicitHeight + 16
             radius: 10
             color: Theme.sidebar
             border.color: Theme.border
-            RowLayout {
-                anchors.fill: parent; anchors.margins: 8; spacing: 4
+            GridLayout {
+                id: procedureNavigation
+                anchors.fill: parent; anchors.margins: 8; columnSpacing: 4; rowSpacing: 4
+                columns: page.width < 800 ? 3 : 5
                 Repeater {
                     model: page.flows
                     delegate: NavItem {
@@ -137,6 +179,10 @@ ScrollView {
                 }
             }
         }
+        SectionLoading { Layout.fillWidth: true; loading: moduleBridge.loading; monitor: moduleBridge.consoleMonitor; title: page.isBls ? "BLs" : page.titles[page.flows.indexOf(moduleBridge.flow)] || "Manifiestos" }
+        ColumnLayout {
+            objectName: "batchLoadedContent"
+            Layout.fillWidth: true; spacing: 12; visible: !moduleBridge.loading
         RowLayout {
             Layout.fillWidth: true
             Text { visible: !page.isBls; text: page.titles[page.flows.indexOf(moduleBridge.flow)] || ""; color: Theme.text; font.family: Theme.family; font.pixelSize: 20; font.weight: Font.DemiBold; Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight }
@@ -161,11 +207,11 @@ ScrollView {
                 }
                 RowLayout {
                     visible:!page.isBls
-                    Choice { id:maritime; text:"Marítimo"; checked:true; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
-                    Choice { id:air; text:"Aéreo"; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
-                    Choice { id:land; text:"Terrestre"; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
+                    Choice { id:maritime; objectName:"manifestMaritime"; text:"Marítimo"; checked:true; enabled:!moduleBridge.busy && !page.maritimeOnly; palette.windowText:Theme.text }
+                    Choice { id:air; objectName:"manifestAir"; text:"Aéreo"; visible:!page.maritimeOnly; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
+                    Choice { id:land; objectName:"manifestLand"; text:"Terrestre"; visible:!page.maritimeOnly; enabled:!moduleBridge.busy; palette.windowText:Theme.text }
                     Item { Layout.fillWidth:true }
-                    Text { visible:moduleBridge.flow==="contenedores"; text:"Contenedores llenos"; color:Theme.muted; font.pixelSize:12 }
+                    Text { visible:page.maritimeOnly; text:"Contenedores llenos · solo Marítimo"; color:Theme.muted; font.pixelSize:12 }
                 }
                 RowLayout {
                     visible:page.isBls
@@ -231,10 +277,10 @@ ScrollView {
                             NumberField { id:limit; from:0; to:100000; editable:true; enabled:!moduleBridge.busy }
                         }
                     }
-                    Text { text:"Carpeta de resultados"; color:Theme.text; font.family:Theme.family; font.pixelSize:12 }
+                    Text { text:"Carpeta madre común a todos los bots"; color:Theme.text; font.family:Theme.family; font.pixelSize:12 }
                     RowLayout {
                         Layout.fillWidth:true
-                        Field { id:output; Layout.fillWidth:true; placeholderText:"Carpeta de resultados"; readOnly:true }
+                        Field { id:output; Layout.fillWidth:true; placeholderText:"Carpeta madre común"; readOnly:true }
                         ActionButton { text:"Elegir carpeta…"; enabled:!moduleBridge.busy; onClicked:outputFolder.open() }
                     }
                     RowLayout {
@@ -251,11 +297,52 @@ ScrollView {
             Select { id:history; objectName:"manifestHistory"; Layout.fillWidth:true; model:moduleBridge.history; textRole:"label"; placeholder:"Ejecuciones guardadas"; enabled:!moduleBridge.busy; onActivated:moduleBridge.command("select",{id:moduleBridge.history[currentIndex].id}) }
             ActionButton { text:"Ver resultados"; enabled:moduleBridge.activeId!==""; onClicked:moduleBridge.openResults() }
         }
+        Panel {
+            objectName: "batchProgressPanel"; visible: !page.optionsVisible
+            Layout.fillWidth: true; implicitHeight: batchProgress.implicitHeight + 32
+            ColumnLayout {
+                id: batchProgress
+                anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 16; spacing: 16
+                ProgressSummary {
+                    objectName: "botProgressSummary"; Layout.fillWidth: true
+                    title: "Avance del lote"; unit: page.isBls ? "BLs guardados" : "manifiestos guardados"
+                    total: moduleBridge.summary.total; succeeded: moduleBridge.summary.succeeded
+                    pending: moduleBridge.summary.pending; running: moduleBridge.summary.running
+                    invalid: moduleBridge.summary.invalid || 0; excluded: moduleBridge.summary.excluded || 0
+                    empty: moduleBridge.summary.empty || 0; showEmpty: page.isBls
+                    rows: moduleBridge.summary.rows; busy: moduleBridge.busy
+                    showMetrics: moduleBridge.modeSummaries.length === 0
+                }
+                Rectangle { visible: moduleBridge.modeSummaries.length > 0; Layout.fillWidth: true; implicitHeight: 1; color: Theme.border }
+                GridLayout {
+                    Layout.fillWidth: true; columns: width >= 640 ? 2 : 1; columnSpacing: 24; rowSpacing: 16
+                    Repeater {
+                        model: moduleBridge.modeSummaries
+                        ProgressSummary {
+                            required property var modelData
+                            objectName: "manifestModeSummary"; Layout.fillWidth: true; Layout.preferredWidth: 1
+                            compact: true; title: modelData.label; unit: page.isBls ? "BLs" : "manifiestos"
+                            total: modelData.total; succeeded: modelData.succeeded; pending: modelData.pending; running: modelData.running
+                            invalid: modelData.invalid || 0; excluded: modelData.excluded || 0
+                            empty: modelData.empty || 0; showEmpty: page.isBls; rows: modelData.rows
+                            busy: moduleBridge.busy
+                        }
+                    }
+                }
+            }
+        }
+        ActivityConsole {
+            visible: !page.optionsVisible
+            Layout.fillWidth: true
+            activityModel: moduleBridge.activityModel; monitor: moduleBridge.consoleMonitor
+            onClearRequested: moduleBridge.clearActivity()
+        }
         RowLayout {
             Layout.fillWidth:true
-            Text { text:moduleBridge.summary.succeeded+" guardados   ·   "+moduleBridge.summary.pending+" pendientes   ·   "+moduleBridge.summary.running+" en curso"+(moduleBridge.summary.excluded ? "   ·   "+moduleBridge.summary.excluded+" excluidos" : "")+"   ·   "+moduleBridge.summary.rows+(page.isBls ? " filas confirmadas" : " filas"); color:Theme.muted; font.pixelSize:12; Layout.fillWidth:true }
+            Text { text:"Detalle de las consultas"; color:Theme.muted; font.family:Theme.family; font.pixelSize:12; Layout.fillWidth:true }
             visible: !page.optionsVisible
-            Field { id:search; placeholderText:page.isBls ? "Buscar BL" : "Buscar manifiesto"; Layout.preferredWidth:170; enabled:!moduleBridge.busy; onAccepted:{page.rowOffset=0; moduleBridge.command("view",{search:text,offset:0})} }
+            Select { id:modeFilter; objectName:"manifestModeFilter"; visible:!page.isBls; Layout.preferredWidth:150; model:["Todas","Marítimo","Aéreo","Terrestre"]; enabled:!moduleBridge.busy; onActivated:page.refreshRows() }
+            Field { id:search; placeholderText:page.isBls ? "Buscar BL" : "Buscar manifiesto"; Layout.preferredWidth:170; enabled:!moduleBridge.busy; onAccepted:page.refreshRows() }
         }
         Panel {
             visible: !page.optionsVisible && moduleBridge.activeJobs.length > 0
@@ -269,7 +356,7 @@ ScrollView {
                     Text {
                         required property var modelData
                         objectName: "batchActiveJob"; Layout.fillWidth: true; color: Theme.text; font.pixelSize: 12
-                        text: modelData.id + (page.isBls ? " · Página " + (modelData.page || 1) + " · " + (modelData.collectedRows || 0) + " filas acumuladas" : "")
+                        text: page.modeLabel(modelData.mode)+" · "+modelData.id + (page.isBls ? " · Página " + (modelData.page || 1) + " · " + (modelData.collectedRows || 0) + " filas acumuladas" : "")
                         elide: Text.ElideMiddle; ToolTip.visible: activeHover.hovered; ToolTip.text: text
                         HoverHandler { id: activeHover }
                     }
@@ -278,12 +365,17 @@ ScrollView {
         }
         Panel {
             visible: !page.optionsVisible
-            Layout.fillWidth:true; Layout.fillHeight:true; Layout.minimumHeight:90; clip:true
+            objectName:"batchHistoryPanel"
+            Layout.fillWidth:true; Layout.fillHeight:true
+            Layout.minimumHeight:jobsHeader.implicitHeight + page.historyPreviewHeight() + 32
+            clip:true
             ColumnLayout {
                 anchors.fill:parent; anchors.margins:12; spacing:8
                 RowLayout {
+                    id:jobsHeader
                     Layout.fillWidth:true
                     Text { visible:page.isBls; text:"Fila"; color:Theme.faint; Layout.preferredWidth:40 }
+                    Text { visible:!page.isBls; text:"Modalidad"; color:Theme.faint; Layout.preferredWidth:85 }
                     Text { text:page.isBls ? "Manifiesto / BL original" : "Manifiesto"; color:Theme.faint; Layout.fillWidth:true }
                     Text { text:"Estado"; color:Theme.faint; Layout.preferredWidth:105 }
                     Text { text:"Intentos"; color:Theme.faint; Layout.preferredWidth:55 }
@@ -294,23 +386,25 @@ ScrollView {
                 ListView {
                     id:jobsList
                     objectName:"manifestJobs"
-                    Layout.fillWidth:true; Layout.fillHeight:true; clip:true; spacing:2
+                    Layout.fillWidth:true; Layout.fillHeight:true; Layout.minimumHeight:page.historyPreviewHeight(); clip:true; spacing:2
                     model:moduleBridge.jobs
                     ScrollBar.vertical:ScrollBar {}
                     delegate:Item {
                         required property var modelData
-                        width:jobsList.width; height:modelData.error ? 58 : 34
+                        objectName:"batchJobRow"
+                        width:jobsList.width; height:modelData.error ? 66 : 42
                         ColumnLayout {
                             anchors.fill:parent; spacing:2
                             RowLayout {
                                 Layout.fillWidth:true
                                 Text { visible:page.isBls; text:modelData.ordinal; color:Theme.muted; font.pixelSize:12; Layout.preferredWidth:40 }
+                                Text { objectName:"manifestJobMode"; visible:!page.isBls; text:page.modeLabel(modelData.mode); color:Theme.text; font.pixelSize:12; Layout.preferredWidth:85 }
                                 Text { text:modelData.id; color:Theme.text; font.pixelSize:12; Layout.fillWidth:true; elide:Text.ElideMiddle; ToolTip.visible:hover.hovered; ToolTip.text:modelData.id; HoverHandler{id:hover} }
                                 Text { text:modelData.state; color:modelData.state==="Guardado" ? Theme.success : Theme.muted; Layout.preferredWidth:105; font.pixelSize:12 }
                                 Text { text:modelData.attempts; color:Theme.muted; Layout.preferredWidth:55; font.pixelSize:12 }
                                 Text { visible:page.isBls; text:modelData.page || "—"; color:Theme.muted; Layout.preferredWidth:55; font.pixelSize:12; ToolTip.visible:pageHover.hovered; ToolTip.text:modelData.checkpointPage ? "Última página guardada: "+modelData.checkpointPage : "Todavía no hay una página guardada"; HoverHandler{id:pageHover} }
                                 Text { text:page.isBls && modelData.state!=="Guardado" ? modelData.collectedRows || 0 : modelData.rows; color:Theme.muted; Layout.preferredWidth:60; font.pixelSize:12; ToolTip.visible:page.isBls && rowsHover.hovered; ToolTip.text:modelData.state==="Guardado" ? "Filas confirmadas del BL completo" : "Filas recopiladas y guardadas por página; el BL sigue pendiente hasta terminar"; HoverHandler{id:rowsHover} }
-                                ActionButton { objectName: "batchOpenTica"; text: "TICA"; Layout.preferredWidth:62; enabled: !moduleBridge.manualReview.running && !moduleBridge.closing; onClicked: moduleBridge.openInTica(modelData.id,modelData.ordinal); ToolTip.visible: hovered; ToolTip.text: "Revisar esta consulta en un navegador visible" }
+                                ActionButton { objectName: "batchOpenTica"; text: "TICA"; Layout.preferredWidth:62; enabled: !moduleBridge.manualReview.running && !moduleBridge.closing; onClicked: moduleBridge.openInTica(modelData.id,modelData.ordinal,modelData.database || ""); ToolTip.visible: hovered; ToolTip.text: "Revisar esta consulta en un navegador visible" }
                             }
                             Text { visible:modelData.error!==""; text:modelData.error; color:"#db9d80"; font.pixelSize:11; Layout.fillWidth:true; elide:Text.ElideRight; ToolTip.visible:errorHover.hovered; ToolTip.text:modelData.error; HoverHandler{id:errorHover} }
                         }
@@ -322,15 +416,47 @@ ScrollView {
         RowLayout {
             Layout.fillWidth:true
             Text { text:moduleBridge.error || moduleBridge.status; color:moduleBridge.error ? "#ee9d91" : Theme.muted; Layout.fillWidth:true; elide:Text.ElideRight; ToolTip.visible:statusHover.hovered; ToolTip.text:text; HoverHandler{id:statusHover} }
-            ActionButton { visible: !page.optionsVisible; text:"Anterior"; enabled:!moduleBridge.busy && page.rowOffset>0; onClicked:{page.rowOffset=Math.max(0,page.rowOffset-200); moduleBridge.command("view",{search:search.text,offset:page.rowOffset})} }
-            ActionButton { visible: !page.optionsVisible; text:"Siguiente"; enabled:!moduleBridge.busy && moduleBridge.jobs.length>=200; onClicked:{page.rowOffset+=200; moduleBridge.command("view",{search:search.text,offset:page.rowOffset})} }
+            ActionButton { visible: !page.optionsVisible; text:"Anterior"; enabled:!moduleBridge.busy && page.rowOffset>0; onClicked:{page.rowOffset=Math.max(0,page.rowOffset-200); moduleBridge.command("view",{search:search.text,offset:page.rowOffset,mode:moduleBridge.viewMode})} }
+            ActionButton { visible: !page.optionsVisible; text:"Siguiente"; enabled:!moduleBridge.busy && moduleBridge.jobs.length>=200; onClicked:{page.rowOffset+=200; moduleBridge.command("view",{search:search.text,offset:page.rowOffset,mode:moduleBridge.viewMode})} }
         }
         ReviewStatus { Layout.fillWidth:true; inspector:moduleBridge.manualReview }
+        }
     }
     FileDialog { id:inputFile; title:"Base de BLs"; nameFilters:["Bases BLs (*.xlsx *.sqlite3 *.sqlite *.db)"]; onAccepted:input.text=page.localPath(selectedFile) }
+    AppDialog {
+        id:emptyRetry; objectName:"blsEmptyRetryDialog"
+        anchors.centerIn:parent; width:Math.min(520,parent ? parent.width-32 : 520); modal:true
+        title:"Reconsultar BLs con 0 filas"
+        property string recordId:""
+        property int count:0
+        contentItem:ColumnLayout {
+            spacing:16
+            Text { text:"Se volverán a consultar los "+emptyRetry.count+" BLs guardados sin líneas del lote seleccionado. Las líneas nuevas quedarán guardadas para generar el CSV manualmente. Se conservan el historial, los BLs con líneas y los demás pendientes."; color:Theme.muted; font.pixelSize:13; wrapMode:Text.WordWrap; Layout.fillWidth:true }
+            RowLayout {
+                Layout.fillWidth:true
+                ActionButton { text:"Cancelar"; subtle:true; onClicked:emptyRetry.close() }
+                Item { Layout.fillWidth:true }
+                ActionButton {
+                    objectName:"blsConfirmRetryEmpty"; text:"Reconsultar"; primary:true
+                    enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
+                        emptyRetry.recordId===moduleBridge.activeId && (moduleBridge.summary.empty || 0)>0
+                    onClicked:{ moduleBridge.command("retry_empty",{recordId:emptyRetry.recordId}); emptyRetry.close() }
+                }
+            }
+        }
+    }
+    DeleteConfirmation {
+        id: deleteDialog; objectName: "batchDeleteDialog"
+        anchors.centerIn: parent; width: Math.min(560,page.width - 30)
+        details: "¿Eliminar la base de «" + page.deleteLabel + "»?\n\n" +
+            "Se retirará esta ejecución con sus modalidades, resultados internos y pendientes. Los CSV exportados y las bases de entrada se conservan."
+        allowed: moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
+            page.deleteFlow === moduleBridge.flow && page.deleteId === moduleBridge.activeId
+        onConfirmed: function(confirmation) { moduleBridge.deleteDatabase(page.deleteFlow,page.deleteId,page.deleteName,confirmation) }
+    }
     FileDialog { id:splitFile; title:"Dividir un CSV para Excel"; nameFilters:["CSV (*.csv)"]; onAccepted:moduleBridge.command("split",{source:page.localPath(selectedFile)}) }
     FileDialog { id:progressFile; title:"Importar una copia del progreso original"; nameFilters:["Progreso SQLite (*.sqlite3 *.sqlite *.db)"]; onAccepted:moduleBridge.command("import_progress",{source:page.localPath(selectedFile)}) }
-    FolderDialog { id:outputFolder; title:"Carpeta de resultados"; onAccepted:output.text=page.localPath(selectedFolder) }
+    FolderDialog { id:outputFolder; title:"Carpeta madre común a todos los bots"; onAccepted:output.text=page.localPath(selectedFolder) }
     ManifiestosBaseDialog { id:baseDialog; moduleBridge:page.moduleBridge }
     BlsKnowledgeDialog { id:knowledgeDialog; moduleBridge:page.moduleBridge; onPeriodsSelected:function(periods){page.selectedKnowledge=periods} }
 }

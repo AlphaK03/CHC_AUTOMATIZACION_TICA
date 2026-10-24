@@ -52,7 +52,9 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 self.assertEqual(bridge.summary['succeeded'],2,bridge.error)
                 self.assertEqual(bridge.summary['retry'],2 if module=='talon' else 1)
                 self.assertEqual(bridge.summary.get('empty',0),0 if module=='talon' else 1)
-                csv_path=next(Path(bridge.outputFolder).glob('*.csv'))
+                self.assertFalse(list(root.rglob('*.csv')))
+                call('export')
+                csv_path=next(Path(bridge.outputFolder).glob('*.CSV'))
                 def read_csv(path):
                     with path.open(encoding='utf-8-sig',newline='') as stream:return list(csv.DictReader(stream))
                 rows=read_csv(csv_path)
@@ -77,6 +79,9 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                     call('detail', {'jobId':'001-2026-999997'})
                     self.assertTrue(bridge.jobDetail['emptyCheckedAt'])
                     self.assertEqual(bridge.jobDetail['last_error'], '')
+                    evidence = Path(bridge.jobDetail['evidence'])
+                    self.assertLess(evidence.stat().st_size, 32768)
+                    self.assertIn('id="chc-movement-evidence"', evidence.read_text(encoding='utf-8'))
                     before = bridge.summary['attempts']
                     call('retry_empty', {'ids':['001-2026-999997']})
                     self.assertEqual(bridge.summary['attempts'], before + 1)
@@ -84,7 +89,7 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 today=date.fromisoformat(bridge.daily['startDate'])+timedelta(days=1)
                 start,end=today-timedelta(days=2),today-timedelta(days=1)
                 call('configure',{'config':{'daily_mode':True,'daily_start_date':start.isoformat(),'daily_end_date':end.isoformat()}})
-                call('daily_run')
+                call('daily_run',{'bounded':True})
                 self.assertEqual(bridge.daily['phase'],'completed')
                 with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
                     self.assertEqual({row[0] for row in db.execute('select distinct regimen from queries')},IMPORT_REGIMES)
@@ -92,16 +97,16 @@ class ImportBotsIntegrationTest(unittest.TestCase):
                 with closing(sqlite3.connect(root/'data/daily/calendar.sqlite3')) as db:
                     self.assertEqual(db.execute('select state,total,succeeded from days order by day').fetchall(),
                                      [('completed',4,4),('completed',4,4)])
-                call('daily_run')
+                call('daily_run',{'bounded':True})
                 with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
                     self.assertEqual(db.execute('select sum(attempts) from queries').fetchone()[0],8)
                 call('select',{'tableId':manual_id})
                 self.assertEqual(bridge.summary['retry'],2 if module=='talon' else 1)
                 self.assertEqual(bridge.summary.get('empty',0),0 if module=='talon' else 1)
-                call('clean',{'confirmTableId':manual_id})
+                call('clean',{'confirmTableId':manual_id,'confirmation':'BORRAR'})
                 call('export')
                 self.assertEqual(len(read_csv(csv_path)),54)
-                self.assertTrue(all(path.suffix=='.csv' for path in (root/'output').rglob('*') if path.is_file()))
+                self.assertTrue(all(path.suffix=='.CSV' for path in (root/'output').rglob('*') if path.is_file()))
             finally:
                 bridge.shutdown()
                 wait_until(lambda:bridge.isClosed)

@@ -180,8 +180,12 @@ class MonthLauncher(QObject):
                 if not set(self._modes)&{'maritimo','aereo'}:self.mark(task,'blocked','BLs requiere Marítimo o Aéreo; Terrestre solo aplica a Manifiestos')
                 continue
             if task['flow']:
+                modes = [m for m in self._modes if task['flow'] != 'contenedores' or m == 'maritimo']
+                if not modes:
+                    self.mark(task,'blocked','Contenedores solo consulta Marítimo; marca esa modalidad.')
+                    continue
                 config={**self.channel(task).snapshot.get('config',{}),'year':self._year,'month':self._month,
-                        'workers':task['workers'],'modes':list(self._modes),'start':self.range[0],'end':self.range[1],
+                        'workers':task['workers'],'modes':modes,'start':self.range[0],'end':self.range[1],
                         'name':'','manifestIds':'','limit':0,'courier':'todos'}
                 task['owned']=True
                 if self.channel(task).send('run',{'config':config}):self.mark(task,'running','Consultando')
@@ -286,7 +290,7 @@ class MonthLauncher(QObject):
                         if any(bridge.config.get(key)!=task['config'][key] for key in ('daily_start_date','daily_end_date','daily_mode','cant_hilos')):
                             self.mark(task,'error','La configuración cambió; no se inició otro mes');return
                         task.update(stage='running',label='Descargando y procesando el mes')
-                        task['request']=bridge.request('daily_run')
+                        task['request']=bridge.request('daily_run', {'bounded': True})
                         if not task['request']:self.mark(task,'error','No se pudo iniciar el mes')
                         self.changed.emit()
                     QTimer.singleShot(0,run)

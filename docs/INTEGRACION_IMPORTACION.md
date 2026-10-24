@@ -22,8 +22,9 @@ base inicial mantienen sus SHA256. BLs es el único módulo que continúa en dem
 3. En Diario automático, elegir Desde y, opcionalmente, Hasta en Calendario.
    El propio bot obtiene la base, procesa cada día y acumula sus resultados en el mes.
 4. Elegir Guardar en, revisar Configuración y pulsar Iniciar. Los modos no arrancan
-   consultas al abrir la app. Un rango con Hasta termina; sin Hasta espera hasta
-   las 00:01 de Costa Rica cuando no quedan días pasados elegibles.
+   consultas al abrir la app. El rango avanza con el progreso: continúa después de
+   los días elegidos y espera hasta las 00:01 de Costa Rica cuando queda al día.
+   Al reabrir basta Iniciar; los días completados u omitidos no se repiten.
 5. Detener conserva los éxitos y pendientes. El visor de Base de datos permite
    seleccionar cada tributo o movimiento de un DUA, con su historial y evidencia.
 6. Resultados contiene solo el CSV final, dentro de la carpeta del nombre de tabla.
@@ -107,6 +108,71 @@ Esto es distinto de un régimen diario sin DUAs, cuyo vacío verificado sí perm
 completar la base. Ambos módulos heredan el supervisor corregido, todos los hilos
 en cada ronda, protección de procesos y cancelación. El plazo se renueva al
 confirmar una página para permitir consultas extensas que siguen avanzando.
+
+## Evidencia resumida de XMovimientos
+
+Cambio del 22/10/2026 en el runtime del repositorio. Solo XMovimientos sustituye
+la página completa por una ficha HTML de hasta 32 KiB con JSON legible embebido:
+DUA solicitado/observado, fecha UTC, encabezados y conteos de Substk, mensajes,
+paginación y hasta tres filas de muestra. Incluye tamaño y SHA-256 de la respuesta
+original e identidades del formulario/envío cuando existen. Textos y muestras
+tienen límites. Excluye GXState, tablas ajenas, CAPTCHA, sesiones y parámetros de
+URL. No permite reconstruir la página completa; SQLite conserva error e historial.
+
+La decisión de Vacío exige la misma identidad correcta, una sola fila con al
+menos cinco encabezados, cero datos/errores y ningún SIGUIENTE habilitado.
+El lector admite HTML antiguo y resúmenes con versión y comprobaciones válidas.
+Formato desconocido, JSON corrupto o conteos contradictorios no acreditan vacíos.
+El supervisor valida antes del COMMIT; no se cambian parsers, CSV ni calendarios.
+Talón, Tránsito y Detalles conservan sus diagnósticos originales.
+
+`Resumir_Evidencias_XMovimientos.bat` muestra el destino, revisa cinco ejemplos
+sin cambios y pide `BORRAR` exacto para convertir todos los diagnósticos de esa raíz.
+Prefiere `%LOCALAPPDATA%/CHC Consultores/Workbench/bots/xmovimientos` si existe;
+en otro caso usa los datos del repositorio. No recorre automáticamente respaldos
+ni otras copias. Uso por consola desde la raíz del repositorio:
+
+```powershell
+# Revisión sin modificar diagnósticos (limit opcional para una muestra).
+.\bots\xmovimientos\.venv\Scripts\python.exe tools/compact_movement_evidence.py --root "$env:LOCALAPPDATA/CHC Consultores/Workbench/bots/xmovimientos" --limit 5
+# Sustitución de todos los diagnósticos del destino, con confirmación exacta.
+.\bots\xmovimientos\.venv\Scripts\python.exe tools/compact_movement_evidence.py --root "$env:LOCALAPPDATA/CHC Consultores/Workbench/bots/xmovimientos" --apply --confirm BORRAR
+```
+
+Procesa solo HTML con nombre DUA en `data/exports/**/diagnosticos` y sus JSON
+de formulario. Conserva nombre/ruta/fecha para mantener las referencias, comprueba
+la relectura y reemplaza atómicamente solo cuando ahorra espacio. Preserva archivos
+inválidos o cambiados durante la operación. Toma los mismos bloqueos de las colas
+sin abrir SQLite; un lote ocupado impide la conversión sin detener el motor.
+Registra un diario durable en `data/evidence_compaction/` con hashes y tamaños,
+antes y después de cada reemplazo. Puede interrumpirse y repetirse sin envolver
+los resúmenes. Confirmar descarta el HTML completo; el diario no es su respaldo.
+No toca SQLite, CSV, estados ni publicaciones.
+
+Pasaron 13 pruebas de evidencia/vacíos y 21 de puentes Talón/XMovimientos y bitácora,
+más smoke QML de seis vistas. Cubren tamaño, escape HTML, formato inválido,
+migración antigua, reconsulta, bloqueo, cambios concurrentes, fechas/rutas,
+idempotencia y resultados intactos sobre almacenamiento temporal. En ejemplos
+existentes, sin modificarlos: cinco HTML/JSON pasan de 527.238 a 12.227 bytes;
+el HTML mayor pasa de 14.145.681 a 1.746 bytes con la misma comprobación de vacío.
+No es una medición de la conversión completa. Evidencia local en
+`runtime/diagnostics/movement-evidence/`.
+
+El usuario descartó convertir los históricos por costo/tiempo y autorizó eliminar
+solo sus evidencias. Se retiraron 31.242 HTML/JSON (10.753.741.896 bytes) del
+`daily-2026-10/diagnosticos` instalado en C; carpeta vacía y cero errores.
+Los SHA-256 de SQLite/CSV son idénticos antes/después, con bloqueos compatibles.
+No se cambió progreso ni se reconsultó TICA. Las evidencias eliminadas dejan de
+estar disponibles en Abrir evidencia, sin reabrir los DUAs confirmados para
+regenerarlas. Otras copias/respaldos intactos. Recibo en
+`runtime/diagnostics/movement-evidence/deleted-20261023T003540.json` (UTC).
+La instalación local de C ya incorpora la corrección: cuatro módulos de runtime,
+con respaldo previo y actualización de metadatos/hashes. Con su Python instalado,
+una respuesta sintética de 2.000.268 bytes quedó en 1.779 bytes y conservó Vacío
+al reabrir SQLite temporal. Smoke del EXE correcto, sin consultas TICA. La app
+instalada se abrió antes de documentar; el acceso directo habitual usa la mejora.
+El instalador anterior en `runtime/releases/` no se reempaquetó y conserva su
+payload previo; reinstalarlo requerirá volver a aplicar la corrección.
 
 ## Evidencia y alcance de las comprobaciones
 

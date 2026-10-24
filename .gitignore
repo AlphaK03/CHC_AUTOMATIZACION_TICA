@@ -27,6 +27,7 @@
 **/screenshots/
 **/Descargas/
 runtime/
+RESULTADOS/
 *.sqlite
 *.sqlite3
 *.db

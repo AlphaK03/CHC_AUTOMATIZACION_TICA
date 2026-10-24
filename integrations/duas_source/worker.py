@@ -14,6 +14,10 @@ sys.path.insert(0, str(HERE / 'src'))
 from data_store import MONTHS, REGIMENES, REGIMENES_IMPORTACION, RangeStore, RunLock
 from runner import run_downloads
 
+sys.path.insert(0, str(HERE.parents[1]))
+from chc_runtime.distribution import packaged, data_root
+from chc_runtime.selenium_browser import bundled_extractor
+
 
 @contextmanager
 def import_cache_gate(database, cancelled, emit):
@@ -46,8 +50,8 @@ def main():
     parser.add_argument('--offline-fixture', action='store_true')
     parser.add_argument('--selection', choices=('total', 'transito', 'importacion'), default='total')
     args = parser.parse_args()
-    protected = [HERE.parents[1] / 'bots' / module / 'data' for module in ('detalles', 'duas_transito', 'talon', 'xmovimientos')]
-    protected.append(HERE / 'data')
+    protected = [data_root() / 'bots' / module / 'data' for module in ('detalles', 'duas_transito', 'talon', 'xmovimientos')]
+    protected.append(data_root() / 'integrations/duas_source/data')
     if args.offline_fixture and any(args.database.resolve().is_relative_to(folder) for folder in protected):
         parser.error('La fixture requiere almacenamiento separado de la instalación normal.')
     sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
@@ -61,7 +65,7 @@ def main():
     threading.Thread(target=listen, daemon=True).start()
     def emit(kind, **values):
         print(json.dumps({'event': kind, **values}, ensure_ascii=False), flush=True)
-    factory = None
+    factory = bundled_extractor() if packaged() else None
     if args.offline_fixture:
         class LocalExtractor:
             def __init__(self, *a, **kw): pass

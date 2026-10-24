@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 import sys
 import threading
+import time
 import traceback
+from .activity import ActivityReporter, EventLog, COMMANDS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,29 +30,39 @@ def main(module='manifiestos'):
     # NumPy en Windows puede bloquear su inicialización desde el trabajador.
     import pandas
     if module == 'bls':
+        from .bls_identifiers import install_input_support
+        install_input_support()
         from core.engine import BLSProcessor
         from input_files import load_input_file
     else:
         from manifest_scraper import ManifestScraper
         if flow in ('bases','bls_source'):
-            import bls_base
+            from .bls_identifiers import install_base_support
+            install_base_support()
     from chc_runtime.manifest_service import BatchService
     lock = threading.Lock()
     def emit(event, **data):
         with lock:
             print(json.dumps({'event': event, **data}, ensure_ascii=False), flush=True)
     stop = threading.Event()
-    service = BatchService(args.storage_root, flow, emit, stop, args.offline_fixture)
+    reporter = ActivityReporter(emit)
+    with reporter.session('Cargando bases de datos'):
+        service = BatchService(args.storage_root, flow, emit, stop, args.offline_fixture)
     log_folder = args.storage_root / 'data' / 'logs'
     log_folder.mkdir(parents=True,exist_ok=True)
-    logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stderr),
+    logging.basicConfig(level=logging.INFO, handlers=[EventLog(emit), logging.StreamHandler(sys.stderr),
                         logging.FileHandler(log_folder/(flow+'.log'),encoding='utf-8')],
                         format='%(asctime)s %(levelname)s %(message)s')
     active = None
     def execute(request):
         command = request['command']
+        started = time.monotonic()
+        reading = command in ('refresh','select','knowledge_catalog')
         try:
-            result = service.execute(command, request)
+            if reading:
+                logging.info('Inicio de carga local: %s / %s.', flow, command)
+            with reporter.session(COMMANDS.get(command, 'Procesando solicitud')):
+                result = service.execute(command, request)
             emit('result', command=command, requestId=request.get('requestId'), **(result or {}))
         except asyncio.CancelledError:
             emit('result', command=command, requestId=request.get('requestId'), stopped=True)
@@ -58,6 +70,8 @@ def main(module='manifiestos'):
             logging.exception('Falló el comando %s de %s.', command, flow)
             emit('error', command=command, requestId=request.get('requestId'), message=str(exc))
         finally:
+            if reading:
+                logging.info('Fin de carga local: %s / %s en %.3f s.', flow, command, time.monotonic()-started)
             emit('idle', command=command, snapshot=service.snapshot())
     emit('ready', snapshot=service.snapshot())
     try:

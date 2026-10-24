@@ -1,17 +1,21 @@
 # Plan de implementación — CHC Workbench
 
-Fecha de revisión: 13 de octubre de 2026.
+Fecha de revisión: 14 de octubre de 2026.
 
-Estado actual: fases 0 y 1A completadas. Detalles es el primer piloto operativo
-de las fases 1B/2: controles nativos QML, worker aislado, SQLite y entorno propio.
-Se comprobaron 50 pruebas del bot, cinco de integración y dos consultas reales
-comparadas contra sus 38 campos originales. Los otros cuatro motores permanecen
-en demo en esa primera entrega. Después se integró DUAs Tránsito con extracción
-de líneas, SQLite y bases diarias TRANSITO sobre `chc_runtime/`, compartido con
-Detalles. Después se integraron Talón y XMovimientos con sus parsers v2, SQLite,
-calendario y una caché común de importación. También se incorporaron Manifiestos
-—cinco procedimientos y generador de bases BLs—, el motor BLs y la instancia única.
-Ver `INTEGRACION_MANIFIESTOS.md`: verificación local, sin nuevas consultas a TICA. Consultar
+Estado actual: fases 0 y 1A completadas; acceso e integración de los seis módulos
+implementados. Detalles, Tránsito, Talón y XMovimientos comparten soporte en
+`chc_runtime/` y tienen SQLite, recuperación y calendario/base diaria. Manifiestos
+reúne cinco procedimientos y genera bases locales para el motor BLs, que conserva
+checkpoints por página. El panel incorpora instancia única, actividad estable,
+inicio mensual conjunto y bitácora con omitidos, estado Al día y cierre manual.
+
+También está implementado SharePoint opcional: cuenta CHC, selector corregido de
+sitios/bibliotecas/carpetas, carpeta madre común y CSV estandarizados en mayúsculas.
+Las subidas requieren acción explícita y un bot completo, al día o cerrado manualmente.
+La distribución ejecutable Windows x64 está preparada al 22/10, con entorno y
+navegador propios; sigue pendiente la aceptación en otro equipo físico limpio.
+Ver `DISTRIBUCION_WINDOWS.md` para construcción y pruebas aisladas del paquete.
+Ver `SHAREPOINT.md` y `CONTEXTO_PROYECTO.md` para estado y comprobaciones. Consultar
 `INTEGRACION_DETALLES.md`, `INTEGRACION_TRANSITO.md` e `INTEGRACION_IMPORTACION.md`
 para alcance y evidencia.
 
@@ -56,7 +60,7 @@ certifica aún instalación, comportamiento del portal ni interfaz unificada.
 Cierre: panel navegable, estados sintéticos independientes, QML verificado y
 fuentes copiadas intactas. Esto no constituye integración real.
 
-### Fase 1B — Acceso a motores (Detalles completado; otros pendientes)
+### Fase 1B — Acceso a motores (seis módulos integrados)
 
 - Añadir instalación, apertura, diagnóstico y supervisión de módulos reales al
   panel. Detalles ya dispone de estas funciones y de control nativo de sus datos.
@@ -150,12 +154,14 @@ motor de navegador siguen siendo requisitos externos que deben prepararse.
 
 ## Orden de trabajo siguiente
 
-1. Integrar BLs sobre los contratos del Workbench.
-2. Ampliar evidencia real de los cuatro motores DUA ya integrados, sin repetir
+1. Preparar distribución y probar en un equipo limpio, incluidos los procesos
+   separados, instaladores, dependencias y la conexión opcional de SharePoint.
+2. Ampliar evidencia real de los seis motores ya integrados, sin repetir
    consultas masivas como pruebas ni interrumpir instancias activas.
 3. Coordinar concurrencia global y mejorar la caché común de bases.
 4. Integrar los generadores/separadores restantes.
-5. Preparar distribución y probar en un equipo limpio.
+5. Desarrollar el calendario diario continuo de BLs cuando se solicite; su
+   integración e inicio mensual desde Conocimientos ya están disponibles.
 
 No se asignan plazos aún. Las tres integraciones v2 tienen evidencia descrita por
 módulo; quedan más variantes reales y validación de distribución en equipo limpio.

@@ -64,6 +64,20 @@ def completed(bridge,flow,pending=0):
 
 
 class MonthLauncherTests(unittest.TestCase):
+    def test_containers_monthly_launch_only_maritime_and_blocks_air_only(self):
+        manifests=fake_batch();launcher=self.make({'manifiestos':manifests})
+        launcher.setSelected('contenedores',True);launcher.setMode('aereo',True)
+        launcher.start()
+        self.assertEqual(manifests.sent[-1][2]['config']['modes'],['maritimo'])
+        completed(manifests,'contenedores')
+        launcher.cancel()
+        manifests=fake_batch();launcher=self.make({'manifiestos':manifests})
+        launcher.setSelected('contenedores',True)
+        launcher.setMode('maritimo',False);launcher.setMode('aereo',True)
+        launcher.start()
+        self.assertEqual(launcher.tasks['contenedores']['stage'],'blocked')
+        self.assertEqual(manifests.sent,[])
+
     def make(self,bridges):
         launcher=MonthLauncher(bridges)
         launcher.setPeriod(2026,9)
@@ -83,6 +97,7 @@ class MonthLauncherTests(unittest.TestCase):
         APP.processEvents();self.assertEqual(len(details.requests),1)
         details.acknowledge();wait_until(lambda:len(details.requests)==2)
         self.assertEqual(details.requests[1]['command'],'daily_run')
+        self.assertTrue(details.requests[1]['bounded'])
         launcher.cancel()
 
     def test_busy_bot_keeps_configuration_and_failure_does_not_start_it(self):

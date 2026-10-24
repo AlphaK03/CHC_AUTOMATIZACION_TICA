@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup
 
 from .identifiers import normalize_dua
 from .multirow import MultiRowJobStore
-from .playwright_processor import PlaywrightDUAProcessor
+from .playwright_processor import PlaywrightDUAProcessor, dua_subject
+from .activity import observed, stage
 
 TALON_FIELDS = ['Codigo_Aduana', 'Año', 'Numero', 'Tributo', 'Descripcion_tributo', 'Valor_MN', 'numero_del_dua']
 # Orden producido por el groupby original, conservado también en el CSV.
@@ -65,17 +66,26 @@ class MovementsJobStore(MultiRowJobStore):
 
 
 class ImportRowsProcessor(PlaywrightDUAProcessor):
+    def _evidence_document(self, html, dua, snapshot, url):
+        if self._flow.module_id != 'xmovimientos':
+            return super()._evidence_document(html, dua, snapshot, url)
+        from .movement_evidence import summarize_html, compact_form
+        return summarize_html(html, dua, snapshot, url), compact_form(snapshot)
+
+    @observed('Extrayendo y validando todas las filas del DUA', dua_subject)
     async def _extract_record(self, page, row):
         timeout = int(self.machine.get('timeout', 30)) * 1000
         await self._fetch_page_result(page, row)
         if self._flow.module_id == 'talon':
-            await page.wait_for_selector('[name="LIQDUA"]', timeout=timeout)
-            await page.locator('[name="LIQDUA"]').click(timeout=timeout)
+            with stage('Abriendo liquidación de tributos'):
+                await page.wait_for_selector('[name="LIQDUA"]', timeout=timeout)
+                await page.locator('[name="LIQDUA"]').click(timeout=timeout)
         table_id = self._flow.table_id
         merged = None
         seen = set()
         while True:
-            await page.wait_for_selector('#' + table_id, state='attached', timeout=timeout)
+            with stage(f'Esperando tabla · página {len(seen)+1}'):
+                await page.wait_for_selector('#' + table_id, state='attached', timeout=timeout)
             html = await page.content()
             soup = BeautifulSoup(html, 'html.parser')
             error = soup.select_one('#ERROR')
@@ -85,7 +95,7 @@ class ImportRowsProcessor(PlaywrightDUAProcessor):
             if self._flow.module_id == 'xmovimientos' and merged is None:
                 from .movement_empty import verified_empty_html, empty_record
                 if verified_empty_html(html, row['NroDUA']):
-                    evidence = await self._save_evidence(page, row['NroDUA'])
+                    evidence = await self._save_evidence(page, row['NroDUA'], source_html=html)
                     return empty_record(row['NroDUA'], html, evidence)
             # El parser original comprueba identidad y ausencia de registros.
             data = self._flow.extract_data(html)
@@ -126,6 +136,7 @@ class ImportRowsProcessor(PlaywrightDUAProcessor):
         self._flow.store.validate_rows(rows, row['NroDUA'])
         return {**rows[0], 'rows': rows}
 
+    @observed('Solicitando siguiente página de movimientos',lambda self,page,dua,*args:dua)
     async def _next_page(self, page, dua, values, timeout):
         address = urlsplit(page.url)
         before = await page.locator('#' + self._flow.table_id).inner_html()

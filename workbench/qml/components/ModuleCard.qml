@@ -21,8 +21,9 @@ Panel {
                 Icon { anchors.centerIn: parent; name: card.info.icon; tint: card.info.color; width: 22; height: 22 }
             }
             Item { Layout.fillWidth: true }
-            Rectangle { width: 6; height: 6; radius: 3; color: card.info.status === "running" ? Theme.accent : Theme.success }
-            Text { text: card.info.mode === "real" ? (card.info.status === "running" ? "Consultando" : card.info.status === "unavailable" ? "Preparando" : "Conectado") : card.info.status === "running" ? "Simulando" : card.info.status === "paused" ? "Pausado" : card.info.status === "completed" ? "Demo completada" : "Demostración"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 10 }
+            BusyIndicator { visible: card.info.status === "loading"; running: visible; implicitWidth: 16; implicitHeight: 16; palette.dark: Theme.accent }
+            Rectangle { visible: card.info.status !== "loading"; width: 6; height: 6; radius: 3; color: card.info.status === "running" ? Theme.accent : Theme.success }
+            Text { text: card.info.mode === "real" ? (card.info.status === "loading" ? "Cargando" : card.info.status === "running" ? "Consultando" : card.info.status === "unavailable" ? "Preparando" : "Conectado") : card.info.status === "running" ? "Simulando" : card.info.status === "paused" ? "Pausado" : card.info.status === "completed" ? "Demo completada" : "Demostración"; color: Theme.muted; font.family: Theme.family; font.pixelSize: 10 }
         }
         ColumnLayout {
             Layout.fillWidth: true; spacing: 4
