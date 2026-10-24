@@ -2,8 +2,8 @@
 
 Desarrollo local vigente en `C:/Proyectos/CHC_AUTOMATIZACION_TICA`, fuera de
 OneDrive. Código clonado del remoto y entornos reconstruidos; datos y SQLite
-conservados y verificados. [Migración, pruebas y retirada pendiente del
-original](docs/MIGRACION_LOCAL.md).
+conservados y verificados. El usuario confirmó el 23/10/2026 que eliminó el
+proyecto de OneDrive. [Migración y pruebas](docs/MIGRACION_LOCAL.md).
 
 Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón,
 XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada.

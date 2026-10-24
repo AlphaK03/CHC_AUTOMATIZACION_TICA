@@ -7,7 +7,9 @@ correcta. Los seis módulos cargaron en 10,516 s sin errores ni avisos QML.
 La app de desarrollo se abrió desde C y luego el usuario la cerró para borrar
 el original. No actualizar la instalación empaquetada ni mezclar sus datos
 distintos. El borrado automático del original fue rechazado; el usuario
-inició su eliminación manual, todavía pendiente de comprobar. Ver
+confirmó el 23/10/2026 que eliminó el proyecto de OneDrive y que continúa
+trabajando en C local. Esta confirmación no es una inspección de la papelera
+web ni de la sincronización de OneDrive. Ver
 [MIGRACION_LOCAL.md](MIGRACION_LOCAL.md) para evidencia y estado de retirada.
 La regla de oro exige commit y push al cerrar cada entrega.
 

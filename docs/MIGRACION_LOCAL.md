@@ -50,6 +50,8 @@ en los dos procesos OneDrive (PID 3408 y 2036), sin procesos de bots en esa ruta
 Por autorización expresa del usuario, ambos procesos OneDrive se cerraron para
 liberar la carpeta durante el borrado manual. OneDrive deberá reiniciarse para
 sincronizar la eliminación con la nube.
-El usuario inició el borrado manual de la carpeta original. Su desaparición
-local y la eliminación definitiva de la papelera web están pendientes de
-comprobar; no presentar esa retirada de la nube como terminada todavía.
+El 23/10/2026 el usuario confirmó que eliminó el proyecto de OneDrive y que
+el trabajo continúa en C local. Se registra su confirmación como cierre de
+la retirada manual del proyecto; no se inspeccionaron la papelera web ni el
+estado de sincronización de OneDrive. La ubicación vigente sigue siendo
+`C:/Proyectos/CHC_AUTOMATIZACION_TICA`.
