@@ -1,3 +1,32 @@
+## Experimento de refresco Marítimo — 23–24/10/2026
+
+El usuario autorizó comparar todos los manifiestos ya Guardado de octubre en
+Conocimientos y DUAs, solo Marítimo, sin descargar detalles nuevos. Se implementó
+`chc_runtime/manifest_refresh_audit.py`, herramienta independiente de la GUI:
+referencia de solo lectura con firmas/multiplicidad, extracción fresca completa
+de la cohorte y SQLite experimental comprimida. No modifica bases, intentos,
+CSV, cobertura, BLs ni SharePoint. Conserva cliente/espera independiente de DUAs,
+validaciones originales y proceso propio; reanuda comparaciones sin repetir éxitos.
+
+Resultado: Conocimientos 336/338 comparados, 20.750 → 26.006 filas (+5.256);
+DUAs 279/281, 64.433 → 96.514 (+32.081). Aumentaron 103 y 134 manifiestos;
+otros 19 Conocimientos cambiaron contenido con igual cantidad. Las mismas dos
+identidades de ambos procedimientos siguen sin enlace después de comprobar otra
+vez el listado; no se contaron como cero. La referencia completa de Conocimientos
+tenía 20.788 filas: 38 de una identidad ausente no entraron en la comparación.
+Las dos fuentes originales conservaron SHA-256 idénticos. Primera pasada hasta
+última confirmación: 361 s con cuatro consultas simultáneas; no es una garantía.
+
+Se confirma que Guardado acredita una descarga pasada y no impide que TICA
+añada filas después. Todavía no hay adopción de estos resultados, botón QML ni
+refresco periódico automático. Seis pruebas sintéticas/portal local verificaron
+cohorte fija, páginas, vacíos, duplicados, cambios, errores, reanudación y
+cancelación; no se tocaron fuentes copiadas. La app ya abierta se conservó.
+Informe y datos privados en `runtime/experiments/manifest-refresh/20261023-octubre-maritimo/`;
+ver [diseño, uso y límites](EXPERIMENTO_REFRESCO_MANIFIESTOS.md).
+Limpieza de un temporal sintético de 70.092 bytes bloqueada por revisión automática;
+pendiente registrada en mantenimiento y `cleanup-pending.json`, sin eludir rechazo.
+
 ## Desarrollo trasladado a C local — 23/10/2026
 
 La ruta vigente es `C:/Proyectos/CHC_AUTOMATIZACION_TICA`. Clon limpio del

@@ -317,3 +317,11 @@ de valores predeterminados y no reanuda lotes de las aplicaciones originales.
 No usar los specs originales de Tránsito/Talón/XMovimientos para generar la
 distribución nueva: contienen rutas al repositorio anterior y se conservaron
 solamente en `docs/reference/`. Su adaptación corresponde a la fase de empaquetado.
+
+## Refresco experimental de manifiestos guardados
+
+La revisión real de octubre Marítimo confirmó aumentos en manifiestos ya Guardado:
+Conocimientos +5.256 filas y DUAs por manifiesto +32.081 en la cohorte comparable.
+La herramienta independiente conserva las bases actuales y descarga detalles solo
+de los guardados congelados. No incorpora datos al bot ni añade refresco automático.
+[Experimento, alcance, resultados y uso](docs/EXPERIMENTO_REFRESCO_MANIFIESTOS.md).

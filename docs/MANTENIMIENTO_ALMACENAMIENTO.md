@@ -5,6 +5,16 @@ la aplicación y evitar que vuelvan a acumularse en futuras entregas. La regla
 persistente está en `AGENTS.md`. No añade un servicio ni un proceso de limpieza
 en segundo plano a la aplicación.
 
+## Temporal del experimento de manifiestos (23/10/2026)
+
+Una prueba de cancelación interrumpida dejó `%TEMP%/tmppble174u` con seis archivos
+sintéticos y su bloqueo (70.092 bytes). Se comprobó el destino absoluto, su
+contenido de pruebas y la ausencia de procesos que lo usaran. La revisión
+automática rechazó su limpieza con `blocked by policy`, sin otro motivo.
+Sigue pendiente; no se contabiliza como espacio liberado ni se reintenta por
+otra vía. Recibo: `runtime/experiments/manifest-refresh/20261023-octubre-maritimo/cleanup-pending.json`.
+Las siguientes pruebas completadas sí limpiaron sus TemporaryDirectory.
+
 ## CSV manuales y limpieza adicional pendiente
 
 El usuario pidió retirar CSV de resultados existentes al pasar a generación

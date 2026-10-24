@@ -687,3 +687,13 @@ ejecutable en un equipo limpio, ampliar las variantes reales comprobadas y
 completar los generadores/separadores todavía externos. El calendario diario
 continuo de BLs es distinto de su inicio mensual ya disponible y sigue pendiente.
 El estado y la visión completa están en `docs/CONTEXTO_PROYECTO.md`.
+
+## Comparar manifiestos ya Guardado
+
+El acumulado normal conserva los detalles Guardado; TICA puede añadirles filas
+posteriormente. Existe una herramienta experimental separada para congelar esos
+manifiestos y compararlos con una extracción fresca, sin tocar sus bases actuales.
+La revisión autorizada de octubre Marítimo confirmó +5.256 filas de Conocimientos
+y +32.081 de DUAs en los manifiestos comparables. No hay todavía botón en el panel,
+adopción de resultados ni revalidación automática. La app abierta no se reinicia
+para ejecutar el experimento. [Uso y límites](../docs/EXPERIMENTO_REFRESCO_MANIFIESTOS.md).
