@@ -1,5 +1,10 @@
 # CHC Workbench — Automatización TICA
 
+Desarrollo local vigente en `C:/Proyectos/CHC_AUTOMATIZACION_TICA`, fuera de
+OneDrive. Código clonado del remoto y entornos reconstruidos; datos y SQLite
+conservados y verificados. [Migración, pruebas y retirada pendiente del
+original](docs/MIGRACION_LOCAL.md).
+
 Repositorio modular para mantener BLs, Detalles, DUAs Tránsito, Talón,
 XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada.
 La limpieza de residuos pesados al cerrar entregas está descrita en

@@ -6,7 +6,7 @@
   del push. Mantener fuera de Git bases, progreso, configuración privada,
   credenciales y entornos regenerables, según el .gitignore.
 - El proyecto y sus datos de trabajo deben permanecer fuera de OneDrive.
-  Ubicación local prevista: `C:/Proyectos/CHC_AUTOMATIZACION_TICA`.
+  Ubicación local vigente: `C:/Proyectos/CHC_AUTOMATIZACION_TICA`.
 
 - Preferencia y autorización permanente del usuario (22/10/2026): al cerrar cada
   entrega revisar y retirar los residuos pesados generados por el trabajo, como

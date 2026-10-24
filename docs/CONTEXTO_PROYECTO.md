@@ -1,3 +1,16 @@
+## Desarrollo trasladado a C local — 23/10/2026
+
+La ruta vigente es `C:/Proyectos/CHC_AUTOMATIZACION_TICA`. Clon limpio del
+remoto con todos los commits publicados, siete entornos reconstruidos,
+6.839 archivos operativos verificados por SHA-256 y 54 SQLite con integridad
+correcta. Los seis módulos cargaron en 10,516 s sin errores ni avisos QML.
+La app de desarrollo se abrió desde C y luego el usuario la cerró para borrar
+el original. No actualizar la instalación empaquetada ni mezclar sus datos
+distintos. El borrado automático del original fue rechazado; el usuario
+inició su eliminación manual, todavía pendiente de comprobar. Ver
+[MIGRACION_LOCAL.md](MIGRACION_LOCAL.md) para evidencia y estado de retirada.
+La regla de oro exige commit y push al cerrar cada entrega.
+
 ## Pausa segura para salir de OneDrive — 23/10/2026
 
 - El usuario confirmó que primero se corrige en desarrollo; NO actualizar ni
