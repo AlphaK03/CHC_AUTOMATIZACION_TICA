@@ -1,3 +1,36 @@
+## Pausa segura para salir de OneDrive — 23/10/2026
+
+- El usuario confirmó que primero se corrige en desarrollo; NO actualizar ni
+  instalar la distribución hasta resolver la causa. En esta sesión no se tocó
+  el código ni la instalación de C. Las pruebas anteriores eran sobre la app
+  instalada; no demostraban que funcionara la copia de desarrollo en OneDrive.
+- Causas reproducidas en este proyecto: el worker BLs termina antes de `ready`
+  al importar pandas (`core/indexes/api.py` y dependencias), con `OSError:
+  [Errno 22] Invalid argument` por archivos de nube no disponibles. También
+  fallan la lectura binaria y SQLite solo lectura de
+  `bots/xmovimientos/data/queues/catalog.sqlite3` y `daily-2026-10.sqlite3`.
+  La cola local mide 33.796.096 bytes, frente a 36.888.576 en la instalación;
+  son estados diferentes: NO sustituir una por otra ni confundir sus contadores.
+  Los SQLite BLs locales sí existen (95.776.768 y 33.128.448 bytes).
+- Se inició el OneDrive existente en segundo plano y se marcaron disponibles
+  localmente (+P -U) las dos colas, los entornos BLs/XMovimientos,
+  `chc_runtime/` y `workbench/qml/`. El catálogo y la cola volvieron a ser
+  legibles; pandas todavía presentó una espera superior a 12 s al comprobarlo.
+  No se regeneraron bases ni se sobreescribieron datos con copias instaladas.
+  Los logs/inventarios de diagnóstico están en `runtime/diagnostics/dev-loading/`.
+- Hay un segundo defecto de observación pendiente: DetailsBridge._finished
+  reemplaza el error real por «el proceso se cerró»; BLs muestra contenido en
+  cero cuando el worker falla y el error queda al pie. Conservar causa y stderr,
+  mostrar el fallo antes del resumen, y comprobar reconexión/cierre/reapertura.
+- El usuario autorizó detenerse cuando fuera seguro para copiar/mover el proyecto
+  fuera de OneDrive. Comprobación de cierre: no había GUI, workers Python del
+  proyecto ni operaciones attrib/copia activas. No se iniciaron consultas TICA.
+  Copiar a una carpeta local fuera de OneDrive y conservar el original hasta
+  verificar la copia. Tras cambiar ruta, adaptar los metadatos absolutos de
+  lotes/entradas/publicaciones con respaldo, sin cambiar firmas ni resultados,
+  y revisar los entornos. No dar por resuelto el problema hasta probar la app de
+  desarrollo desde esa nueva ruta, con BLs y XMovimientos mostrando sus datos.
+
 # Contexto de CHC Workbench para una nueva sesión
 
 ## Estado vigente — 22 de octubre de 2026
