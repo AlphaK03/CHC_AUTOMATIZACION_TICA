@@ -126,6 +126,13 @@ ese rango; para incluir el resto del mes se debe ampliarlo, o usar el mes comple
 La unidad de confirmación sigue siendo el manifiesto; no se revalidan sus detalles
 ya Guardado para detectar modificaciones internas posteriores del portal.
 
+Desde el 24/10 existe una acción independiente **Actualizar guardados**, botón
+púrpura visible en Conocimientos y DUAs. Reconsulta la cohorte Guardado de la
+ejecución/modalidades seleccionadas y reemplaza aumentos o cambios de contenido
+solo tras validar el resultado completo y crear respaldo. Conserva anteriores
+ante fallos y no incorpora nuevos ni exporta CSV. Es manual, no un ciclo diario.
+Ver [funcionamiento y pruebas](ACTUALIZAR_GUARDADOS.md).
+
 `manifest_incremental.py` adapta los stores originales sin modificar sus fuentes.
 Antes de ampliar una base anterior crea una instantánea en `data/backups/` fuera
 de los directorios de fuentes. Los nuevos jobs se anexan con ordinales estables;

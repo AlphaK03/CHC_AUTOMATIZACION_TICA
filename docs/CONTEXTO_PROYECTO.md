@@ -1,3 +1,28 @@
+## Botón manual para actualizar guardados — 24/10/2026
+
+El usuario prefirió actualización manual en vez de un disparador diario y pidió
+un botón visible púrpura/celeste. **Actualizar guardados**, púrpura, está en el
+flujo principal de Conocimientos y DUAs. Revisa solo Guardado confirmados de la
+ejecución/modalidades marcadas, incluidos vacíos; excluye nuevos, pendientes y
+excluidos. El botón muestra progreso, fase y cronómetro, con duración final.
+Iniciar consulta, abrir la app o cambiar de día no disparan este refresco.
+
+`chc_runtime/manifest_manual_refresh.py` congela la cohorte bajo bloqueos, consulta
+mediante la auditoría existente y respalda cada fuente fuera de jobs. Valida que
+el original no cambió y reemplaza cada manifiesto completo en una transacción,
+incluidos campos modificados con igual cantidad. Fallos/ausencias conservan filas
+y Guardado anteriores; cancelar mantiene únicamente reemplazos confirmados.
+Conserva índices/texto/ceros/duplicados, clientes/esperas DUAs y motores copiados.
+No exporta CSV, sube a SharePoint, amplía cobertura ni inicia BLs. Actualiza intentos
+y fechas de los refrescos confirmados; evidencia/recibos/backups privados en data.
+
+Pasaron 21 pruebas offline distintas (19 de soporte/datos, botón real con worker
+y portal local y geometría global en tres tamaños), sin avisos QML. No se hizo
+otra consulta real: ambas fuentes marítimas conservan SHA-256 del experimento.
+No había GUI activa; se abrió una sola instancia local antes de documentar y se
+dejó disponible para la prueba manual del usuario, sin iniciar consultas. No se
+actualizó la instalación empaquetada. Ver [uso y conservación](ACTUALIZAR_GUARDADOS.md).
+
 ## Experimento de refresco Marítimo — 23–24/10/2026
 
 El usuario autorizó comparar todos los manifiestos ya Guardado de octubre en
@@ -18,8 +43,8 @@ Las dos fuentes originales conservaron SHA-256 idénticos. Primera pasada hasta
 última confirmación: 361 s con cuatro consultas simultáneas; no es una garantía.
 
 Se confirma que Guardado acredita una descarga pasada y no impide que TICA
-añada filas después. Todavía no hay adopción de estos resultados, botón QML ni
-refresco periódico automático. Seis pruebas sintéticas/portal local verificaron
+añada filas después. La entrega experimental no adoptó esos datos ni añadió
+refresco automático; el botón manual llegó después, descrito arriba. Seis pruebas sintéticas/portal local verificaron
 cohorte fija, páginas, vacíos, duplicados, cambios, errores, reanudación y
 cancelación; no se tocaron fuentes copiadas. La app ya abierta se conservó.
 Informe y datos privados en `runtime/experiments/manifest-refresh/20261023-octubre-maritimo/`;

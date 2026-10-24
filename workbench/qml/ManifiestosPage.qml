@@ -117,6 +117,13 @@ ScrollView {
             inputMode:inputMode.currentIndex===0 ? "knowledge" : "file", knowledgePeriods:page.selectedKnowledge}
     }
     Component.onCompleted: loadConfig()
+    property double refreshClock: Date.now()
+    function refreshDuration() {
+        let info = moduleBridge.refreshSaved
+        let seconds = info.active ? Math.max(0,Math.floor((page.refreshClock-info.startedEpoch)/1000)) : Math.floor(info.seconds || 0)
+        return Math.floor(seconds/60) + " min " + (seconds%60) + " s"
+    }
+    Timer { interval:1000; repeat:true; running:moduleBridge.refreshSaved.active===true; onTriggered:page.refreshClock=Date.now() }
     Connections {
         target: moduleBridge
         function onEventReceived(event) {
@@ -233,6 +240,31 @@ ScrollView {
             Field { id:tableName; objectName:"manifestTableName"; Layout.fillWidth:true; text:page.isBls ? "" : page.automaticName(); readOnly:!page.isBls; placeholderText:page.isBls ? "Nombre de la tabla (opcional)" : "Seleccione un período y modalidad válidos"; enabled:!moduleBridge.busy }
                     ActionButton { text:moduleBridge.busy ? "En ejecución…" : page.resumesBls && moduleBridge.summary.pending>0 ? "Continuar pendientes" : "Iniciar consulta"; objectName:"manifestStart"; primary:true; enabled:moduleBridge.ready && !moduleBridge.busy && (!page.isBls || inputMode.currentIndex===1 || page.knowledgeSelectionReady); onClicked:moduleBridge.command("run",{config:page.configuration()}) }
                     ActionButton { text:"Detener"; enabled:moduleBridge.busy; onClicked:moduleBridge.stop() }
+                }
+                RowLayout {
+                    visible:!page.isBls && ["conocimientos","duas"].indexOf(moduleBridge.flow)>=0
+                    Layout.fillWidth:true; spacing:12
+                    ActionButton {
+                        id:refreshSavedButton; objectName:"manifestRefreshSaved"
+                        text:moduleBridge.refreshSaved.active ? "Actualizando guardados…" : "Actualizar guardados"
+                        enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing &&
+                            !moduleBridge.manualReview.running && moduleBridge.activeId!=="" && moduleBridge.summary.succeeded>0
+                        background:Rectangle { radius:8; color:refreshSavedButton.hovered ? "#6d28d9" : "#7c3aed"; border.color:refreshSavedButton.activeFocus ? "#c4b5fd" : "transparent"; border.width:2 }
+                        contentItem:Text { text:refreshSavedButton.text; color:"#ffffff"; font.family:Theme.family; font.pixelSize:12; font.weight:Font.DemiBold; horizontalAlignment:Text.AlignHCenter; verticalAlignment:Text.AlignVCenter }
+                        ToolTip.visible:hovered
+                        ToolTip.text:"Revisa solo los manifiestos guardados de esta ejecución y las modalidades marcadas. Conserva los anteriores si falla; el CSV se genera manualmente."
+                        onClicked:{page.refreshClock=Date.now(); moduleBridge.command("refresh_saved",{
+                            recordId:moduleBridge.activeId,year:year.value,month:month.currentIndex+1,
+                            modes:page.selectedModes(),workers:threads.value})}
+                    }
+                    Text {
+                        objectName:"manifestRefreshSavedProgress"; Layout.fillWidth:true; Layout.minimumWidth:0; wrapMode:Text.Wrap
+                        text:moduleBridge.refreshSaved.total ? (moduleBridge.refreshSaved.active ?
+                            (moduleBridge.refreshSaved.stage==="applying" || moduleBridge.refreshSaved.stage==="applied" ? "Guardando: " : "Revisados: ") : "Última revisión: ") +
+                            (moduleBridge.refreshSaved.processed || 0) + "/" + moduleBridge.refreshSaved.total + " · " + page.refreshDuration() :
+                            "Revisar cambios en manifiestos ya descargados"
+                        color:Theme.muted; font.family:Theme.family; font.pixelSize:12
+                    }
                 }
             }
         }

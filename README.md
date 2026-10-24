@@ -325,3 +325,9 @@ Conocimientos +5.256 filas y DUAs por manifiesto +32.081 en la cohorte comparabl
 La herramienta independiente conserva las bases actuales y descarga detalles solo
 de los guardados congelados. No incorpora datos al bot ni añade refresco automático.
 [Experimento, alcance, resultados y uso](docs/EXPERIMENTO_REFRESCO_MANIFIESTOS.md).
+
+Para revisar y aplicar cambios, Conocimientos y DUAs ofrecen **Actualizar guardados**,
+un botón púrpura visible con progreso y tiempo. Actúa por petición manual sobre
+los guardados de la ejecución/modalidades elegidas, con respaldo y reemplazo
+transaccional completo; conserva el anterior ante fallos. No se activa al cambiar
+de día ni al abrir y no genera CSV. [Uso y verificación](docs/ACTUALIZAR_GUARDADOS.md).

@@ -76,9 +76,10 @@ idénticas en la referencia. El experimento mantiene un bloqueo de escritor prop
 La interrupción deja las comparaciones confirmadas y no acredita páginas parciales.
 Se conserva toda la información privada bajo `runtime/`, fuera de Git.
 
-No hay todavía botón QML, adopción de resultados ni refresco periódico automático.
-La decisión de integrar resultados frescos deberá preservar respaldos, cobertura,
-identidades y consumidores BLs; este experimento no los actualiza.
+La herramienta experimental no adopta resultados ni dispara refresco automático.
+El 24/10 se añadió por separado el botón manual [Actualizar guardados](ACTUALIZAR_GUARDADOS.md),
+con respaldo y reemplazo transaccional desde una nueva consulta del usuario.
+Los datos de este experimento anterior no se adoptan automáticamente.
 
 ## Verificación
 

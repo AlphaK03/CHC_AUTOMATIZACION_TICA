@@ -694,6 +694,12 @@ El acumulado normal conserva los detalles Guardado; TICA puede añadirles filas
 posteriormente. Existe una herramienta experimental separada para congelar esos
 manifiestos y compararlos con una extracción fresca, sin tocar sus bases actuales.
 La revisión autorizada de octubre Marítimo confirmó +5.256 filas de Conocimientos
-y +32.081 de DUAs en los manifiestos comparables. No hay todavía botón en el panel,
-adopción de resultados ni revalidación automática. La app abierta no se reinicia
-para ejecutar el experimento. [Uso y límites](../docs/EXPERIMENTO_REFRESCO_MANIFIESTOS.md).
+y +32.081 de DUAs en los manifiestos comparables. [Experimento y límites](../docs/EXPERIMENTO_REFRESCO_MANIFIESTOS.md).
+
+Desde el 24/10, **Actualizar guardados** es un botón púrpura visible en Conocimientos
+y DUAs. Elegir la ejecución, su período y modalidades; para una medición corta,
+marcar solo Marítimo. Muestra revisados/total y tiempo; sustituye cada manifiesto
+únicamente tras confirmar toda la extracción y crear respaldo. Fallos conservan
+el resultado anterior. No consulta nuevos, inicia calendarios ni genera CSV.
+**Detener** conserva los reemplazos confirmados. La actualización se solicita
+manualmente, incluso varias veces el mismo día. [Uso, respaldos y recuperación](../docs/ACTUALIZAR_GUARDADOS.md).

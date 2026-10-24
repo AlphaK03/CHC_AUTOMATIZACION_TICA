@@ -110,6 +110,7 @@ class BatchService:
         self.base_info = {}
         self._fixture_portals = {}
         self.processing = False
+        self.refresh_saved_info = {}
         self.knowledge_catalog = {'periods':[],'message':'Actualice las descargas disponibles.'}
 
     def close(self):
@@ -149,6 +150,7 @@ class BatchService:
             'modeSummaries':active.get('modeSummaries',[]),
             'viewMode':self._view_mode, 'viewSearch':self._view_search, 'viewOffset':self._view_offset,
             'jobs':jobs[:200], 'activeJobs':active_jobs, 'outputFolder':str(self.public_root()/(Path('BLS') if self.flow=='bls' else Path('MANIFIESTOS')/output_layout.FLOWS.get(self.flow,'BASES'))) if active else '',
+            'refreshSaved':self.refresh_saved_info or active.get('lastRefreshSaved',{}),
             'lastBase':self.index.get('lastBase',''), 'message':self.message, 'baseInfo':self.base_info,
             'knowledgeCatalog':self.knowledge_catalog}
 
@@ -259,6 +261,8 @@ class BatchService:
             self.index['config'].update({k:v for k,v in request.get('config',{}).items() if k in self.index['config']})
             self.save()
             self.run()
+        elif command == 'refresh_saved':
+            self.refresh_saved(request)
         elif command == 'retry_empty':
             record = self.active()
             if self.flow != 'bls' or not record or request.get('recordId') != record['id']:
@@ -275,6 +279,7 @@ class BatchService:
             if not any(item['id'] == request['id'] for item in self.index['history']):
                 raise ValueError('No se encontró la ejecución')
             self.index['active'] = request['id']
+            self.refresh_saved_info = {}
             selected=dict(self.active()['config'])
             if self.flow == 'contenedores':
                 selected['modes'] = ['maritimo']
@@ -540,6 +545,63 @@ class BatchService:
             self.message = record['state'] + ('; progreso guardado' if record['state'] in ('Error','Detenido') else '')
             if record['state']=='Error' and record.get('error'):
                 self.message += ': ' + record['error']
+            self.save()
+
+    def refresh_saved(self, request):
+        record = self.active()
+        if self.flow not in ('conocimientos','duas') or not record or request.get('recordId') != record['id']:
+            raise ValueError('Seleccione una ejecución guardada de Conocimientos o DUAs.')
+        if self.processing:
+            raise ValueError('Primero termine la consulta activa.')
+        if (request.get('year'),request.get('month')) != (record['spec']['year'],record['spec']['month']):
+            raise ValueError('El período no coincide con la ejecución guardada seleccionada.')
+        modes = manifest_modes(self.flow, request.get('modes',[]))
+        from .manifest_manual_refresh import refresh_saved
+        self.processing = True
+        started = time.time()
+        self.refresh_saved_info = dict(active=True,total=0,processed=0,startedEpoch=started*1000)
+        import logging
+        logging.info('Actualización manual de guardados: %s, %s, %s/%s',self.flow,', '.join(modes),record['spec']['month'],record['spec']['year'])
+        def notify(event):
+            if self.stop.is_set():
+                raise asyncio.CancelledError()
+            stage_name = event['stage']
+            self.refresh_saved_info.update({k:v for k,v in event.items() if k not in ('manifest','database','flow')})
+            if stage_name in ('start','done'):
+                key = manifest_job_key(event['database'],event['manifest'])
+                job = self._jobs.get(key,dict(id=event['manifest'],ordinal=event['ordinal'],
+                    attempts=0,rows=event.get('old',0),mode=event['mode'],database=event['database']))
+                self._jobs[key] = dict(job,state='Descargando' if stage_name=='start' else 'Guardado')
+            self.message = ('Guardando actualizaciones verificadas…' if stage_name in ('applying','applied') else
+                'Actualizando guardados: '+str(event.get('processed',0))+'/'+str(event.get('total',0)))
+            self.emit('progress',snapshot=self.snapshot())
+        async def guarded():
+            operation = asyncio.create_task(refresh_saved(self.root,record,self.flow,modes,
+                int(request.get('workers',self.index['config']['workers'])),notify,self.fixture))
+            async def watch():
+                while not self.stop.is_set():
+                    await asyncio.sleep(.1)
+                operation.cancel()
+            watcher = asyncio.create_task(watch())
+            try:
+                return await operation
+            finally:
+                watcher.cancel()
+                await asyncio.gather(watcher,return_exceptions=True)
+        try:
+            result = asyncio.run(guarded())
+            self.refresh_saved_info.update(result)
+            self.message = (f"Actualización: {result['updated']} con cambios, {result['unchanged']} sin cambios, "
+                f"{result['failed']} sin actualizar · {result['seconds']:.1f} s")
+            logging.info(self.message)
+        except BaseException:
+            self.message = 'Actualización detenida; resultados confirmados conservados.'
+            raise
+        finally:
+            self.processing = False
+            self.refresh_saved_info.update(active=False,seconds=round(time.time()-started,1))
+            record['lastRefreshSaved'] = dict(self.refresh_saved_info)
+            self.inspect()
             self.save()
 
     async def run_manifests(self, record):

@@ -65,7 +65,8 @@ def open_audit(path):
     return db
 
 
-def freeze(root, output, year, month, mode, flows=FLOWS, limit=0):
+def freeze(root, output, year, month, mode, flows=FLOWS, limit=0, record_id=None,
+           full_month=False):
     """Congela la cohorte por base con una transacción de lectura consistente."""
     root, output = Path(root).resolve(), Path(output).resolve()
     if (root / 'data/jobs') == output or (root / 'data/jobs') in output.parents:
@@ -99,7 +100,8 @@ def freeze(root, output, year, month, mode, flows=FLOWS, limit=0):
                 session = json.loads((root / 'data/workbench' / flow / 'session.json').read_text(encoding='utf-8'))
                 candidates = [h for h in session.get('history', [])
                               if h.get('spec', {}).get('year') == year
-                              and h.get('spec', {}).get('month') == month]
+                              and h.get('spec', {}).get('month') == month
+                              and (record_id is None or h.get('id') == record_id)]
                 # Todos los lotes del período, sin fusionar bases históricas.
                 seen = set()
                 for record in candidates:
@@ -118,6 +120,10 @@ def freeze(root, output, year, month, mode, flows=FLOWS, limit=0):
                             if (scope.get('year') != year or scope.get('month') != month
                                     or scope.get('flow', 'conocimientos') != flow):
                                 raise ValueError('Los metadatos del lote y de SQLite no coinciden')
+                            if full_month:
+                                import calendar
+                                scope = dict(scope, desde=f'{year:04d}-{month:02d}-01',
+                                    hasta=f'{year:04d}-{month:02d}-{calendar.monthrange(year,month)[1]:02d}')
                             jobs = source.execute('''SELECT j.id,j.ordinal,j.updated,j.kept_count,m.stats
                                 FROM jobs j JOIN manifests m ON m.id=j.id
                                 WHERE j.state='Guardado' ORDER BY j.ordinal,j.id''').fetchall()
@@ -215,19 +221,19 @@ def differences(path):
     return output
 
 
-async def run(path, workers=4, retry_errors=False, fixture_factory=None):
+async def run(path, workers=4, retry_errors=False, fixture_factory=None, progress_callback=None):
     sys.path.insert(0, str(ROOT / 'bots/manifiestos/src'))
     from conocimientos_queue import OutputLock
     if not Path(path).is_file():
         raise ValueError('No existe la referencia experimental')
     lock = OutputLock(str(Path(path).resolve()) + '.lock')
     try:
-        return await _run(path, workers, retry_errors, fixture_factory)
+        return await _run(path, workers, retry_errors, fixture_factory, progress_callback)
     finally:
         lock.close()
 
 
-async def _run(path, workers=4, retry_errors=False, fixture_factory=None):
+async def _run(path, workers=4, retry_errors=False, fixture_factory=None, progress_callback=None):
     """Obtiene enlaces frescos pero extrae solo identidades de la cohorte congelada."""
     if not 1 <= workers <= 4:
         raise ValueError('Use de 1 a 4 consultas simultáneas')
@@ -280,6 +286,9 @@ async def _run(path, workers=4, retry_errors=False, fixture_factory=None):
                             while not queue.empty():
                                 target = queue.get_nowait()
                                 started, request = time.monotonic(), None
+                                if progress_callback:
+                                    progress_callback(dict(stage='start', flow=flow, database=source['path'],
+                                        mode=scope['mode'], manifest=target['manifest'], ordinal=target['ordinal']))
                                 try:
                                     mid = target['manifest']
                                     href = links.get(mid)
@@ -308,9 +317,14 @@ async def _run(path, workers=4, retry_errors=False, fixture_factory=None):
                                         await request.close()
                                     queue.task_done()
                                     row = db.execute('SELECT status,new_count FROM observations WHERE target=?', (target['id'],)).fetchone()
-                                    print(json.dumps(dict(flow=flow, manifest=target['manifest'],
+                                    event = dict(flow=flow, manifest=target['manifest'],
                                         old=target['old_count'], status=row['status'] if row else 'interrumpido',
-                                        new=row['new_count'] if row else None), ensure_ascii=False), flush=True)
+                                        new=row['new_count'] if row else None, stage='done',
+                                        database=source['path'], mode=scope['mode'], ordinal=target['ordinal'])
+                                    if progress_callback:
+                                        progress_callback(event)
+                                    else:
+                                        print(json.dumps(event, ensure_ascii=False), flush=True)
                         tasks = [asyncio.create_task(worker()) for _ in range(min(workers, len(targets)))]
                         try:
                             await asyncio.gather(*tasks)

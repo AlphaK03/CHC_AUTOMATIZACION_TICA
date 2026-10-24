@@ -16,6 +16,7 @@ def inputs(state, rows):
 class FixturePortal:
     def __init__(self, mode, spec):
         self.mode, self.spec, self.requests = mode, spec, []
+        self.refresh_details = False
         portal = self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args): pass
@@ -98,6 +99,13 @@ class FixturePortal:
             values = [] if n==2 else ([[str(offset+1),'00001234567890123456789' if offset==0 else '000000000000000000003','N','','HWB','00123','Empresa','188AJU','','','840MIA','','CER','']]
                 + ([['2','000000000000000000002','S','','HWB','00123','Empresa','188AJU','','','840MIA','','CER','']] if offset==0 else []))
             grid = {'Count':len(values)}
+            if self.refresh_details and n==1:
+                if offset:
+                    extra = list(values[0]); extra[0]='4'; extra[1]='000000000000000000004'
+                    values.append(extra)
+                elif values:
+                    values[0][-2] = 'MOD'
+                grid['Count'] = len(values)
             if values:
                 grid['0'] = {'Props':[[f+'_0001'] for f in FIELDS]}
             state.update(Grid1ContainerData=json.dumps(grid), nRC_Grid1=str(len(values)),
@@ -108,6 +116,9 @@ class FixturePortal:
             if n==3 and flow=='duas':
                 return '<form action="/frmAmbiente.aspx?aspxerrorpath=/Tica/hcgduama.aspx"></form>','text/html'
             values = [] if n==2 else [['0001','002']+['']*(len(HEADERS[flow])-2)]
+            if self.refresh_details and n==1:
+                values[0][-1] = '24/10/26'
+                extra = list(values[0]); extra[4]='000007'; values.append(extra)
             grid = {'Count':len(values),'Columns':[{} for _ in HEADERS[flow]]}
             if values:
                 grid['0'] = {'Props':[[f+'_0001'] for f in TABLE_FIELDS[flow]]}

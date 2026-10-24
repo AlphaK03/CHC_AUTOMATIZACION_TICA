@@ -141,7 +141,7 @@ def observed(label, subject=None):
     return decorate
 
 
-COMMANDS={'run':'Ejecutando consultas','retry_empty':'Reconsultando vacíos','daily_run':'Diario automático',
+COMMANDS={'run':'Ejecutando consultas','refresh_saved':'Actualizando manifiestos guardados','retry_empty':'Reconsultando vacíos','daily_run':'Diario automático',
           'retry_month':'Reintentando pendientes del mes','retry_day':'Reintentando pendientes del día',
           'export':'Generando CSV','export_all':'Generando todos los CSV guardados','refresh':'Leyendo bases y progreso','initialize':'Cargando bases de datos',
           'knowledge_build':'Preparando base BLs desde Conocimientos','knowledge_catalog':'Buscando Conocimientos terminados',

@@ -267,7 +267,7 @@ class BatchBridge(QObject):
         if not self.enabled or self._closing or self._knowledge_request is not None:
             return False
         channel = self.current()
-        if channel.busy and channel.active_command in {'run','retry_empty'}:
+        if channel.busy and channel.active_command in {'run','retry_empty','refresh_saved'}:
             return False
         if not channel.error and (not channel.ready or
                 (channel.busy and channel.active_command in {'refresh','select','import_progress'})):
@@ -309,6 +309,8 @@ class BatchBridge(QObject):
     def activeId(self): return self.current().snapshot['activeId']
     @Property(str, notify=changed)
     def status(self): return self._knowledge_status or self.current().snapshot.get('message') or ('Listo' if self.ready else 'Preparando…')
+    @Property('QVariantMap', notify=changed)
+    def refreshSaved(self): return self.current().snapshot.get('refreshSaved',{})
     @Property('QVariantMap', notify=changed)
     def knowledgeCatalog(self):
         if not self.isBls:
@@ -372,6 +374,8 @@ class BatchBridge(QObject):
 
     @Slot(str, 'QVariantMap', result=bool)
     def command(self, name, data):
+        if name == 'refresh_saved' and (self.busy or self._closing or self._review.running):
+            return False
         if self.isBls and name == 'retry_empty':
             if self.busy or self._closing or self._review.running:
                 return False
