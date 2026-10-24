@@ -1,5 +1,13 @@
 # Mantenimiento de CHC Workbench
 
+- Regla de oro del usuario (23/10/2026): al cerrar cada entrega, confirmar los
+  cambios en Git y subirlos al remoto de la rama de trabajo. No dejar commits
+  solamente locales; comprobar que HEAD coincide con su rama remota después
+  del push. Mantener fuera de Git bases, progreso, configuración privada,
+  credenciales y entornos regenerables, según el .gitignore.
+- El proyecto y sus datos de trabajo deben permanecer fuera de OneDrive.
+  Ubicación local prevista: `C:/Proyectos/CHC_AUTOMATIZACION_TICA`.
+
 - Preferencia y autorización permanente del usuario (22/10/2026): al cerrar cada
   entrega revisar y retirar los residuos pesados generados por el trabajo, como
   copias temporales de diagnóstico, instalaciones QA, paquetes intermedios de
