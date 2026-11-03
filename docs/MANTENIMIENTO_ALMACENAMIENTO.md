@@ -1,5 +1,16 @@
 # Mantenimiento del almacenamiento
 
+## Muestra real de Contenedores cancelada — 2/11/2026
+
+El usuario canceló una muestra de tres manifiestos reales por su duración.
+Se detuvieron su supervisor y su familia de procesos, sin tocar lotes operativos.
+La revisión automática rechazó limpiar el temporal propio
+`%TEMP%/CHC-real-stall-oc9tiiiq` con `blocked by policy`.
+No se reintentó el borrado por otra vía ni se presenta espacio como liberado.
+Recibo privado: `runtime/real-stall/cancelled-contenedores.json`, en el worktree
+`C:/Proyectos/CHC_OPTIMIZACION_RAM`. La preferencia vigente exige muestras reales
+pequeñas y suficientes para demostrar extracción, sin prolongar estas pruebas.
+
 El usuario autorizó el 22/10/2026 retirar residuos pesados que no intervienen en
 la aplicación y evitar que vuelvan a acumularse en futuras entregas. La regla
 persistente está en `AGENTS.md`. No añade un servicio ni un proceso de limpieza

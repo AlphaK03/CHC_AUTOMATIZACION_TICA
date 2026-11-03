@@ -1,3 +1,17 @@
+## Pruebas reales breves y cancelación — 2/11/2026
+
+El usuario pidió comprobar literalmente el webscraping de TICA y luego aclaró
+que bastan pocos casos pequeños que extraigan información. No usar datos quemados,
+fixtures ni flujos similares como validación funcional, ni prolongar muestras
+extensas. Canceló la muestra grande de Contenedores: quedó detenida, sin procesos
+ni navegadores de prueba y sin aplicar datos a las colas habituales. No iniciar
+más descargas de prueba ni reabrir la app automáticamente; la cerró él mismo.
+La comparación real de dos manifiestos aéreos devolvió HTTP 504 también en la
+rama base; la optimizada devolvió 504/frmAmbiente. Esos casos no se dieron por
+extraídos. Las muestras reales anteriores sí confirmaron información de los seis
+bots. Ver [evidencia y alcance](DIAGNOSTICO_DESCARGAS_REALES.md). El código funcional
+sigue en `24d8c52`; se descartaron ajustes adicionales sin validar.
+
 ## Optimización de memoria aislada — 2/11/2026
 
 El usuario pidió crear una rama nueva sin afectar la actual y autorizó pruebas

@@ -1,5 +1,15 @@
 # Mantenimiento de CHC Workbench
 
+- Preferencia explícita del usuario (02/11/2026): validar el funcionamiento
+  mediante webscraping real de TICA, sin sustituirlo por datos quemados,
+  HTML local, fixtures ni flujos similares. Bastan unos pocos casos pequeños
+  que demuestren extracción de información; no prolongar pruebas con lotes
+  grandes ni iniciar descargas innecesarias. Cancelar la prueba cuando lo pida.
+  Mantener salidas independientes y originales intactos; una prueba cancelada,
+  pendiente o parcial no acredita extracción completa ni se marca Guardado.
+  Esta preferencia prevalece sobre las recomendaciones anteriores de usar
+  simulaciones como validación funcional de las entregas.
+
 - Regla de oro del usuario (23/10/2026): al cerrar cada entrega, confirmar los
   cambios en Git y subirlos al remoto de la rama de trabajo. No dejar commits
   solamente locales; comprobar que HEAD coincide con su rama remota después
