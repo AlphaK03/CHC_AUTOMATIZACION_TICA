@@ -1,0 +1,336 @@
+{
+  "schema": 1,
+  "date_local": "2026-11-02",
+  "baseline_commit": "8f75fb9a681b8915a0ecb44396c53fb6a4bfd26c",
+  "branch": "feature/optimizar-memoria-motores",
+  "units": "MiB; resident sums working sets including shared pages; committed is private committed memory, not physical RAM",
+  "final_repetitions_per_profile": 2,
+  "offline_profiles": [
+    {
+      "profile": "detalles",
+      "before_resident_mib": 96.59,
+      "after_resident_mib": 95.84,
+      "before_committed_mib": 423.16,
+      "after_committed_mib": 69.7,
+      "before_cold_load_and_run_s": 3.175,
+      "after_cold_load_and_run_s": 3.248,
+      "same_output": true
+    },
+    {
+      "profile": "duas_transito",
+      "before_resident_mib": 89.85,
+      "after_resident_mib": 89.19,
+      "before_committed_mib": 416.14,
+      "after_committed_mib": 62.84,
+      "before_cold_load_and_run_s": 3.122,
+      "after_cold_load_and_run_s": 3.379,
+      "same_output": true
+    },
+    {
+      "profile": "talon",
+      "before_resident_mib": 89.82,
+      "after_resident_mib": 89.09,
+      "before_committed_mib": 416.2,
+      "after_committed_mib": 62.64,
+      "before_cold_load_and_run_s": 3.095,
+      "after_cold_load_and_run_s": 3.221,
+      "same_output": true
+    },
+    {
+      "profile": "xmovimientos",
+      "before_resident_mib": 89.68,
+      "after_resident_mib": 89.13,
+      "before_committed_mib": 416.95,
+      "after_committed_mib": 63.77,
+      "before_cold_load_and_run_s": 2.917,
+      "after_cold_load_and_run_s": 3.178,
+      "same_output": true
+    },
+    {
+      "profile": "tabla",
+      "before_resident_mib": 81.77,
+      "after_resident_mib": 34.92,
+      "before_committed_mib": 408.21,
+      "after_committed_mib": 16.82,
+      "before_cold_load_and_run_s": 2.146,
+      "after_cold_load_and_run_s": 2.147,
+      "same_output": true
+    },
+    {
+      "profile": "conocimientos",
+      "before_resident_mib": 81.67,
+      "after_resident_mib": 34.94,
+      "before_committed_mib": 408.11,
+      "after_committed_mib": 16.83,
+      "before_cold_load_and_run_s": 2.437,
+      "after_cold_load_and_run_s": 2.484,
+      "same_output": true
+    },
+    {
+      "profile": "duas",
+      "before_resident_mib": 81.73,
+      "after_resident_mib": 34.84,
+      "before_committed_mib": 408.22,
+      "after_committed_mib": 16.71,
+      "before_cold_load_and_run_s": 2.608,
+      "after_cold_load_and_run_s": 2.63,
+      "same_output": true
+    },
+    {
+      "profile": "movimientos",
+      "before_resident_mib": 81.49,
+      "after_resident_mib": 34.78,
+      "before_committed_mib": 407.86,
+      "after_committed_mib": 16.67,
+      "before_cold_load_and_run_s": 2.683,
+      "after_cold_load_and_run_s": 2.655,
+      "same_output": true
+    },
+    {
+      "profile": "contenedores",
+      "before_resident_mib": 81.53,
+      "after_resident_mib": 34.86,
+      "before_committed_mib": 407.88,
+      "after_committed_mib": 16.77,
+      "before_cold_load_and_run_s": 8.395,
+      "after_cold_load_and_run_s": 8.43,
+      "same_output": true
+    },
+    {
+      "profile": "bls",
+      "before_resident_mib": 84.76,
+      "after_resident_mib": 34.9,
+      "before_committed_mib": 409.4,
+      "after_committed_mib": 16.8,
+      "before_cold_load_and_run_s": 1.222,
+      "after_cold_load_and_run_s": 1.353,
+      "same_output": true
+    },
+    {
+      "profile": "bases",
+      "before_resident_mib": 87.56,
+      "after_resident_mib": 34.89,
+      "before_committed_mib": 413.78,
+      "after_committed_mib": 16.78,
+      "before_cold_load_and_run_s": 1.3,
+      "after_cold_load_and_run_s": 0.265,
+      "same_output": true
+    },
+    {
+      "profile": "bls_source",
+      "before_resident_mib": 87.83,
+      "after_resident_mib": 34.88,
+      "before_committed_mib": 414.09,
+      "after_committed_mib": 17.74,
+      "before_cold_load_and_run_s": 1.496,
+      "after_cold_load_and_run_s": 0.324,
+      "same_output": true
+    }
+  ],
+  "offline_data_profiles_with_identical_output": 10,
+  "large_listing": {
+    "before": {
+      "listed": 2000,
+      "selected": 6,
+      "workers": 6,
+      "steady": {
+        "resident_mib": 652.73,
+        "committed_mib": 898.4
+      },
+      "seconds": 2.405,
+      "saved": 5,
+      "pending_invalid": 1,
+      "rows": 12,
+      "sha256": "daa99111869a903c792e35f328036fe958c8cdea5a49e83488676b74972023a6",
+      "peak_resident_mib": 652.73,
+      "peak_committed_mib": 898.4,
+      "extraction_resident_mib": null,
+      "extraction_committed_mib": null,
+      "samples": 15,
+      "errors": []
+    },
+    "after": {
+      "listed": 2000,
+      "selected": 6,
+      "workers": 6,
+      "steady": {
+        "resident_mib": 416.02,
+        "committed_mib": 308.71
+      },
+      "seconds": 2.633,
+      "saved": 5,
+      "pending_invalid": 1,
+      "rows": 12,
+      "sha256": "daa99111869a903c792e35f328036fe958c8cdea5a49e83488676b74972023a6",
+      "peak_resident_mib": 663.97,
+      "peak_committed_mib": 544.23,
+      "extraction_resident_mib": null,
+      "extraction_committed_mib": null,
+      "samples": 16,
+      "errors": []
+    }
+  },
+  "numeric_threads_comparison": {
+    "1": {
+      "resident_mib": 416.02,
+      "committed_mib": 308.71
+    },
+    "2": {
+      "resident_mib": 415.25,
+      "committed_mib": 340.41
+    },
+    "4": {
+      "resident_mib": 416.25,
+      "committed_mib": 405.6
+    },
+    "same_output": true
+  },
+  "live_samples": [
+    {
+      "profile": "detalles",
+      "confirmed_rows": 1,
+      "public_columns": 38,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 7.111
+    },
+    {
+      "profile": "duas_transito",
+      "confirmed_rows": 3,
+      "public_columns": 8,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 4.934
+    },
+    {
+      "profile": "talon",
+      "confirmed_rows": 8,
+      "public_columns": 7,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 5.067
+    },
+    {
+      "profile": "xmovimientos",
+      "confirmed_rows": 2,
+      "public_columns": 6,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 4.171
+    },
+    {
+      "profile": "tabla",
+      "confirmed_rows": 16,
+      "public_columns": 29,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 4.254
+    },
+    {
+      "profile": "conocimientos",
+      "confirmed_rows": 135,
+      "public_columns": 15,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 7.632
+    },
+    {
+      "profile": "bls",
+      "confirmed_rows": 1,
+      "public_columns": 20,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 8.236
+    },
+    {
+      "profile": "duas",
+      "confirmed_rows": 262,
+      "public_columns": 12,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 5.479
+    },
+    {
+      "profile": "movimientos",
+      "confirmed_rows": 3,
+      "public_columns": 16,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 4.972
+    },
+    {
+      "profile": "contenedores",
+      "confirmed_rows": 200,
+      "public_columns": 19,
+      "succeeded": 1,
+      "pending": 0,
+      "run_seconds": 104.396
+    }
+  ],
+  "automated_tests": {
+    "unique_tests": 114,
+    "executions": 119,
+    "all_passed": true,
+    "groups": [
+      {
+        "group": "qt-flows",
+        "exit_code": 0,
+        "tests": 19,
+        "seconds": 115.69
+      },
+      {
+        "group": "qt-coordination",
+        "exit_code": 0,
+        "tests": 12,
+        "seconds": 118.3
+      },
+      {
+        "group": "manifest-runtime",
+        "exit_code": 0,
+        "tests": 30,
+        "seconds": 36.97
+      },
+      {
+        "group": "bls-runtime",
+        "exit_code": 0,
+        "tests": 34,
+        "unique_tests": 29,
+        "extra_get_repetitions": 5,
+        "seconds": 37.59
+      },
+      {
+        "group": "dua-runtime",
+        "exit_code": 0,
+        "tests": 24,
+        "seconds": 22.95
+      }
+    ]
+  },
+  "qml_smoke": {
+    "exit_code": 0,
+    "warnings": 0,
+    "connected_modules": 6,
+    "geometry_sizes": [
+      [
+        1280,
+        774
+      ],
+      [
+        1000,
+        680
+      ],
+      [
+        1000,
+        600
+      ]
+    ]
+  },
+  "source_integrity": {
+    "ok": true,
+    "registered_files": 166,
+    "python_syntax_checked": 142
+  },
+  "operational_workspace_changed": false,
+  "operational_app_restarted": false,
+  "deployment_performed": false
+}

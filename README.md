@@ -1,5 +1,13 @@
 # CHC Workbench — Automatización TICA
 
+**Optimización de memoria en rama independiente:**
+`feature/optimizar-memoria-motores` reduce la carga anticipada de Manifiestos/BLs,
+limita el cálculo nativo y libera el listado oculto de Conocimientos tras
+confirmarlo. Comparación con seis trabajadores, extracción real acotada de los
+seis bots y recuperación/navegación verificadas; fuentes originales conservadas.
+No integrada ni instalada sobre la rama de uso. Ver
+[mediciones, alcance y límites](docs/OPTIMIZACION_MEMORIA.md).
+
 Desarrollo local vigente en `C:/Proyectos/CHC_AUTOMATIZACION_TICA`, fuera de
 OneDrive. Código clonado del remoto y entornos reconstruidos; datos y SQLite
 conservados y verificados. El usuario confirmó el 23/10/2026 que eliminó el

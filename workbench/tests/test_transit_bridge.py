@@ -49,6 +49,7 @@ class TransitIntegrationTest(unittest.TestCase):
                 name = month_names[start.month-1] + str(start.year)[-2:]
                 plan = call('prepare_import', {'source': str(source), 'sheet': 'base', 'name': name})['importPlan']
                 call('import', plan)
+                manual_id = bridge.activeTable['id']
                 call('run')
                 self.assertEqual(bridge.summary['succeeded'], 1)
                 self.assertEqual(bridge.summary['retry'], 1)
@@ -65,11 +66,16 @@ class TransitIntegrationTest(unittest.TestCase):
                 self.assertEqual(rows[0]['Descripción_Comercial'], 'Descripción con texto original')
                 call('detail', {'jobId': '001-2026-000001'})
                 self.assertEqual(len(bridge.jobDetail['resultRows']), 52)
+                with closing(sqlite3.connect(root/'data/queues'/f'{manual_id}.sqlite3')) as db:
+                    pending_before = db.execute("SELECT status,attempts,result FROM jobs WHERE dua='001-2026-999998'").fetchone()
                 call('configure', {'config': {'daily_mode': True, 'daily_start_date': start.isoformat(), 'daily_end_date': end.isoformat()}})
                 call('daily_run', {'bounded': True})
                 self.assertEqual(bridge.daily['phase'], 'completed')
                 self.assertFalse(bridge.dailyActive)
-                self.assertEqual(bridge.summary['retry'], 1, 'El rango diario no procesa pendientes de otros días.')
+                # Un rango entre meses deja activa la tabla del último mes.
+                # Verificar el pendiente en su tabla original, sin depender de la vista.
+                with closing(sqlite3.connect(root/'data/queues'/f'{manual_id}.sqlite3')) as db:
+                    self.assertEqual(db.execute("SELECT status,attempts,result FROM jobs WHERE dua='001-2026-999998'").fetchone(),pending_before)
                 with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
                     self.assertEqual(db.execute('SELECT DISTINCT regimen FROM queries').fetchall(), [('TRANSITO',)])
                     attempts = db.execute('SELECT SUM(attempts) FROM queries').fetchone()[0]
@@ -80,6 +86,7 @@ class TransitIntegrationTest(unittest.TestCase):
                 with closing(sqlite3.connect(root/'data/daily/bases.sqlite3')) as db:
                     self.assertEqual(db.execute('SELECT SUM(attempts) FROM queries').fetchone()[0], attempts)
                 # Limpiar filas completadas conserva todas sus líneas en el CSV mensual.
+                call('select', {'tableId': manual_id})
                 call('clean', {'confirmTableId': bridge.activeTable['id'], 'confirmation': 'BORRAR'})
                 call('export')
                 rows = exported_rows()

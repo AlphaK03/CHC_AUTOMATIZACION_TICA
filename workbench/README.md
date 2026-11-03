@@ -703,3 +703,17 @@ marcar solo Marítimo. Muestra revisados/total y tiempo; sustituye cada manifies
 el resultado anterior. No consulta nuevos, inicia calendarios ni genera CSV.
 **Detener** conserva los reemplazos confirmados. La actualización se solicita
 manualmente, incluso varias veces el mismo día. [Uso, respaldos y recuperación](../docs/ACTUALIZAR_GUARDADOS.md).
+
+## Memoria de los motores: rama de optimización
+
+En `feature/optimizar-memoria-motores` el panel conserva su navegación y los
+trabajadores elegidos en Configuración. Los resúmenes de Manifiestos/BLs se pueden
+leer antes de cargar las librerías de extracción; estas se preparan al ejecutar
+una operación que las necesita. Conocimientos libera el listado del navegador
+oculto después de confirmarlo, conservando sesión y renovación de enlaces.
+El navegador visible mantiene su recorrido habitual.
+
+El límite interno de cálculo de NumPy/OpenBLAS es independiente de los hilos de
+descarga. No hay una nueva opción ni hace falta cambiar los seis trabajadores
+para obtener el ahorro. La rama sigue separada de la instalación/rama de uso.
+Consultar [mediciones y comprobaciones](../docs/OPTIMIZACION_MEMORIA.md).

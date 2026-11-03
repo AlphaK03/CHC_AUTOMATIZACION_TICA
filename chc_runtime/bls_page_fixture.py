@@ -46,7 +46,11 @@ class BLSPagePortal:
                     <button name="BTN_ENTER1" onclick="fetch(location.href,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({vVFCH1:document.getElementById('vVFCH1').value,vVFCHF:document.getElementById('vVFCHF').value,vCGNROCON:document.getElementById('vCGNROCON').value,GXState:JSON.stringify({_EventName:'EENTER.'})})})">Buscar</button>
                     <table id="Grid2ContainerTbl"></table>'''
                 if self.search_get:
-                    body=body.replace('<input id="vCGNROCON">', '''<input id="vCGNROCON" onblur="window.__getPending=true;fetch(location.pathname+'?lookup=1&amp;bl='+encodeURIComponent(this.value)+'&amp;from='+encodeURIComponent(document.getElementById('vVFCH1').value)+'&amp;to='+encodeURIComponent(document.getElementById('vVFCHF').value)).then(()=>window.__getPending=false)">''')
+                    # Modelar el indicador GeneXus hasta consumir la respuesta:
+                    # declararlo siempre ocioso introducía un POST adicional por
+                    # carrera en el test de GET al perder foco.
+                    body=body.replace('iscallactive:()=>false','iscallactive:()=>Boolean(window.__getPending)')
+                    body=body.replace('<input id="vCGNROCON">', '''<input id="vCGNROCON" onblur="window.__getPending=true;fetch(location.pathname+'?lookup=1&amp;bl='+encodeURIComponent(this.value)+'&amp;from='+encodeURIComponent(document.getElementById('vVFCH1').value)+'&amp;to='+encodeURIComponent(document.getElementById('vVFCHF').value)).then(response=>response.text()).finally(()=>window.__getPending=false)">''')
                     body=body.replace('onclick="fetch(', 'onclick="if(window.__getPending)return;fetch(')
                 return 200,'text/html',body
             bl = form['vCGNROCON'][0] if post else query['bl'][0]

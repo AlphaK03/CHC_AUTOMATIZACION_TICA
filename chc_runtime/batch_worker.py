@@ -10,11 +10,28 @@ import threading
 import time
 import traceback
 from .activity import ActivityReporter, EventLog, COMMANDS
+from .numeric_runtime import configure as configure_numeric_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def preload_engine(module, flow):
+    """Cargar extensiones nativas en el hilo principal, solo cuando se necesitan."""
+    import pandas
+    if module == 'bls':
+        from .bls_identifiers import install_input_support
+        install_input_support()
+        from core.engine import BLSProcessor
+        from input_files import load_input_file
+    else:
+        from manifest_scraper import ManifestScraper
+        if flow in ('bases', 'bls_source'):
+            from .bls_identifiers import install_base_support
+            install_base_support()
+
+
 def main(module='manifiestos'):
+    configure_numeric_runtime()
     # Windows usa la página de códigos local para pipes: JSONL siempre es UTF-8.
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8',errors='replace')
@@ -26,19 +43,12 @@ def main(module='manifiestos'):
     args = parser.parse_args()
     flow = 'bls' if module == 'bls' else args.flow
     sys.path.insert(0, str(ROOT / 'bots' / module / 'src'))
-    # Cargar extensiones nativas antes de bloquear el hilo principal leyendo stdin.
-    # NumPy en Windows puede bloquear su inicialización desde el trabajador.
-    import pandas
-    if module == 'bls':
-        from .bls_identifiers import install_input_support
-        install_input_support()
-        from core.engine import BLSProcessor
-        from input_files import load_input_file
-    else:
-        from manifest_scraper import ManifestScraper
-        if flow in ('bases','bls_source'):
-            from .bls_identifiers import install_base_support
-            install_base_support()
+    # Catálogos y resúmenes solo usan SQLite/JSON. No cargar pandas, NumPy ni
+    # Playwright para mostrarlos. Una operación que sí los necesita se prepara
+    # aquí, en el hilo principal y antes de volver a bloquearlo leyendo stdin:
+    # importar NumPy desde el trabajador bloqueó inicializaciones en Windows.
+    engine_loaded = False
+    lightweight_commands = {'refresh', 'select', 'view', 'configure', 'knowledge_catalog'}
     from chc_runtime.manifest_service import BatchService
     lock = threading.Lock()
     def emit(event, **data):
@@ -88,6 +98,15 @@ def main(module='manifiestos'):
                     emit('error', command=command, message='Este procedimiento sigue trabajando; deténgalo antes de cambiarlo.')
                 else:
                     stop.clear()
+                    if not engine_loaded and command not in lightweight_commands:
+                        try:
+                            preload_engine(module, flow)
+                            engine_loaded = True
+                        except Exception as exc:
+                            logging.exception('No se pudo preparar el motor de %s.', flow)
+                            emit('error', command=command, requestId=request.get('requestId'), message=str(exc))
+                            emit('idle', command=command, snapshot=service.snapshot())
+                            continue
                     active = threading.Thread(target=execute, args=(request,), daemon=True)
                     active.start()
             except Exception as exc:

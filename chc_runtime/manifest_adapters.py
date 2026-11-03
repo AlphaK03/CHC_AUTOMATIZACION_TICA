@@ -85,6 +85,19 @@ class RowsStore(IncrementalStore,KnowledgeStore):
 
 
 class WorkbenchManifestScraper(ManifestScraper):
+    async def _query_conoc_main(self):
+        await super()._query_conoc_main()
+        if self.config.get('workbench_release_listing', False):
+            # La respuesta AJAX confirmada ya está en conoc_main_grid/values.
+            # Los detalles usan context.request, no el DOM del listado. Soltar
+            # esa página evita retener miles de filas y sus objetos GeneXus.
+            # Conservar el contexto/cookies y una página vacía permite que la
+            # renovación original vuelva a navegar y confirme enlaces nuevos.
+            previous = self.page
+            self.page = await self.context.new_page()
+            await self._block_static(self.page)
+            await previous.close()
+
     async def process_conocimientos_links(self,link_field='vVCONS',fetch_result=None):
         if getattr(self.conoc_store,'cumulative',False):
             # Reconciliar los identificadores antiguos antes de añadir nuevos:

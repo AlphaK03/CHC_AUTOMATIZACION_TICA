@@ -1,5 +1,6 @@
 """Paginación y reanudación BLs con navegador y HTTP exclusivamente locales."""
 import asyncio
+import csv
 from contextlib import closing
 import json
 from pathlib import Path
@@ -65,7 +66,8 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         messages=[event.get('message','') for event in activity]
         self.assertTrue(any('Buscando y descargando BL' in message for message in messages))
         self.assertTrue(any('Esperando página HTTP' in message for message in messages))
-        self.assertTrue(any('Exportando CSV de BLs' in message for message in messages))
+        self.assertFalse(any('Exportando CSV de BLs' in message for message in messages))
+        self.assertFalse(list(self.root.rglob('*.csv')))
         self.assertEqual((first['saved'],first['pending'],first['result_rows']),(0,1,0))
         self.assertEqual(self.counts(first['database']),(('Pendiente',1,0),0))
         pages=Path(first['database']).with_name('bls_pages.sqlite3')
@@ -80,6 +82,16 @@ class BLSPagesTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second['database'],first['database'])
         self.assertEqual(self.portal.offsets,[0,4,6])
         self.assertEqual(self.counts(second['database']),(('Guardado',2,7),7))
+
+        # La consulta/reanudación conserva SQLite; el CSV requiere acción manual.
+        self.assertFalse(list(self.root.rglob('*.csv')))
+        from core.store import export_saved
+        destination=self.root/'manual.csv'
+        export_saved(second['database'],destination)
+        with destination.open(encoding='utf-8-sig',newline='') as stream:
+            exported=list(csv.reader(stream))
+        self.assertEqual(len(exported),8)  # encabezado + siete líneas completas
+        self.assertEqual(len(exported[0]),20)
         self.assertEqual((second['saved'],second['result_rows']),(1,7))
         self.portal.offsets.clear()
         await self.run_bot()

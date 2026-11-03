@@ -210,6 +210,8 @@ async def review(root, module, request, stop, emit, fixture=False):
 
 
 def main():
+    from .numeric_runtime import configure
+    configure()
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--module',choices=(*DUA_MODULES,'bls','manifiestos'),required=True)
     parser.add_argument('--storage-root',type=Path,required=True)

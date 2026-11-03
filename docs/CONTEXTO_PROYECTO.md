@@ -1,3 +1,45 @@
+## Optimización de memoria aislada — 2/11/2026
+
+El usuario pidió crear una rama nueva sin afectar la actual y autorizó pruebas
+reales acotadas para reducir memoria sin alterar navegación ni resultados.
+`feature/sharepoint-oauth2` estaba limpia y publicada en `8f75fb9`; se verificó
+HEAD contra su remoto antes de crear `feature/optimizar-memoria-motores` en
+`C:/Proyectos/CHC_OPTIMIZACION_RAM`. La app del usuario y sus consultas permanecen
+en la ruta/rama anteriores; no reiniciar ni instalar esta rama automáticamente.
+
+`numeric_runtime.py` limita el cálculo nativo antes de importar pandas, sin cambiar
+los trabajadores de descarga. `batch_worker.py` difiere imports pesados hasta el
+primer comando que los requiere y los realiza en el hilo principal de Windows.
+`KnowledgeSource` prepara el adaptador de generación al construir, no al leer
+catálogos. En Conocimientos oculto, `manifest_adapters.py` libera la página del
+listado tras recibir AJAX confirmado y conserva contexto/cookies/renovación.
+Los parsers y las 166 fuentes/recursos inventariados siguen intactos.
+
+En un listado sintético de 2.000 filas y seis trabajadores: memoria estable
+residente 652,73 → 416,02 MiB; comprometida 898,40 → 308,71 MiB; mismas filas y
+firma. El pico inicial no baja. Los procesos batch recién abiertos pasan de
+82–88 a unos 35 MiB residentes; no confundir ahorro comprometido con RAM física.
+Diez muestras reales terminaron sin pendientes: cuatro DUA, cinco procedimientos
+de Manifiestos y un BL desde Conocimientos nuevos, con raíces temporales propias.
+Se usaron solo dos DUAs distintos y una ronda por bot; no se modificaron colas,
+calendarios, CSV ni configuración de operación ni se subieron resultados.
+
+La validación incluye catálogo BLs sin dependencias pesadas, renovación de enlaces
+con cookies, paginación, cancelación, recuperación, mes y QML. Se corrigió una
+suposición del test de Tránsito al cruzar meses, reproducida también en la base,
+sin cambiar el motor. App nueva comprobada fuera de pantalla antes de documentar,
+seis módulos conectados y cero avisos QML; la instancia habitual sigue abierta.
+Dos tests antiguos de CSV automático se alinearon con la exportación manual,
+comprobando los fallos también en la rama base. El fixture GET de BLs ahora anuncia
+su petición activa como GeneXus hasta consumir la respuesta, evitando una carrera
+del portal local; no se cambió la búsqueda de producción.
+Pasaron 114 pruebas automatizadas distintas y cinco repeticiones adicionales del
+GET de BLs, además de las diez muestras reales; los cinco grupos finales quedaron
+en verde. El recibo público contiene solo métricas y conteos, sin datos extraídos.
+Consultar [diseño, métricas, muestras y límites](OPTIMIZACION_MEMORIA.md) y su recibo
+JSON. Las pruebas usan TemporaryDirectory y guardan solo métricas/capturas pequeñas;
+los entornos del worktree reutilizan los existentes sin copiarlos.
+
 ## Botón manual para actualizar guardados — 24/10/2026
 
 El usuario prefirió actualización manual en vez de un disparador diario y pidió

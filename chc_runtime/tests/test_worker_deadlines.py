@@ -1,5 +1,6 @@
 """Un hilo bloqueado libera su reserva y no impide completar ni detener el lote."""
 import asyncio
+import csv
 from pathlib import Path
 import sys
 import tempfile
@@ -147,7 +148,12 @@ class DeadlineTest(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(asyncio.to_thread(self.processor.run, self.store, lambda _: None), 15)
         summary = self.store.summary()
         self.assertEqual((summary['running'], summary['succeeded'], summary['retry']), (0, 2, 1))
-        self.assertTrue(self.processor.output_paths['output_csv'].is_file())
+        self.assertFalse(self.processor.output_paths['output_csv'].is_file())
+        self.store.export(self.processor.output_paths,self.processor.fields)
+        with self.processor.output_paths['output_csv'].open(encoding='utf-8-sig',newline='') as stream:
+            exported=list(csv.DictReader(stream))
+        self.assertEqual({row['numero_del_dua'] for row in exported},
+                         {'001-2026-000002','001-2026-000003'})
 
 
 if __name__ == '__main__':

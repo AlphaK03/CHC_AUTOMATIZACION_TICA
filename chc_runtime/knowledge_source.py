@@ -76,8 +76,6 @@ def merge_ranges(ranges):
 
 class KnowledgeSource:
     def __init__(self, root, stop, emit):
-        from .bls_identifiers import install_base_support
-        install_base_support()
         self.root,self.stop,self.emit = Path(root).resolve(),stop,emit
 
     def check_stop(self):
@@ -121,6 +119,8 @@ class KnowledgeSource:
                 'No hay descargas completas de Conocimientos disponibles para BLs.'}
 
     def build(self, keys):
+        from .bls_identifiers import install_base_support
+        install_base_support()
         from bls_base import Source,build_base,OUTPUT_COLUMNS
         from chc_runtime.manifest_service import write_json
         keys=sorted(set(keys))

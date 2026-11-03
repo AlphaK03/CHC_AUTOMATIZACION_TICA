@@ -617,6 +617,7 @@ class BatchService:
             enable_incremental_stores()
         workspace = Path(record['work'])
         config = {'timeout_manifest':float(c['timeout']), 'headless':bool(c['headless']),
+            'workbench_release_listing':self.flow == 'conocimientos' and bool(c['headless']),
             'app_data_folder':str(workspace/'datos_app'), 'resultados_folder':str(workspace/'resultados'),
             'omitir_organizacion_legacy':True,
             'conocimientos_concurrencia':int(c['workers']), 'conocimientos_courier':None if spec['courier']=='todos' else spec['courier'],

@@ -1,4 +1,7 @@
 """Servicio JSONL común: perfiles de extracción aislados, sin Tk ni Qt."""
+from .numeric_runtime import configure as configure_numeric_runtime
+configure_numeric_runtime()
+
 import argparse
 from contextlib import contextmanager, nullcontext
 from .activity import ActivityReporter, COMMANDS
