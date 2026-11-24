@@ -166,6 +166,10 @@ class MonthLauncher(QObject):
             self.range=month_range(self._year,self._month)
             chosen=[dict(i) for i in self._items if i['selected']]
             if not chosen:raise ValueError('Marca al menos un proceso.')
+            for item in chosen:
+                bridge=self.bridges.get(item['module'])
+                if not item['flow'] and item['module']!='bls' and bridge and not getattr(bridge,'dailyBrowserReady',True):
+                    raise ValueError(bridge.error or 'Espera a que termine la preparación automática del navegador.')
             if any(i['flow'] for i in chosen) and not self._modes:raise ValueError('Elige una modalidad para Manifiestos y BLs.')
         except ValueError as exc:self._message=str(exc);self.changed.emit();return
         self.generation+=1

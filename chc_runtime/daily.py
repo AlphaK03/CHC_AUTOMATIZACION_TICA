@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from .job_store import JobStore, RunLock
 from .activity import observed, stage
 from .distribution import data_root, bot_data_root, daily_driver, missing_driver_message
+from .selenium_browser import validate_daily_browser
 
 ZONE = ZoneInfo('America/Costa_Rica')
 MONTHS = ('enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
@@ -398,6 +399,10 @@ class DailyCoordinator:
     def cycle(self, day):
         self.day = day.isoformat()
         self.month = day.strftime('%Y-%m')
+        if not self.offline and not self.ledger.get(day).get('base_ready'):
+            # Edge puede actualizarse mientras el automático espera a las 00:01.
+            # Un fallo del equipo no es un intento fallido de consultar este día.
+            validate_daily_browser()
         self.ledger.update(day,retry_cycles=self.ledger.get(day).get('retry_cycles',0)+1)
         if not self.ledger.get(day).get('base_ready'):
             self.ledger.update(day, state='downloading', error='')
@@ -437,8 +442,9 @@ class DailyCoordinator:
             raise ValueError('El rango debe terminar entre Desde y ayer.')
         if not self.service.local_root():
             raise ValueError('Elige la carpeta de resultados antes de iniciar.')
-        if not self.offline and not daily_driver().is_file():
-            raise ValueError(missing_driver_message())
+        if not self.offline:
+            # Antes de rearmar un rango manual o modificar el calendario.
+            validate_daily_browser()
         with RunLock(self.ledger.path):
             if manual:self.reset_manual_range(start,end)
             # Preserve the initial date across restarts; "yesterday" is only

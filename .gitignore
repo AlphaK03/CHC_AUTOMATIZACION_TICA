@@ -27,6 +27,7 @@
 **/screenshots/
 **/Descargas/
 runtime/
+integrations/duas_source/drivers/
 RESULTADOS/
 *.sqlite
 *.sqlite3

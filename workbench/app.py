@@ -19,6 +19,7 @@ from preferences import Preferences
 from single_instance import SingleInstance
 from monthly_bridge import MonthlyProgress
 from sharepoint_bridge import SharePointBridge
+from daily_browser_bridge import DailyBrowserSetup
 
 HERE = Path(__file__).resolve().parent
 
@@ -64,10 +65,12 @@ def main():
                 QFontDatabase.addApplicationFont(str(font_file))
     app.setFont(QFont('Segoe UI', 10))
     QQuickStyle.setStyle('Basic')
-    details = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.details_storage)
-    transit = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.transit_storage, module_id='duas_transito')
-    talon = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.talon_storage, module_id='talon')
-    movements = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.movements_storage, module_id='xmovimientos')
+    browser_setup = DailyBrowserSetup(enabled=not (args.demo or args.smoke_test or args.capture or
+        any((args.details_storage, args.transit_storage, args.talon_storage, args.movements_storage))))
+    details = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.details_storage, browser_setup=browser_setup)
+    transit = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.transit_storage, module_id='duas_transito', browser_setup=browser_setup)
+    talon = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.talon_storage, module_id='talon', browser_setup=browser_setup)
+    movements = DetailsBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.movements_storage, module_id='xmovimientos', browser_setup=browser_setup)
     manifests = BatchBridge(enabled=not (args.demo or args.smoke_test), storage_root=args.manifest_storage)
     bls = BatchBridge(module_id='bls', enabled=not (args.demo or args.smoke_test), storage_root=args.bls_storage,
                       knowledge_root=args.manifest_storage)
@@ -83,6 +86,8 @@ def main():
     monthly=MonthlyProgress({key:root or bot_data_root(key) for key,root in storage.items()}
                             if not (args.demo or args.smoke_test) else {})
     backend = DemoBackend(HERE / 'modules.json', details, transit, talon, movements, manifests, bls, monthly)
+    browser_setup.messageReceived.connect(backend.toast.emit)
+    app.aboutToQuit.connect(browser_setup.shutdown)
     cloud = SharePointBridge(enabled=not (args.demo or args.smoke_test or args.capture))
     monthly.changed.connect(lambda: cloud.refreshMonthlyStatus() if not monthly.busy else None)
     cloud.toast.connect(backend.toast.emit)
@@ -136,6 +141,7 @@ def main():
         selected_bridge.changed.connect(select_daily)
         QTimer.singleShot(0, select_daily)
     if details.enabled:
+        QTimer.singleShot(0, browser_setup.start)
         for bridge in bridges.values():
             # La ventana se crea primero. Cada QProcess prepara su propia base
             # sin esperar a los demás ni cambiar la ruta cuando responde.

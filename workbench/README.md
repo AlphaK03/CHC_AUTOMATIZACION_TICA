@@ -16,6 +16,28 @@ Aéreo y Terrestre quedan excluidos también al iniciar el mes. Una configuraci�
 antigua se adapta al abrirla y sus históricos permanecen intactos. Los otros
 procedimientos conservan sus modalidades disponibles.
 
+## Preparación automática del navegador para las bases
+
+Al abrir la copia de desarrollo, Workbench comprueba en segundo plano las
+versiones de Edge y de su controlador propio. Si cambió la compilación, descarga
+el controlador compatible desde Microsoft y lo verifica antes de reemplazarlo.
+Si ya es compatible, no lo descarga de nuevo. Una sola preparación sirve a
+Detalles, Tránsito, Talón y XMovimientos; no inicia descargas de TICA.
+
+Mientras trabaja, el botón diario muestra **Preparando navegador…**. Un error de
+red o instalación muestra el motivo y bloquea el inicio diario, conservando
+bases, resultados y oportunidades. Se puede volver a abrir la app o ejecutar
+`Instalar_Base_Diaria.bat` para reintentar la preparación. Si Edge cambia durante
+una espera nocturna, el diario se detiene con un mensaje claro antes de consumir
+otro intento; la siguiente apertura prepara la nueva versión.
+
+Los días que ya estaban **Omitidos** requieren **Calendario → Reintentar día/mes**;
+actualizar el navegador no los reabre automáticamente. El reintento conserva
+guardados y marcas manuales; después puede retomarse el diario continuo con
+**Iniciar automático**. La distribución instalada utiliza su navegador incluido,
+sin depender de las actualizaciones de Edge de Windows.
+[Diagnóstico del 24/11 y verificación](../docs/BASES_DIARIAS_NAVEGADOR.md).
+
 ## Generar resultados manualmente
 
 Las consultas, reintentos y paradas conservan datos en SQLite sin crear CSV.

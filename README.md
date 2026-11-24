@@ -10,6 +10,11 @@ XMovimientos y Manifiestos en un solo lugar, con preparación de bases integrada
 La limpieza de residuos pesados al cerrar entregas está descrita en
 [mantenimiento del almacenamiento](docs/MANTENIMIENTO_ALMACENAMIENTO.md).
 
+Al abrir la copia de desarrollo se comprueba el controlador de Edge en segundo
+plano y se actualiza desde Microsoft solo si cambió su compilación. Es una tarea
+compartida por los cuatro bots DUA y no inicia consultas. Los fallos de preparación
+conservan los pendientes. [Diagnóstico y recuperación](docs/BASES_DIARIAS_NAVEGADOR.md).
+
 Disponible distribución para **Windows 10/11 x64** con instalador, Python y
 navegador incluidos. No lleva bases ni credenciales del desarrollo; guarda los
 datos por usuario separados del programa. [Instalación, construcción y límites

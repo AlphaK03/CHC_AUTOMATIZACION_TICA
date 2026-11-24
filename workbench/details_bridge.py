@@ -32,7 +32,7 @@ class DetailsBridge(QObject):
     # leaves those fields inaccessible and prevents save/start acknowledgements.
     eventReceived = Signal('QVariantMap')
 
-    def __init__(self, enabled=True, storage_root=None, offline_fixture=False, module_id='detalles'):
+    def __init__(self, enabled=True, storage_root=None, offline_fixture=False, module_id='detalles', browser_setup=None):
         super().__init__()
         if module_id not in ('detalles', 'duas_transito', 'talon', 'xmovimientos'):
             raise ValueError('Módulo sin integración operativa.')
@@ -42,6 +42,10 @@ class DetailsBridge(QObject):
         self._storage_root = str(storage_root or bot_data_root(module_id))
         self._day_marks = DailyMarks(self._storage_root)
         self._offline_fixture = offline_fixture
+        self._browser_setup = browser_setup
+        if browser_setup is not None:
+            browser_setup.changed.connect(self.changed.emit)
+            browser_setup.closed.connect(self._review_closed)
         self._review = ManualReview(module_id, self._storage_root, offline_fixture, self)
         self._review.toast.connect(self.toast.emit)
         self._review.closed.connect(self._review_closed)
@@ -118,6 +122,10 @@ class DetailsBridge(QObject):
     def running(self): return self._running
     @Property(bool, notify=changed)
     def dailyActive(self): return self._daily_active
+    @Property(bool, notify=changed)
+    def dailyBrowserReady(self): return self._browser_setup is None or self._browser_setup.ready
+    @Property(bool, notify=changed)
+    def dailyBrowserBusy(self): return self._browser_setup is not None and self._browser_setup.busy
     @Property('QVariantMap', notify=changed)
     def daily(self):
         return {**self._daily, 'days': [
@@ -128,13 +136,13 @@ class DetailsBridge(QObject):
     @Property(bool, notify=changed)
     def closing(self): return self._closing
     @Property(bool, notify=changed)
-    def isClosed(self): return self._process.state() == QProcess.NotRunning and self._review.isClosed
+    def isClosed(self): return self._process.state() == QProcess.NotRunning and self._review.isClosed and (self._browser_setup is None or self._browser_setup.isClosed)
     @Property(QObject, constant=True)
     def manualReview(self): return self._review
     @Property(str, notify=changed)
     def status(self): return self._status
     @Property(str, notify=changed)
-    def error(self): return self._error
+    def error(self): return self._error or (self._browser_setup.error if self._browser_setup is not None else '')
     @Property('QVariantMap', notify=changed)
     def summary(self): return self._snapshot['summary']
     @Property('QVariantList', notify=changed)
@@ -194,6 +202,9 @@ class DetailsBridge(QObject):
         self._process.start(str(python), arguments)
 
     def _send(self, command, data=None):
+        if command in {'daily_run', 'retry_month', 'retry_day'} and not self.dailyBrowserReady:
+            self.toast.emit(self.error or 'Espera a que termine la preparación automática del navegador.')
+            return False
         readonly = command in {'view', 'detail', 'daily_calendar'} and self._busy
         if self._process.state() != QProcess.Running:
             self._error = 'El módulo no está conectado. Pulsa Reconectar o revisa la instalación.'
@@ -517,6 +528,8 @@ class DetailsBridge(QObject):
         if self._closing:
             return
         self._closing = True
+        if self._browser_setup is not None:
+            self._browser_setup.shutdown()
         self._review.shutdown()
         if self._process.state() == QProcess.NotRunning:
             self.closed.emit()

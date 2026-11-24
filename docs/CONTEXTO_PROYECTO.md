@@ -1,3 +1,40 @@
+## Bases diarias: Edge desactualizado y preparación automática — 24/11/2026
+
+El usuario intentó iniciar Detalles, Tránsito, Talón y XMovimientos en la copia
+de desarrollo de C. SQLite del proveedor conserva el mismo error en los tres
+orígenes: Edge 158.0.4370.33 frente a WebDriver 155.0.4283.62. La sesión del
+navegador fallaba antes de consultar TICA; los mensajes genéricos ocultaban la
+causa y las rondas se repetían por régimen/día. Se actualizó únicamente el
+controlador propio a 158.0.4370.33 mediante el instalador existente.
+
+Por petición del usuario, `workbench/daily_browser_bridge.py` prepara ahora el
+navegador una sola vez al abrir la app, fuera de Qt, usando el mismo instalador
+que `Instalar_Base_Diaria.bat`. Comprueba versiones locales y descarga desde
+Microsoft solo si hace falta. Bloquea los inicios diarios y mensuales DUA hasta
+estar listo, sin iniciar consultas. Usa bloqueo y publicación atómica de un
+ejecutable verificado; los fallos/cancelaciones conservan el anterior. Demo,
+capturas y almacenamientos de prueba no lanzan la actualización. La distribución
+empaquetada mantiene su navegador incluido, independiente del Edge del equipo.
+
+El coordinador y el proveedor también validan compatibilidad antes de consumir
+intentos; detectan un cambio mientras el diario esperaba sin omitir otros días.
+No se modificaron parsers ni fuentes originales. Los calendarios del incidente
+se conservaron: 6/11 Omitido en los cuatro; Tránsito también 7–10/11. Para
+recuperarlos, Calendario → noviembre 2026 → Reintentar mes en cada bot; el rango
+es acotado y conserva los guardados. Después, Iniciar automático retoma el ciclo.
+No se reabrieron esas fechas ni se consultó TICA durante la reparación.
+
+Pasaron 42 pruebas offline distintas, incluidas cuatro con Edge sobre un
+formulario local, arranque compartido/fallos/cancelación, calendario y los cuatro
+bots. Smoke QML sin avisos; geometría comprobada en 1280×774, 1000×680 y 1000×600.
+Una prueba antigua de Detalles aún exigía CSV automático: se actualizó para
+exigir exportación manual. Se abrió la app antes de documentar, sin consultas;
+se conservó esa instancia durante la ampliación posterior del arranque. La
+automatización nueva se carga en la siguiente apertura voluntaria. No se cambió
+la instalación empaquetada ni se generó instalador. Ver
+[causa, uso y límites](BASES_DIARIAS_NAVEGADOR.md). Diagnóstico pequeño privado en
+`runtime/diagnostics/daily-driver-20261124/diagnosis.json`.
+
 ## Botón manual para actualizar guardados — 24/10/2026
 
 El usuario prefirió actualización manual en vez de un disparador diario y pidió

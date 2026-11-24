@@ -64,6 +64,19 @@ def completed(bridge,flow,pending=0):
 
 
 class MonthLauncherTests(unittest.TestCase):
+    def test_browser_preparation_blocks_before_changing_configuration_or_starting_month(self):
+        from types import SimpleNamespace
+        details=FakeDetails()
+        details._browser_setup=SimpleNamespace(ready=False,error='')
+        launcher=self.make({'detalles':details})
+        launcher.setSelected('detalles',True)
+        config=dict(details.config)
+        launcher.start()
+        self.assertFalse(details.requests)
+        self.assertEqual(details.config,config)
+        self.assertFalse(launcher.tasks)
+        self.assertIn('preparación automática',launcher.message)
+
     def test_containers_monthly_launch_only_maritime_and_blocks_air_only(self):
         manifests=fake_batch();launcher=self.make({'manifiestos':manifests})
         launcher.setSelected('contenedores',True);launcher.setMode('aereo',True)

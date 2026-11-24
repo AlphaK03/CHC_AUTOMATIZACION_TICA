@@ -166,9 +166,9 @@ ScrollView {
                 ActionButton { objectName: "detailsStopButton"; text: "Detener"; iconName: "pause"; enabled: (worker.running || worker.dailyActive) && worker.status !== "Deteniendo y guardando…"; onClicked: worker.stopQueries() }
                 ActionButton {
                     objectName: "detailsStartButton"
-                    text: worker.dailyActive ? "Automático activo" : worker.busy ? "Procesando…" : page.dailyMode ? "Iniciar automático" : worker.summary.total && worker.summary.total === page.confirmed ? "Actualizar resultados" : worker.summary.attempts ? "Retomar pendientes" : "Iniciar consultas"
+                    text: page.dailyMode && worker.dailyBrowserBusy ? "Preparando navegador…" : worker.dailyActive ? "Automático activo" : worker.busy ? "Procesando…" : page.dailyMode ? "Iniciar automático" : worker.summary.total && worker.summary.total === page.confirmed ? "Actualizar resultados" : worker.summary.attempts ? "Retomar pendientes" : "Iniciar consultas"
                     iconName: "play"; primary: true
-                    enabled: worker.ready && !worker.busy && !!worker.config.output_base_path && (page.dailyMode ? worker.runtime.chromiumReady && dailyStart.text.trim() !== "" : page.activeId !== "" && (worker.runtime.chromiumReady || worker.summary.total === page.confirmed))
+                    enabled: worker.ready && !worker.busy && !!worker.config.output_base_path && (page.dailyMode ? worker.dailyBrowserReady && worker.runtime.chromiumReady && dailyStart.text.trim() !== "" : page.activeId !== "" && (worker.runtime.chromiumReady || worker.summary.total === page.confirmed))
                     onClicked: page.startQueries()
                 }
             }

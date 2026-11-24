@@ -16,7 +16,7 @@ from runner import run_downloads
 
 sys.path.insert(0, str(HERE.parents[1]))
 from chc_runtime.distribution import packaged, data_root
-from chc_runtime.selenium_browser import bundled_extractor
+from chc_runtime.selenium_browser import bundled_extractor, validate_daily_browser
 
 
 @contextmanager
@@ -76,6 +76,8 @@ def main():
     config = {'edge_driver_path': str(args.driver), 'mostrar_navegador': args.visible}
     regimens = REGIMENES if args.selection == 'total' else ['TRANSITO'] if args.selection == 'transito' else [item for item in REGIMENES if item in REGIMENES_IMPORTACION]
     try:
+        if not args.offline_fixture:
+            validate_daily_browser(args.driver)
         with (import_cache_gate(args.database, cancelled, emit) if args.selection == 'importacion' else nullcontext(True)) as acquired:
             if not acquired:
                 emit('result', complete=False, stopped=True, message='Descarga detenida.')

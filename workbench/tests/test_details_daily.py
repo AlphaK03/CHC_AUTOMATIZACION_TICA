@@ -78,8 +78,7 @@ class DailyPilotTest(unittest.TestCase):
                 self.assertEqual(days, [(start.isoformat(), 'completed', 9, 9),
                                         ((start + timedelta(days=1)).isoformat(), 'completed', 9, 9)])
                 self.assertEqual(sum(item['summary']['succeeded'] for item in bridge.tables), 18)
-                self.assertTrue(list((root / 'output').rglob('*.CSV')))
-                self.assertTrue(all(path.suffix == '.CSV' for path in (root / 'output').rglob('*') if path.is_file()))
+                self.assertFalse(list(root.rglob('*.csv')), 'Consultar no genera CSV automáticamente.')
                 bridge.loadCalendar(start.strftime('%Y-%m'))
                 wait_until(lambda: not any(item['command'] == 'daily_calendar' for item in bridge._requests.values()))
                 self.assertTrue(any(cell['state'] == 'completed' for cell in bridge.daily['days']))
@@ -87,6 +86,11 @@ class DailyPilotTest(unittest.TestCase):
                 bridge.stopQueries()
                 wait_until(lambda: not bridge.busy)
                 self.assertFalse(bridge.dailyActive)
+                bridge.exportResults()
+                wait_until(lambda: not bridge.busy)
+                self.assertFalse(bridge.error, bridge.error)
+                self.assertTrue(list((root / 'output').rglob('*.CSV')))
+                self.assertTrue(all(path.suffix == '.CSV' for path in (root / 'output').rglob('*') if path.is_file()))
                 with closing(sqlite3.connect(root / 'data/daily/bases.sqlite3')) as db:
                     attempts = db.execute('SELECT SUM(attempts) FROM queries').fetchone()[0]
                 bridge.startDaily()
