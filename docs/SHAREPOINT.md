@@ -3,8 +3,9 @@
 La conexión es opcional. **SharePoint**, en la barra lateral, conecta una
 cuenta CHC, explora sitios/bibliotecas/carpetas y elige una sola carpeta madre
 para todos los bots. También permite elegir una carpeta madre local común.
-Solo **Subir a SharePoint**, al seleccionar un mes listo en la bitácora, inicia
-un envío de CSV. Guardar, exportar, conectar o abrir la app no inicia subidas.
+Los envíos se inician con **Subir a SharePoint** para un mes listo en la bitácora,
+**Subir este CSV** para un archivo individual revisado, o un reintento explícito.
+Guardar, exportar, conectar, elegir un archivo o abrir la app no inicia subidas.
 SQLite, resultados y recuperación permanecen locales. La app funciona sin cuenta o red.
 
 ## Registro vigente: OAuth2 par CHC REPORTES
@@ -57,6 +58,57 @@ Microsoft del navegador ni cambia la configuración del registro reutilizado.
 5. Pulsar **Actualizar**, seleccionar el mes y accionar **Subir a SharePoint**.
    Solo entran bots/procedimientos completos, al día hasta la última fecha
    consultable, o cerrados manualmente en la bitácora mensual.
+
+## Subir un CSV individual — 25/11/2026
+
+Para descargas guardadas aparte, como Contenedores de julio y agosto de 2026,
+ya no es necesario que el mes figure en la lista mensual:
+
+1. Abrir **SharePoint → Resultados → Subir un CSV individual…**.
+2. Elegir un CSV existente. Se admiten los generados por Workbench y archivos
+   externos, incluso fuera de la carpeta madre local. Si solo existe SQLite,
+   primero usar **Más → Generar CSV de esta ejecución/tabla** en el bot.
+3. Revisar procedimiento, mes/año, modalidad y carpeta de destino. Los datos del
+   nombre sirven solo como propuesta; un archivo externo permite corregirlos.
+   Si faltan datos o se cambian, pulsar **Revisar destino**.
+4. Comprobar la ruta mostrada y pulsar **Subir este CSV**. Para julio y agosto,
+   elegir y enviar cada archivo por separado. No se inicia ningún otro envío.
+
+Esta acción copia únicamente el archivo elegido; no exige cierre mensual, no
+marca el mes completo y no modifica pendientes de los bots. El selector por mes
+conserva sus condiciones anteriores. Contenedores admite únicamente Marítimo;
+no se vuelven a habilitar sus históricos aéreos/terrestres.
+
+Los CSV registrados conservan nombre, ruta relativa y propietario. Un CSV externo
+utiliza la estructura común de bot/procedimiento, mes y modalidad, con el sufijo
+`ARCHIVO_<nombre original>` para distinguirlo del acumulado mensual. La ruta final
+se muestra antes de confirmar. No se renombra ni modifica el archivo local; sus
+bytes, columnas, codificación y ceros se copian intactos. Elegir otro archivo
+invalida la selección anterior, incluso si la nueva inspección falla.
+
+La preparación captura la huella del CSV y el destino revisado. Si el archivo,
+su registro, la cuenta o la carpeta cambian, se exige volver a revisar/seleccionar.
+Se conservan controles de propietario y `eTag`: la primera subida no reemplaza
+archivos preexistentes, y otro lote/archivo no puede sobrescribir una publicación
+ajena. No se admite un CSV que el registro haya sustituido por un acumulado nuevo.
+
+Si falla la red, la copia exacta queda en la cola independiente con la indicación
+**CSV individual** en Actividad. Abrir la app o publicar otro mes no la envía;
+**Reintentar envíos** la recupera con la misma cuenta y destino, sin exigir cierre
+mensual. Las copias mensuales siguen comprobando cobertura. Ninguna de estas
+acciones consulta TICA ni cambia las bases de resultados.
+
+Implementación en `chc_cloud/manual_upload.py`, `service.py`, el puente Qt y
+`ManualUploadDialog.qml`. La autorización individual se guarda en el destino
+capturado de su entrada de cola; no migra esquemas ni añade credenciales/permisos.
+Se verificó con 36 pruebas offline distintas y el smoke QML: archivos externos
+de julio/agosto, alcance de un solo envío, revisión sin subida, recuperación,
+huella/propietario/`eTag`, cuenta/destino cambiados, cola mensual y worker real
+sin sesión. La interfaz y sus botones se comprobaron en 1280×774, 1000×680 y
+1000×600, sin avisos QML. No se hicieron subidas reales ni consultas TICA.
+La app se abrió antes de documentar y se conservó abierta durante el ajuste final
+de invalidación de selección. No se actualizó la distribución empaquetada.
+Evidencia sintética pequeña en `runtime/diagnostics/manual-sharepoint-20261125/`.
 
 ## Perfil, archivos y actividad — 18/10/2026
 
@@ -153,7 +205,7 @@ puede incluir sitios adicionales a los recientes mostrados por Edge.
 
 Se copian exclusivamente CSV de resultados, con sus columnas, codificación y
 datos intactos. SQLite, TXT/JSON de pendientes y diagnósticos siguen locales.
-Las exportaciones periódicas/finales de los bots actualizan únicamente sus CSV
+Las exportaciones manuales de los bots actualizan únicamente sus CSV
 locales y un registro de salidas públicas. Ninguna acción de SharePoint inicia
 consultas TICA. Los archivos históricos se conservan en sus rutas anteriores;
 usar **Exportar** en el lote vuelve a generar sus datos guardados con la estructura
@@ -170,7 +222,9 @@ No se borran copias históricas que ya estuvieran en SharePoint.
 
 La cola online es independiente y persistente. Sin sesión o red conserva copias
 pendientes de envíos pedidos por el usuario; requiere un reintento explícito
-con la cuenta y destino compatibles y el mes todavía completo, al día o cerrado manualmente.
+con la cuenta y destino compatibles. Los envíos mensuales exigen que el mes siga
+completo, al día o cerrado manualmente; los CSV individuales conservan su
+autorización explícita sin modificar la bitácora.
 Los errores se muestran y se recuperan con **Reintentar envíos**. Retirar o cambiar
 un destino pausa sus copias anteriores y conserva los CSV locales.
 

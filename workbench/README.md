@@ -662,6 +662,15 @@ pues sus motores no disponen del calendario diario DUA.
 
 ## SharePoint
 
+Para una descarga aparte, abre **SharePoint → Resultados → Subir un CSV
+individual…** y elige su archivo. Revisa procedimiento, mes, modalidad y destino;
+si corriges esos datos, pulsa **Revisar destino**. Solo **Subir este CSV** inicia
+el envío. Sirve, por ejemplo, para Contenedores de julio y agosto de 2026 aunque
+no aparezcan en el selector mensual. Esta acción no marca cobertura ni envía
+otros pendientes. Contenedores admite solo Marítimo. Si todavía no tienes CSV,
+genéralo desde **Más → Generar CSV de esta ejecución** en el bot.
+[Uso y conservación de archivos individuales](../docs/SHAREPOINT.md#subir-un-csv-individual--25112026).
+
 La barra lateral ofrece **SharePoint**: conexión opcional con CHC,
 una carpeta madre local y una carpeta madre online para todos los bots. El selector
 recorre sitios, bibliotecas y carpetas. Cada bot organiza sus CSV por mes; los

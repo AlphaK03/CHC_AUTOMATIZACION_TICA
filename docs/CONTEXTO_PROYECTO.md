@@ -1,3 +1,39 @@
+## SharePoint: CSV individuales de descargas separadas — 25/11/2026
+
+El usuario pidió subir archivos/descargas individuales porque Contenedores de
+julio/agosto de 2026 no aparecía en el selector mensual. Ese selector solo ofrece
+CSV públicos registrados y vigentes, dentro de la carpeta local elegida, cuyo
+bot/procedimiento esté completo, al día o cerrado en la bitácora. La inspección
+local de solo lectura no encontró esos dos meses en los registros revisados.
+No se buscaron ni movieron archivos fuera de las rutas de trabajo conocidas.
+
+Se añadió **SharePoint → Resultados → Subir un CSV individual…**. Admite elegir
+un CSV registrado o externo, revisar procedimiento/mes/modalidad y ruta online,
+y confirmar con **Subir este CSV**. La inspección/revisión no sube nada. La
+excepción individual no exige cierre ni modifica cobertura; el selector por mes
+sigue validándola. Contenedores permanece exclusivamente Marítimo. Si solo hay
+SQLite, se debe generar manualmente su CSV desde el bot antes de elegirlo.
+
+Los registrados mantienen identidad/nombre; externos usan la estructura común y
+un sufijo `ARCHIVO_<nombre>` para conservar separados los acumulados. Bytes,
+columnas, ceros y fuentes intactos. `manual_upload.py` valida archivo/registro y
+huella; el servicio captura cuenta/destino, mantiene propietario/`eTag` y limita
+sync al trabajo elegido. La autorización individual persiste en su cola para
+reintento explícito; abrir/exportar/conectar o subir otro mes no la envía.
+Cambiar de CSV invalida la selección anterior, también si la nueva es inválida.
+No se migran esquemas, cambian permisos OAuth ni crean destinos de bots.
+
+Pasaron 36 pruebas offline distintas con Graph simulado, incluidos los dos CSV
+de ejemplo sintéticos, conflictos, archivo/cuenta/destino cambiados, recuperación
+tras reinicio, cola mensual y worker real sin sesión. QML sin avisos; botones y
+geometría comprobados en 1280×774, 1000×680 y 1000×600. Smoke correcto. Se abrió
+la app sin consultas ni subidas antes de documentar y se preservó esa ventana
+durante un último ajuste de invalidación. No se subieron los archivos reales
+del usuario ni se consultó TICA. No se actualizó la instalación empaquetada.
+Pruebas con TemporaryDirectory; se conservan capturas sintéticas y métricas
+pequeñas en `runtime/diagnostics/manual-sharepoint-20261125/`. Ver
+[uso, reglas y verificación](SHAREPOINT.md#subir-un-csv-individual--25112026).
+
 ## Bases diarias: Edge desactualizado y preparación automática — 24/11/2026
 
 El usuario intentó iniciar Detalles, Tránsito, Talón y XMovimientos en la copia

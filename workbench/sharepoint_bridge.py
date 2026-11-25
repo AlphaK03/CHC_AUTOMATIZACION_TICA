@@ -60,6 +60,10 @@ class SharePointBridge(QObject):
     @Property('QVariantList', notify=changed)
     def months(self): return self._snapshot['months']
     @Property('QVariantList', notify=changed)
+    def uploadTargets(self): return self._snapshot.get('uploadTargets',[])
+    @Property('QVariantMap', notify=changed)
+    def manualUpload(self): return self._snapshot.get('manualUpload',{})
+    @Property('QVariantList', notify=changed)
     def tasks(self): return self._snapshot['tasks']
     @Property(int, notify=changed)
     def pending(self): return self._snapshot['pending']
@@ -121,6 +125,11 @@ class SharePointBridge(QObject):
                 self._status=f"{self.pending} publicaciones pendientes." if self.pending else 'Sin envíos pendientes.' if self.connected else 'Guardado local; cuenta desconectada.'
                 if event.get('command')=='save':self.toast.emit('Carpeta común guardada para todos los bots.')
                 if event.get('command')=='create_folder':self.toast.emit('Carpeta creada en SharePoint.')
+                if event.get('command')=='upload_file':
+                    result=event.get('uploadResult',{})
+                    if result.get('state')=='synced':self.toast.emit('CSV individual guardado en SharePoint.')
+                    elif result.get('error'):
+                        self._error=result['error'];self.toast.emit(self._error)
             elif kind=='error':
                 self._error=event['message']
                 self._status='El trabajo local continúa.'
@@ -188,6 +197,18 @@ class SharePointBridge(QObject):
     def retry(self): self.send('retry')
     @Slot(str)
     def uploadMonth(self, month): self.send('upload_month',{'month':month})
+    @Slot(str)
+    def inspectUpload(self, value):
+        url=QUrl(value)
+        if url.scheme() and not url.isLocalFile():
+            self.toast.emit('Selecciona un CSV local de resultados.');return
+        self._snapshot['manualUpload']={}
+        self.changed.emit()
+        self.send('inspect_upload',{'path':url.toLocalFile() if url.isLocalFile() else value})
+    @Slot(str,str,str,str)
+    def reviewUpload(self,token,target,period,mode): self.send('review_upload',{'token':token,'target':target,'period':period,'mode':mode})
+    @Slot(str)
+    def uploadFile(self,token): self.send('upload_file',{'token':token})
     @Slot(str)
     def setLocalRoot(self, path): self.send('local_root',{'path':path})
 

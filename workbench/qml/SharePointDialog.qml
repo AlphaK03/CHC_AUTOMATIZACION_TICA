@@ -163,6 +163,7 @@ AppDialog {
                             }
                             Text { text:service && monthBox.currentIndex>=0 && service.months[monthBox.currentIndex] ? service.months[monthBox.currentIndex].files+" CSV de "+(service.months[monthBox.currentIndex].bots || 1)+" bots o procedimientos listos para publicar" : "Completa o cierra el mes en Vista general y exporta sus resultados."; color:Theme.muted; font.family:Theme.family; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
                             Text { text:"Solo se envían resultados confirmados. Las nuevas versiones actualizan el mismo archivo del lote, mes y modalidad."; color:Theme.faint; font.family:Theme.family; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
+                            ActionButton { objectName:"chooseIndividualCsv"; text:"Subir un CSV individual…"; enabled:!!service && service.enabled && !service.busy; onClicked:individualUpload.chooseFile() }
                         }
                     }
                     Text { visible:!dialog.showActivity; text:"Las subidas se inician únicamente cuando las solicitas."; color:Theme.muted; font.family:Theme.family; font.pixelSize:11; Layout.fillWidth:true; wrapMode:Text.WordWrap }
@@ -288,6 +289,7 @@ AppDialog {
             }
         }
     }
+    ManualUploadDialog { id:individualUpload; service:dialog.service }
     Native.FolderDialog {
         id:localFolder; title:"Carpeta local para todos los bots"
         onAccepted:{let value=decodeURIComponent(selectedFolder.toString().replace(/^file:\/\//,""));if(/^\/[A-Za-z]:/.test(value))value=value.slice(1);service.setLocalRoot(value)}

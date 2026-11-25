@@ -12,6 +12,7 @@ import uuid
 from .auth import CloudAccount
 from .graph import GraphClient, GraphError, places_address, site_address
 from .profile import ProfileCache
+from .manual_upload import digest_file, inspect_file, review_spec
 from chc_runtime import output_layout
 
 TARGETS = [('detalles','Detalles'), ('duas_transito','DUAs Tránsito'), ('talon','Talón'),
@@ -60,6 +61,7 @@ class CloudService:
         self.exports_registry=output_layout.registry_path(settings=self.exports_settings)
         self.monthly_reader=monthly
         self.monthly_cache=None
+        self.manual_upload=None
         self.db = sqlite3.connect(self.folder/'publications.sqlite3')
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
@@ -96,6 +98,8 @@ class CloudService:
                 'needsFolderSelection': bool(self.legacy_destinations),
                 'localRoot':str(output_layout.local_root(settings=self.exports_settings)),
                 'months':self.months(),
+                'uploadTargets':[{'id':key,'label':label} for key,label in TARGETS],
+                'manualUpload':self.manual_upload_view(),
                 'tasks': tasks, 'queueError':self.collection_error,
                 'pending': self.db.execute("SELECT COUNT(*) FROM jobs WHERE state IN ('pending','uploading','error')").fetchone()[0]}
 
@@ -141,6 +145,55 @@ class CloudService:
             self.enqueue({'target':row['target'],'path':row['path'],'name':key,'owner':row['owner'],'spec':json.loads(row['spec'])})
         self.sync(key)
 
+    def manual_upload_view(self):
+        if not self.manual_upload:return {}
+        return {**{k:v for k,v in self.manual_upload.items() if k not in ('digest','mtime','owner','spec','destinationIdentity')},
+                'destinationChanged':self.manual_upload.get('reviewed',False) and
+                    self.manual_upload.get('destinationIdentity')!={k:self.destination.get(k) for k in ('accountId','driveId','folderId')}}
+
+    def inspect_upload(self,path):
+        self.manual_upload=None
+        plan=inspect_file(path,self.exports_registry)
+        plan.update(token=uuid.uuid4().hex,reviewed=False)
+        self.manual_upload=plan
+        if plan['registered'] or (plan['target'] and plan['period'] and
+                (plan['mode'] or plan['target'] in output_layout.BOTS and plan['target']!='bls')):
+            self.review_upload(plan['token'],plan['target'],plan['period'],plan['mode'])
+
+    def review_upload(self,token,target,period,mode):
+        plan=self.manual_upload
+        if not plan or plan['token']!=token:
+            raise ValueError('Vuelve a elegir el CSV antes de subirlo.')
+        spec=review_spec(plan,target,period,mode)
+        for name in [*spec['relativeFolders'],spec['filename']]:safe_name(name)
+        plan.update(token=uuid.uuid4().hex,target=spec['target'],period=spec['period'],
+                    mode=spec.get('mode',''),spec=spec,reviewed=True,
+                    destinationIdentity={k:self.destination.get(k) for k in ('accountId','driveId','folderId')},
+                    relativePath='/'.join([*spec['relativeFolders'],spec['filename']]))
+
+    def upload_file(self,token):
+        plan=self.manual_upload
+        account=self.account_info()
+        if not account or not self.destination.get('enabled') or self.destination.get('accountId')!=account['home_account_id']:
+            raise ValueError('Conecta la cuenta propietaria y elige la carpeta común de SharePoint.')
+        if not plan or plan['token']!=token or not plan.get('reviewed'):
+            raise ValueError('Revisa el archivo y su destino antes de subirlo.')
+        if plan['destinationIdentity']!={k:self.destination.get(k) for k in ('accountId','driveId','folderId')}:
+            raise ValueError('La cuenta o el destino cambiaron. Vuelve a revisar el CSV antes de subirlo.')
+        source=Path(plan['path'])
+        if not source.is_file() or (source.stat().st_size,source.stat().st_mtime_ns)!=(plan['size'],plan['mtime']):
+            raise ValueError('El CSV cambió desde que lo elegiste. Vuelve a seleccionarlo.')
+        # También rechaza un parcial retirado después de la inspección.
+        current=inspect_file(source,self.exports_registry)
+        if current['digest']!=plan['digest'] or current['owner']!=plan['owner'] or (plan['registered'] and current['spec']!=plan['spec']):
+            raise ValueError('El CSV cambió desde que lo elegiste. Vuelve a seleccionarlo.')
+        key=self.enqueue({'target':plan['target'],'path':plan['path'],'name':plan['period'] or 'SIN_PERIODO',
+                          'owner':plan['owner'],'spec':plan['spec']},manual=True,expected_digest=plan['digest'])
+        self.manual_upload=None
+        self.sync(job_ids={key},allow_manual=True)
+        row=self.db.execute('SELECT filename,state,error FROM jobs WHERE id=?',(key,)).fetchone()
+        return dict(row)
+
     def connect(self):
         self.account.connect()
 
@@ -164,7 +217,7 @@ class CloudService:
         atomic_json(self.settings_path, {'version':2,'root':self.destination})
         self.legacy_destinations={}
 
-    def enqueue(self, request):
+    def enqueue(self, request, manual=False, expected_digest=None):
         destination = self.destination
         if not destination or not destination.get('enabled'):
             return
@@ -175,8 +228,10 @@ class CloudService:
         spec=request.get('spec') or output_layout.specification(request['target'],output_layout.period(request['name']))
         if spec['target']!=request['target']:raise ValueError('El CSV no pertenece al bot seleccionado.')
         name, filename = safe_name(output_layout.month_label(spec['period'])),safe_name(spec['filename'])
+        if manual:name+=' · CSV individual'
         destination={**destination,'layoutVersion':2,'relativeFolders':[safe_name(v) for v in spec['relativeFolders']],
                      'period':spec['period']}
+        if manual:destination['explicitFile']=True
         identity = json.dumps([destination['accountId'],destination['driveId'],destination['folderId'],
                                [v.casefold() for v in destination['relativeFolders']],filename.casefold()])
         key = hashlib.sha256(identity.encode()).hexdigest()
@@ -195,29 +250,36 @@ class CloudService:
                 while chunk := stream.read(1024 * 1024):
                     digest_hash.update(chunk)
             digest = digest_hash.hexdigest()
-            if old and old['digest']==digest and old['state']!='paused':
-                return
+            if expected_digest and digest!=expected_digest:
+                raise ValueError('El CSV cambió desde que lo elegiste. Vuelve a seleccionarlo.')
+            if old and old['digest']==digest and old['state']=='synced':
+                return key
             spool = self.folder/'spool'/(key+'.csv')
             os.replace(temporary, spool)
             with self.db:
                 self.db.execute('INSERT OR REPLACE INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                     (key,request['target'],request['owner'],name,filename,json.dumps(destination),digest,str(spool),'pending','',datetime.now(timezone.utc).isoformat()))
+            return key
         finally:
             temporary.unlink(missing_ok=True)
 
-    def sync(self,month=None):
-        completed=self.completed_targets(refresh=True)
+    def sync(self,month=None,job_ids=None,allow_manual=False):
+        completed=None
         account = self.account_info()
         if not account:
             return
         for row in list(self.db.execute("SELECT * FROM jobs WHERE state='pending' ORDER BY updated")):
             row = dict(row)
             destination = json.loads(row['destination'])
+            if job_ids is not None and row['id'] not in job_ids:continue
+            manual=destination.get('explicitFile') is True
+            if manual and not allow_manual:continue
             if month and destination.get('period')!=month:continue
             current = self.destination
             if destination.get('layoutVersion')!=2 or destination['accountId'] != account['home_account_id'] or not current.get('enabled') or any(destination.get(k)!=current.get(k) for k in ('accountId','driveId','folderId')):
                 continue
-            if row['target'] not in completed.get(destination.get('period',''),{}).get('targets',set()):
+            if not manual and completed is None:completed=self.completed_targets(refresh=True)
+            if not manual and row['target'] not in completed.get(destination.get('period',''),{}).get('targets',set()):
                 with self.db:self.db.execute("UPDATE jobs SET state='error',error='El mes ya no está completo, al día ni cerrado manualmente; se conservó la copia local.' WHERE id=?",(row['id'],))
                 continue
             if self.exports_registry.exists():
@@ -230,6 +292,8 @@ class CloudService:
             with self.db:
                 self.db.execute("UPDATE jobs SET state='uploading',error='' WHERE id=?",(row['id'],))
             try:
+                if digest_file(row['spool'])!=row['digest']:
+                    raise GraphError('La copia pendiente cambió; vuelve a seleccionar el CSV original.')
                 parent=destination['folderId']
                 for folder in destination['relativeFolders']:
                     parent=self.graph.ensure_folder(destination['driveId'],parent,safe_name(folder))
@@ -335,11 +399,17 @@ class CloudService:
         elif command == 'retry':
             with self.db:
                 self.db.execute("UPDATE jobs SET state='pending',error='' WHERE state='error'")
-            self.sync()
+            self.sync(allow_manual=True)
         elif command == 'sync':
             raise ValueError('La subida solo se inicia mediante una acción del usuario.')
         elif command == 'upload_month':
             self.upload_month(request['month'])
+        elif command == 'inspect_upload':
+            self.inspect_upload(request['path'])
+        elif command == 'review_upload':
+            self.review_upload(request['token'],request['target'],request['period'],request.get('mode',''))
+        elif command == 'upload_file':
+            result['uploadResult']=self.upload_file(request['token'])
         elif command == 'local_root':
             output_layout.set_local_root(request['path'],settings=self.exports_settings)
         elif command != 'status':

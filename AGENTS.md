@@ -244,6 +244,11 @@
   `retry_day` rearman los pendientes del rango explícito, conservando guardados,
   historial y configuración. El mes actual se limita a días anteriores a hoy.
 - SharePoint es opcional y exclusivo para copias CSV: leer `docs/SHAREPOINT.md`.
+  Por petición del 25/11/2026, permitir también **Subir un CSV individual**,
+  incluidos archivos externos de descargas separadas, sin exigir cierre mensual.
+  Revisar archivo/procedimiento/mes/destino antes del envío explícito, sin marcar
+  cobertura ni enviar otros pendientes. Mantener propiedad, cuenta, eTag,
+  Contenedores solo Marítimo y la validación mensual para la subida por mes.
   Cliente público MSAL/PKCE, único directorio CHC y registro reutilizado
   `077e19a4-ab53-4e55-8286-ec02dc3cf36c`, solicitado por el usuario. Pedir solo
   `Sites.Read.All`, `Files.ReadWrite.All` y `User.Read` delegados; el usuario autorizó
@@ -261,8 +266,10 @@
   bot/procedimiento, mes/año y modo real donde aplica. Preservar columnas, ceros,
   resultados originales y checkpoints; los auxiliares siguen en almacenamiento interno.
   BLs separa salidas por mes/modo del manifiesto. Nunca iniciar subidas al exportar,
-  conectar ni abrir la app: solo `Subir a SharePoint` o reintento explícito, con
-  estado completo, al día o cierre manual vigente en la bitácora. Avisos antiguos automáticos
+  conectar ni abrir la app: solo `Subir a SharePoint`, `Subir este CSV` o reintento
+  explícito. La subida por mes exige estado completo, al día o cierre manual
+  vigente; la individual usa la excepción explícita del 25/11 sin cambiar cobertura.
+  Avisos antiguos automáticos
   se conservan sin enviarlos. Reexportar históricos desde SQLite sin consultar TICA.
 - Por instrucción del usuario, guardar los cambios en Git al cerrar cada entrega.
   Lo anterior a SharePoint quedó en `main` y `origin/main` en `93ceb44`;

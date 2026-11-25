@@ -11,7 +11,9 @@ inicio mensual conjunto y bitácora con omitidos, estado Al día y cierre manual
 
 También está implementado SharePoint opcional: cuenta CHC, selector corregido de
 sitios/bibliotecas/carpetas, carpeta madre común y CSV estandarizados en mayúsculas.
-Las subidas requieren acción explícita y un bot completo, al día o cerrado manualmente.
+Las subidas por mes requieren acción explícita y un bot completo, al día o cerrado
+manualmente. Desde el 25/11, la subida individual permite revisar y enviar un CSV
+de una descarga aparte sin exigir cierre mensual ni modificar la cobertura.
 La distribución ejecutable Windows x64 está preparada al 22/10, con entorno y
 navegador propios; sigue pendiente la aceptación en otro equipo físico limpio.
 Ver `DISTRIBUCION_WINDOWS.md` para construcción y pruebas aisladas del paquete.
