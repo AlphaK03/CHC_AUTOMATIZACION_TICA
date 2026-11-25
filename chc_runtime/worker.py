@@ -389,9 +389,14 @@ class DetailsService:
                 raise ValueError('Selecciona una tabla.')
             self.export_record(record)
             logging.info('Resultados exportados desde SQLite; no se consultó el portal.')
-        elif command == 'export_all':
+        elif command in {'export_all','export_selected'}:
             report = {'token':request.get('exportToken'), 'exported':0, 'errors':[]}
-            for record in self.catalog.list_tables():
+            records=self.catalog.list_tables()
+            if command=='export_selected':
+                ids=set(request.get('recordIds',[]))
+                if not ids or not ids<={r['id'] for r in records}:raise ValueError('Selecciona tablas guardadas existentes.')
+                records=[r for r in records if r['id'] in ids]
+            for record in records:
                 if self.stop_event.is_set():
                     report['errors'].append('Generación detenida.');break
                 try:

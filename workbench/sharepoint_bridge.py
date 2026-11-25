@@ -25,6 +25,8 @@ class SharePointBridge(QObject):
         self._browse, self._queue, self._buffer = {}, [], b''
         self._busy = self._ready = self._closing = False
         self._error = ''
+        self._csv_exporter=None
+        self._catalog_generation=False
         self._status = 'La app puede trabajar sin conectar una cuenta.'
         self.process = QProcess(self)
         self.guard = ProcessTreeGuard()
@@ -63,6 +65,12 @@ class SharePointBridge(QObject):
     def uploadTargets(self): return self._snapshot.get('uploadTargets',[])
     @Property('QVariantMap', notify=changed)
     def manualUpload(self): return self._snapshot.get('manualUpload',{})
+    @Property('QVariantMap', notify=changed)
+    def downloadCatalog(self): return self._snapshot.get('downloadCatalog',{'token':'','rows':[],'errors':[]})
+    @Property(bool, notify=changed)
+    def downloadGenerationBusy(self): return self._csv_exporter is not None and self._csv_exporter.busy
+    @Property(str, notify=changed)
+    def downloadGenerationMessage(self): return self._csv_exporter.message if self._csv_exporter else ''
     @Property('QVariantList', notify=changed)
     def tasks(self): return self._snapshot['tasks']
     @Property(int, notify=changed)
@@ -130,6 +138,9 @@ class SharePointBridge(QObject):
                     if result.get('state')=='synced':self.toast.emit('CSV individual guardado en SharePoint.')
                     elif result.get('error'):
                         self._error=result['error'];self.toast.emit(self._error)
+                if event.get('command')=='upload_downloads':
+                    report=event.get('downloadUploadResult',{})
+                    self.toast.emit(f"{report.get('uploaded',0)} CSV en SharePoint; {report.get('errors',0)} pendientes de revisión.")
             elif kind=='error':
                 self._error=event['message']
                 self._status='El trabajo local continúa.'
@@ -209,6 +220,28 @@ class SharePointBridge(QObject):
     def reviewUpload(self,token,target,period,mode): self.send('review_upload',{'token':token,'target':target,'period':period,'mode':mode})
     @Slot(str)
     def uploadFile(self,token): self.send('upload_file',{'token':token})
+    @Slot()
+    def refreshDownloads(self): self.send('list_downloads')
+    @Slot('QVariantList')
+    def uploadDownloads(self,ids):
+        self.send('upload_downloads',{'token':self.downloadCatalog['token'],'ids':list(ids),
+            'destination':{k:self.destination.get(k) for k in ('accountId','driveId','folderId')}})
+    def setCsvExporter(self,exporter):
+        self._csv_exporter=exporter
+        exporter.changed.connect(self._exports_changed)
+    def _exports_changed(self):
+        self.changed.emit()
+        if self._catalog_generation and not self._csv_exporter.busy:
+            self._catalog_generation=False
+            if not self._closing and not self._csv_exporter.cancelled:self.refreshDownloads()
+    @Slot('QVariantList')
+    def generateDownloads(self,ids):
+        if not self._csv_exporter or self._csv_exporter.busy or self._closing:
+            self.toast.emit('Espera a que termine la generación de CSV.');return
+        rows=[row for row in self.downloadCatalog['rows'] if row['id'] in ids]
+        if not rows:return
+        self._catalog_generation=True
+        self._csv_exporter.generateSelected(rows)
     @Slot(str)
     def setLocalRoot(self, path): self.send('local_root',{'path':path})
 

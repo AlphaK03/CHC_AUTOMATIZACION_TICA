@@ -249,6 +249,12 @@
   Revisar archivo/procedimiento/mes/destino antes del envío explícito, sin marcar
   cobertura ni enviar otros pendientes. Mantener propiedad, cuenta, eTag,
   Contenedores solo Marítimo y la validación mensual para la subida por mes.
+  Aclaración del 25/11: el flujo principal debe ser **Elegir descargas guardadas**,
+  con catálogo de los lotes que la app conoce, filtros y selección múltiple.
+  Incluir los que aún no tienen CSV, permitir generarlos allí por IDs explícitos
+  y subir solo los CSV elegidos a sus rutas propias. No exigir buscar archivos;
+  el selector de CSV externos queda como opción secundaria. No cambiar la
+  selección/configuración de los bots ni detener módulos ocupados al exportar.
   Cliente público MSAL/PKCE, único directorio CHC y registro reutilizado
   `077e19a4-ab53-4e55-8286-ec02dc3cf36c`, solicitado por el usuario. Pedir solo
   `Sites.Read.All`, `Files.ReadWrite.All` y `User.Read` delegados; el usuario autorizó

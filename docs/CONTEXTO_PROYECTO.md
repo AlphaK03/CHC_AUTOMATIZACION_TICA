@@ -1,3 +1,46 @@
+## SharePoint: catálogo y selección múltiple de descargas — 25/11/2026
+
+El usuario aclaró que no quiere buscar archivos: la app debe mostrar sus descargas,
+filtrarlas y permitir marcar varias para subir cada CSV a su ruta. El selector de
+archivo de la entrega previa no satisfacía ese flujo. La inspección del historial
+de Contenedores confirmó las ejecuciones de julio y agosto; faltaban en el registro
+de CSV usado para las subidas, no en el historial de descargas.
+
+Ahora **SharePoint → Resultados → Elegir descargas guardadas…** ofrece filtros de
+procedimiento, mes, año y nombre, casillas múltiples, selección aditiva de visibles,
+contador de elegidas y las rutas relativas. Incluye lotes sin CSV, con **Generar
+CSV seleccionados** en el mismo diálogo; después, **Subir seleccionados** envía
+únicamente esas salidas a sus carpetas de bot/procedimiento, mes y modalidad.
+**CSV externo…** conserva como secundaria la función anterior. No se requiere
+cierre mensual ni se marcan días/meses completos; la subida mensual mantiene sus reglas.
+
+El catálogo (`chc_cloud/download_catalog.py`) solo lee catálogos/historiales y
+registros existentes. No importa motores, genera CSV ni recorre archivos ajenos.
+Mantiene los cuatro DUA separados; Manifiestos por procedimiento y modo; BLs usa
+sus publicSpecs, sin inferir el mes del nombre. Un BLs antiguo sin esas identidades
+se prepara por su exportador y luego ofrece las salidas por mes/modo reales.
+Contenedores sigue limitado a Marítimo. Identidades estables conservan selección
+al refrescar/generar y no mezclan dos lotes que compartan nombre.
+
+`CsvExports.generateSelected` reutiliza la coordinación por procesos y
+`export_selected` valida/filtra IDs antes de llamar a los exportadores existentes.
+Conserva selección activa/configuración, omite ocupados y no continúa tareas
+después de cancelar/cerrar. Generar nunca inicia una subida. El servicio online
+revalida filas, CSV vigentes y destino y sincroniza solo los trabajos elegidos;
+conserva propietario, huellas, cuenta, `eTag`, cola durable y reintentos explícitos.
+No se cambian parsers ni las fuentes copiadas de los motores.
+
+Pasaron 48 pruebas offline distintas más smoke QML. Se comprobó el recorrido
+completo de julio/agosto con datos sintéticos: filtros, casillas, generación sin
+subida, IDs acotados y dos rutas finales distintas, dejando septiembre sin tocar.
+Geometría global y selector nuevo en 1280×774, 1000×680 y 1000×600, con dos filas
+y botones accesibles, sin avisos QML. Pruebas con TemporaryDirectory y Graph
+simulado; no se generaron CSV ni subieron resultados reales ni se consultó TICA.
+La app se abrió una vez antes de documentar, sin consultas. No se actualizó la
+instalación empaquetada. Evidencia pequeña privada en
+`runtime/diagnostics/saved-downloads-20261125/`. Ver
+[uso y restricciones](SHAREPOINT.md#elegir-descargas-guardadas--25112026).
+
 ## SharePoint: CSV individuales de descargas separadas — 25/11/2026
 
 El usuario pidió subir archivos/descargas individuales porque Contenedores de

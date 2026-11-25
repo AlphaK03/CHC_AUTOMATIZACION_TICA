@@ -89,6 +89,7 @@ def main():
     browser_setup.messageReceived.connect(backend.toast.emit)
     app.aboutToQuit.connect(browser_setup.shutdown)
     cloud = SharePointBridge(enabled=not (args.demo or args.smoke_test or args.capture))
+    cloud.setCsvExporter(backend.csvExports)
     monthly.changed.connect(lambda: cloud.refreshMonthlyStatus() if not monthly.busy else None)
     cloud.toast.connect(backend.toast.emit)
     if cloud.storage.joinpath('destinations.json').exists() and cloud.enabled:

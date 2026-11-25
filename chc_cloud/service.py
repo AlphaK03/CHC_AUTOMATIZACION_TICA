@@ -13,6 +13,7 @@ from .auth import CloudAccount
 from .graph import GraphClient, GraphError, places_address, site_address
 from .profile import ProfileCache
 from .manual_upload import digest_file, inspect_file, review_spec
+from .download_catalog import read_catalog
 from chc_runtime import output_layout
 
 TARGETS = [('detalles','Detalles'), ('duas_transito','DUAs Tránsito'), ('talon','Talón'),
@@ -45,7 +46,7 @@ def safe_name(value):
 
 
 class CloudService:
-    def __init__(self, folder, app_settings, account=None, graph=None, monthly=None):
+    def __init__(self, folder, app_settings, account=None, graph=None, monthly=None, roots=None):
         self.folder = Path(folder)
         (self.folder/'spool').mkdir(parents=True, exist_ok=True)
         self.settings_path = self.folder/'destinations.json'
@@ -62,6 +63,9 @@ class CloudService:
         self.monthly_reader=monthly
         self.monthly_cache=None
         self.manual_upload=None
+        self.download_roots=roots if roots is not None else ({m:output_layout.ROOT/'bots'/m for m in (*output_layout.BOTS,'manifiestos')}
+            if self.folder.resolve()==output_layout.ROOT/'runtime/workbench/sharepoint' else {})
+        self.download_catalog={'token':'','rows':[],'errors':[]}
         self.db = sqlite3.connect(self.folder/'publications.sqlite3')
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
@@ -100,6 +104,8 @@ class CloudService:
                 'months':self.months(),
                 'uploadTargets':[{'id':key,'label':label} for key,label in TARGETS],
                 'manualUpload':self.manual_upload_view(),
+                'downloadCatalog':{**self.download_catalog,'rows':[
+                    {k:v for k,v in row.items() if k not in ('spec','owner','registry','path')} for row in self.download_catalog['rows']]},
                 'tasks': tasks, 'queueError':self.collection_error,
                 'pending': self.db.execute("SELECT COUNT(*) FROM jobs WHERE state IN ('pending','uploading','error')").fetchone()[0]}
 
@@ -144,6 +150,41 @@ class CloudService:
         for row in eligible:
             self.enqueue({'target':row['target'],'path':row['path'],'name':key,'owner':row['owner'],'spec':json.loads(row['spec'])})
         self.sync(key)
+
+    def read_downloads(self):
+        return read_catalog(self.download_roots,self.exports_registry,output_layout.local_root(settings=self.exports_settings))
+
+    def list_downloads(self):
+        self.download_catalog={'token':uuid.uuid4().hex,**self.read_downloads()}
+
+    def upload_downloads(self,token,ids,destination):
+        account=self.account_info()
+        identity={k:self.destination.get(k) for k in ('accountId','driveId','folderId')}
+        if not account or not self.destination.get('enabled') or identity['accountId']!=account['home_account_id']:
+            raise ValueError('Conecta la cuenta propietaria y elige la carpeta común de SharePoint.')
+        if destination!=identity:raise ValueError('La cuenta o el destino cambiaron. Revisa la selección.')
+        if token!=self.download_catalog['token'] or not ids or not set(ids)<={r['id'] for r in self.download_catalog['rows']}:
+            raise ValueError('Actualiza las descargas guardadas y vuelve a seleccionarlas.')
+        current={r['id']:r for r in self.read_downloads()['rows']}
+        plans=[];routes={}
+        for key in dict.fromkeys(ids):
+            row=current.get(key)
+            if not row or not row['csvReady']:
+                raise ValueError('Falta un CSV vigente de la selección. Genera los CSV seleccionados y actualiza la lista.')
+            plan=inspect_file(row['path'],Path(row['registry']))
+            if plan['owner']!=row['owner'] or plan['spec']!=row['spec']:
+                raise ValueError('La descarga cambió. Actualiza la lista y vuelve a revisarla.')
+            route=row['relativePath'].casefold()
+            if route in routes and routes[route]!=row['owner']:raise ValueError('Dos lotes usan la misma ruta; selecciona solo uno para conservar ambos.')
+            routes[route]=row['owner'];plans.append(plan)
+        keys=set()
+        for plan in plans:
+            keys.add(self.enqueue({'target':plan['target'],'path':plan['path'],'name':plan['period'] or 'SIN_PERIODO',
+                'owner':plan['owner'],'spec':plan['spec']},manual=True,expected_digest=plan['digest']))
+        self.sync(job_ids=keys,allow_manual=True)
+        jobs=[dict(self.db.execute('SELECT filename,state,error FROM jobs WHERE id=?',(key,)).fetchone()) for key in keys]
+        self.list_downloads()
+        return {'files':jobs,'uploaded':sum(row['state']=='synced' for row in jobs),'errors':sum(row['state']!='synced' for row in jobs)}
 
     def manual_upload_view(self):
         if not self.manual_upload:return {}
@@ -410,6 +451,10 @@ class CloudService:
             self.review_upload(request['token'],request['target'],request['period'],request.get('mode',''))
         elif command == 'upload_file':
             result['uploadResult']=self.upload_file(request['token'])
+        elif command == 'list_downloads':
+            self.list_downloads()
+        elif command == 'upload_downloads':
+            result['downloadUploadResult']=self.upload_downloads(request['token'],request['ids'],request['destination'])
         elif command == 'local_root':
             output_layout.set_local_root(request['path'],settings=self.exports_settings)
         elif command != 'status':

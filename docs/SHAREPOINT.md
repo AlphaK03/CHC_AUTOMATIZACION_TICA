@@ -59,12 +59,62 @@ Microsoft del navegador ni cambia la configuración del registro reutilizado.
    Solo entran bots/procedimientos completos, al día hasta la última fecha
    consultable, o cerrados manualmente en la bitácora mensual.
 
+## Elegir descargas guardadas — 25/11/2026
+
+El flujo principal ya no exige localizar archivos en Windows:
+
+1. Abrir **SharePoint → Resultados → Elegir descargas guardadas…**.
+2. Filtrar por procedimiento, mes, año y/o nombre. Aparecen las descargas conocidas
+   por los catálogos e historiales de la app, aunque aún no tengan CSV.
+3. Marcar varias filas. Para Contenedores de julio y agosto de 2026, elegir
+   Contenedores, año 2026 y marcar ambos. También se puede filtrar un mes, usar
+   **Seleccionar visibles**, cambiar al otro y añadirlo: no pierde la selección.
+4. Si faltan archivos, pulsar **Generar CSV seleccionados**. Se generan desde los
+   resultados SQLite de esos lotes sin cambiar la ejecución activa ni consultar
+   TICA. Se omiten procesos ocupados y se informa del resultado. Generar no sube.
+5. Revisar las rutas de las filas y pulsar **Subir seleccionados (N)**. Cada CSV
+   va a su ruta de procedimiento, mes y modalidad, bajo la carpeta común elegida.
+
+No se exige cierre mensual para esta selección y no se modifica la bitácora.
+**Quitar selección** desmarca todo. El contador incluye las filas marcadas que
+quedaron ocultas al cambiar filtros. **Actualizar** relee las descargas y mantiene
+las identidades que todavía existan. Los CSV sustituidos y Contenedores
+Aéreo/Terrestre permanecen fuera de esta lista.
+
+La generación manual se agrupa por proceso y por IDs únicos de ejecución; no
+recorre otros lotes ni cambia configuraciones. Si un lote contiene varias
+modalidades, su exportador conserva las salidas de ese lote; solo se suben las
+filas elegidas. Los BLs antiguos sin períodos verificables aparecen por preparar:
+al exportar se obtienen los meses/modos reales del payload, sin deducirlos del
+nombre. Después se eligen las salidas concretas mostradas en la lista.
+
+`chc_cloud/download_catalog.py` lee únicamente metadatos y registros existentes,
+sin abrir servicios de bots ni generar archivos. Los workers conservan sus
+exportadores y añaden `export_selected`, validando todos los IDs antes de actuar.
+El envío vuelve a validar catálogo, archivos vigentes y destino, captura las
+copias y limita la sincronización a sus identidades. No envía otros pendientes.
+Los conflictos de propietario, huella y `eTag` conservan las protecciones anteriores.
+
+La revisión local confirmó julio/agosto en el historial de Contenedores; no estaban
+en el registro de CSV públicos usado por el selector anterior. No se exportaron
+ni subieron sus datos reales durante las pruebas. Pasaron 48 pruebas offline
+distintas y el smoke QML, con Graph simulado y almacenamiento temporal: catálogo
+sin CSV, cuatro catálogos DUA separados, períodos BLs, selección múltiple,
+generación por IDs, cancelación/ocupados, cuentas/rutas y cola existente. La
+prueba de QML ejecuta filtrar → marcar julio/agosto → generar → subir ambos a
+rutas distintas, sin incluir septiembre; comprueba dos filas y botones accesibles
+en 1280×774, 1000×680 y 1000×600. No hubo avisos QML ni consultas reales.
+
+La app se abrió sin consultas antes de documentar; no se actualizó la distribución
+empaquetada. Evidencia sintética pequeña en
+`runtime/diagnostics/saved-downloads-20261125/`.
+
 ## Subir un CSV individual — 25/11/2026
 
 Para descargas guardadas aparte, como Contenedores de julio y agosto de 2026,
 ya no es necesario que el mes figure en la lista mensual:
 
-1. Abrir **SharePoint → Resultados → Subir un CSV individual…**.
+1. Abrir **SharePoint → Resultados → CSV externo…** (opción secundaria).
 2. Elegir un CSV existente. Se admiten los generados por Workbench y archivos
    externos, incluso fuera de la carpeta madre local. Si solo existe SQLite,
    primero usar **Más → Generar CSV de esta ejecución/tabla** en el bot.

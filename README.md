@@ -112,8 +112,10 @@ según su cobertura. El reintento normal no reabre estas exclusiones.
 carpeta madre local y una online para todos los bots. Los CSV públicos comparten
 nombres en mayúsculas y organización por bot, mes y modo cuando aplica.
 La subida se inicia solo mediante **Subir a SharePoint**, **Subir este CSV** o un
-reintento explícito. **Subir un CSV individual…** permite elegir resultados de
-descargas separadas, sin exigir cierre mensual ni modificar la bitácora.
+reintento explícito. **Elegir descargas guardadas…** muestra los lotes conocidos,
+con filtros y selección múltiple. Permite generar sus CSV desde la lista y subir
+los elegidos a sus rutas propias, sin exigir cierre mensual ni buscar archivos.
+**CSV externo…** conserva la elección de archivos ajenos al catálogo.
 El selector recorre sitios, bibliotecas y subcarpetas; también permite elegir la
 raíz de una biblioteca o una carpeta sin subcarpetas. [Guía de SharePoint](docs/SHAREPOINT.md).
 El círculo de cuenta de la barra superior muestra la foto o las iniciales del
@@ -271,8 +273,9 @@ una carpeta madre online para todos los bots. La carpeta madre local es también
 común; los CSV se organizan por bot, mes y modo, con nombres en mayúsculas.
 **Subir a SharePoint** envía únicamente resultados de bots completos, al día o
 cerrados manualmente en la bitácora, cuando el usuario lo solicita.
-**Subir un CSV individual…** permite revisar y enviar un único archivo, incluido
-un CSV externo de otra descarga, sin marcar su mes como completado.
+**Elegir descargas guardadas…** permite filtrar, generar CSV y subir varios lotes
+elegidos, sin marcar su mes como completado. **CSV externo…** permite enviar un
+archivo que no figure en el catálogo.
 Exportar localmente no inicia subidas. La aplicación conserva su funcionamiento
 y resultados locales sin cuenta. Registro OAuth2 de escritorio
 reutilizado de CHC REPORTES con `Sites.Read.All`, `Files.ReadWrite.All` y `User.Read`

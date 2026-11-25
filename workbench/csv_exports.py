@@ -16,6 +16,8 @@ class CsvExports(QObject):
         self.current = None
         self.exported = 0
         self.errors = []
+        self.selected_records = None
+        self.cancelled = False
 
     @Property(bool, notify=changed)
     def busy(self): return self._busy
@@ -26,6 +28,8 @@ class CsvExports(QObject):
     @Slot()
     def generateAll(self):
         if self._busy:return
+        self.selected_records = None
+        self.cancelled = False
         self.queue = []
         self.exported = 0
         self.errors = []
@@ -42,6 +46,24 @@ class CsvExports(QObject):
         self._busy = True
         self.changed.emit()
         self.next()
+
+    def generateSelected(self,rows):
+        if self._busy:return
+        self.queue=[];self.exported=0;self.errors=[];self.selected_records={};self.cancelled=False
+        for row in rows:
+            if not row.get('canGenerate'):continue
+            bridge=self.bridges.get(row['module'])
+            if not bridge or not bridge.enabled:
+                self.errors.append(row['name']+': módulo no disponible.');continue
+            endpoint=bridge.channels.get(row['flow']) if row['flow'] and hasattr(bridge,'channels') else bridge
+            if not endpoint:
+                self.errors.append(row['name']+': procedimiento no disponible.');continue
+            key=id(endpoint)
+            if key not in self.selected_records:
+                self.selected_records[key]=set()
+                self.queue.append((row['target'],endpoint,bridge))
+            self.selected_records[key].add(row['recordId'])
+        self._busy=True;self.changed.emit();self.next()
 
     def next(self):
         if not self._busy or self.current:return
@@ -60,7 +82,10 @@ class CsvExports(QObject):
             self._message = 'Generando CSV: '+label
             self.changed.emit()
             send = endpoint.send if hasattr(endpoint,'send') else endpoint._send
-            if send('export_all', {'exportToken':token}):return
+            command='export_selected' if self.selected_records is not None else 'export_all'
+            data={'exportToken':token}
+            if self.selected_records is not None:data['recordIds']=sorted(self.selected_records[id(endpoint)])
+            if send(command,data):return
             self.release()
             self.errors.append(label+': no se pudo iniciar la generación.')
         self._busy = False
@@ -78,7 +103,8 @@ class CsvExports(QObject):
                 QTimer.singleShot(0,self.next)
 
     def receive(self, event):
-        if not self.current or event.get('command')!='export_all':return
+        command='export_selected' if self.selected_records is not None else 'export_all'
+        if not self.current or event.get('command')!=command:return
         if event.get('event') not in ('result','error','fatal'):return
         label, endpoint, token = self.current
         report = event.get('exportReport',{})
@@ -99,6 +125,7 @@ class CsvExports(QObject):
 
     @Slot()
     def cancel(self):
+        self.cancelled = True
         self.queue = []
         self._busy = False
         self.release()

@@ -15,6 +15,10 @@ se eliminan ni se sustituyen por CSV.
   **Generar todos los CSV**. Recorre las tablas y ejecuciones guardadas de todos
   los meses, sin cambiar la selección actual. Incluye resultados confirmados de
   lotes pendientes; el CSV por sí solo no acredita que un período esté completo.
+- Para varios lotes elegidos: **SharePoint → Resultados → Elegir descargas
+  guardadas… → Generar CSV seleccionados**. No es necesario buscar archivos ni
+  cambiar el lote activo. Usa solo los IDs elegidos, agrupa por proceso y omite
+  módulos ocupados. Generar no sube nada; **Subir seleccionados** es otra acción.
 
 La generación conjunta procesa los módulos de uno en uno para limitar el trabajo
 de disco. Omite módulos ocupados, continúa con los demás y muestra los errores o

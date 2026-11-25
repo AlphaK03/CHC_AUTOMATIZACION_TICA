@@ -28,6 +28,17 @@ class Endpoint(QObject):
 
 
 class CsvExportTests(unittest.TestCase):
+    def test_selected_records_are_grouped_deduplicated_and_busy_processes_are_preserved(self):
+        one=Endpoint();busy=Endpoint();busy.busy=True
+        controller=CsvExports({'detalles':one,'talon':busy})
+        rows=[dict(target='detalles',module='detalles',flow='',recordId=key,canGenerate=True,name=key) for key in ('july','august','july')]
+        rows.append(dict(target='talon',module='talon',flow='',recordId='busy',canGenerate=True,name='busy'))
+        controller.generateSelected(rows);wait_until(lambda:not controller.busy)
+        self.assertEqual(one.calls[0][0],'export_selected')
+        self.assertEqual(one.calls[0][1]['recordIds'],['august','july'])
+        self.assertFalse(busy.calls);self.assertTrue(busy.busy)
+        self.assertIn('ocupado',controller.message)
+
     def test_only_explicit_action_exports_and_busy_module_is_preserved(self):
         one=Endpoint();busy=Endpoint();busy.busy=True;bad=Endpoint(fail=True)
         controller=CsvExports({'uno':one,'ocupado':busy,'fallo':bad})

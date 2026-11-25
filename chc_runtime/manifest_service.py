@@ -295,9 +295,14 @@ class BatchService:
             self.inspect(request.get('search',''), int(request.get('offset',0)),request.get('mode',''))
         elif command == 'export':
             self.export()
-        elif command == 'export_all':
+        elif command in {'export_all','export_selected'}:
             report = {'token':request.get('exportToken'), 'exported':0, 'errors':[]}
-            for record in self.index['history']:
+            records=self.index['history']
+            if command=='export_selected':
+                ids=set(request.get('recordIds',[]))
+                if not ids or not ids<={r['id'] for r in records}:raise ValueError('Selecciona ejecuciones guardadas existentes.')
+                records=[r for r in records if r['id'] in ids]
+            for record in records:
                 if self.stop.is_set():
                     report['errors'].append('Generación detenida.');break
                 try:

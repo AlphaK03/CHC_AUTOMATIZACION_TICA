@@ -14,6 +14,8 @@ sitios/bibliotecas/carpetas, carpeta madre común y CSV estandarizados en mayús
 Las subidas por mes requieren acción explícita y un bot completo, al día o cerrado
 manualmente. Desde el 25/11, la subida individual permite revisar y enviar un CSV
 de una descarga aparte sin exigir cierre mensual ni modificar la cobertura.
+El selector de descargas guardadas lee catálogos/historiales, ofrece filtros y
+selección múltiple, genera CSV por IDs y sube únicamente los archivos elegidos.
 La distribución ejecutable Windows x64 está preparada al 22/10, con entorno y
 navegador propios; sigue pendiente la aceptación en otro equipo físico limpio.
 Ver `DISTRIBUCION_WINDOWS.md` para construcción y pruebas aisladas del paquete.
