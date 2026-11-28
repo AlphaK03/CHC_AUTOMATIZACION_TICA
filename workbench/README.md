@@ -285,6 +285,12 @@ En **Manifiestos**, la barra horizontal permite elegir **Manifiestos**,
 de la barra lateral. En **Procesamiento**, elegir período y modalidad y pulsar
 **Iniciar consulta**. Cada procedimiento conserva su historial y funciona
 independientemente; cambiar de acceso no detiene sus consultas.
+Cambiar **Período** (mes o año) muestra automáticamente el avance, conteos por
+modalidad y trabajos de una ejecución guardada de ese mes, sin iniciar consultas.
+Si no existe, muestra cero y **Sin descargas de este período**; no crea un lote.
+Si hay varios históricos, propone el mensual sin IDs/límite y permite elegir
+otro en el selector de ejecuciones. No suma ni fusiona bases independientes.
+El cambio de período espera a terminar la consulta o revisión visible activa.
 El campo **Tabla** es automático y no editable: Octubre 2026 → `octubre26`,
 Enero 2027 → `enero27`. Las consultas sin IDs ni límite acumulan por procedimiento,
 mes y filtro Courier. Ampliar fechas o pasar de ambas modalidades a una sola

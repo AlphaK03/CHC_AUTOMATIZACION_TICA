@@ -7,6 +7,16 @@ y pruebas, más requisitos y documentación de referencia, a `bots/manifiestos/`
 Los hashes de esos 28 archivos están en `source_manifest.json`; sus extractores
 permanecen intactos. Los cambios funcionales viven en adaptadores nuevos.
 
+## Vista por período (28/11/2026)
+
+Cambiar mes/año en cualquiera de los cinco procedimientos selecciona y lee
+una ejecución existente de ese período sin iniciar consulta. Actualiza avance,
+modalidades y filas; sin histórico muestra una selección vacía y conteos cero.
+Los SQLite se abren en modo solo lectura; las reservas no se recuperan por
+navegar. Se conserva el selector para otros históricos, sin fusionar lotes.
+La selección requiere el procedimiento desocupado y sin revisión TICA visible.
+BLs conserva su flujo por entrada, que puede abarcar varios meses.
+
 ## Actualizar guardados (ampliado el 28/11/2026)
 
 Conocimientos, DUAs y Movimientos tienen un botón púrpura **Actualizar guardados**.

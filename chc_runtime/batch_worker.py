@@ -57,7 +57,7 @@ def main(module='manifiestos'):
     def execute(request):
         command = request['command']
         started = time.monotonic()
-        reading = command in ('refresh','select','knowledge_catalog')
+        reading = command in ('refresh','select','select_period','knowledge_catalog')
         try:
             if reading:
                 logging.info('Inicio de carga local: %s / %s.', flow, command)

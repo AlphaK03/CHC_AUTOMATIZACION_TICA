@@ -1,3 +1,33 @@
+## Manifiestos: vista al cambiar período — 28/11/2026
+
+El usuario pidió ver los datos del mes antes de iniciar. En los cinco
+procedimientos, cambiar mes/año ahora envía `select_period`: busca una ejecución
+existente por el año/mes de su spec y lee sus SQLite en modo solo lectura.
+Se actualizan resumen, modalidades, filas y ejecución seleccionada. Si no hay
+histórico, borra la selección visible y muestra cero y «Sin descargas de este
+período»; no crea un lote ni reutiliza los datos del mes anterior.
+
+Si hay varios históricos, conserva la selección explícita del mismo período;
+al entrar a otro mes prefiere un mensual sin IDs/límite, con bases y Courier
+coincidente, y mayor cantidad de guardados. El selector permite elegir otro;
+no fusiona históricos ni considera nombres como prueba de mes o cobertura.
+Solo persiste la selección/configuración del panel; no prepara motores,
+recupera reservas, consulta TICA, genera CSV ni sube archivos. Al volver a un
+mes guardado se restaura su configuración; en un mes nuevo se limpian nombre
+y fechas del período previo. BLs mantiene su selección por entrada/períodos.
+
+La interfaz agrupa cambios rápidos, evita bucles al cargar configuración y
+bloquea acciones del lote durante la selección. No cambia de mes con consulta
+o revisión visible activa; el lector conserva el plazo local de 60 segundos.
+Pasaron 16 pruebas offline distintas: cuatro del período (incluido QML real →
+worker, 25 cambios en los cinco procedimientos), dos de plazo local, cuatro
+de modalidades, tres QML de modalidades, una de Actualizar guardados y dos de
+carga independiente. SQLite y CSV sintéticos conservaron sus SHA-256; no se
+consultó TICA ni se modificaron bases reales. Capturas de mes con/sin datos
+en tres tamaños en `runtime/diagnostics/manifest-period-20261128/`.
+Se abrió una sola instancia de desarrollo antes de documentar, sin consultas.
+No se actualizó el instalador. Uso en `workbench/README.md`, sección Manifiestos.
+
 ## Movimientos: actualizar guardados — 28/11/2026
 
 El usuario pidió habilitar en Movimientos la actualización manual ya disponible

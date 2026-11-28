@@ -52,6 +52,8 @@ class LoadingOverlayTests(unittest.TestCase):
                 self.assertFalse(bridge.loading)
                 channel.busy=True;channel.active_command='select'
                 self.assertTrue(bridge.loading)
+                channel.active_command='select_period'
+                self.assertTrue(bridge.loading)
                 channel.ready=False;channel.error='Error de lectura'
                 self.assertFalse(bridge.loading)
                 channel.error='';channel.ready=True;channel.active_command='run'

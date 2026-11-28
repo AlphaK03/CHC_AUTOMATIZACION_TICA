@@ -16,6 +16,8 @@ ScrollView {
     property var navIcons: ["ship","document","route","activity","database"]
     property var navWidths: [116,160,88,134,148]
     property bool optionsVisible: false
+    property bool loadingConfig: false
+    property bool periodReady: false
     property int rowOffset: 0
     property string deleteId: ""
     property string deleteName: ""
@@ -81,6 +83,7 @@ ScrollView {
     }
     function selectProcedure(flow) {
         if (flow === moduleBridge.flow) return
+        periodTimer.stop()
         page.rowOffset = 0
         search.text = ""
         moduleBridge.setFlow(flow)
@@ -89,6 +92,8 @@ ScrollView {
     function loadConfig() {
         const c = moduleBridge.config
         if (!c || c.year === undefined) return
+        periodTimer.stop()
+        page.loadingConfig = true
         year.value = c.year; month.currentIndex = c.month - 1
         maritime.checked = page.maritimeOnly || c.modes.indexOf("maritimo") >= 0
         air.checked = !page.maritimeOnly && c.modes.indexOf("aereo") >= 0
@@ -107,6 +112,19 @@ ScrollView {
         page.selectedKnowledge=c.knowledgePeriods || []
         history.currentIndex = moduleBridge.history.findIndex(item => item.id === moduleBridge.activeId)
         page.syncView()
+        page.loadingConfig = false
+    }
+    function periodChanged() {
+        if (!page.periodReady || page.loadingConfig || page.isBls || moduleBridge.busy || moduleBridge.manualReview.running) return
+        periodTimer.restart()
+    }
+    Timer {
+        id:periodTimer; interval:150
+        onTriggered: {
+            if (!page.isBls && !moduleBridge.busy && moduleBridge.ready &&
+                (year.value!==moduleBridge.config.year || month.currentIndex+1!==moduleBridge.config.month))
+                moduleBridge.command("select_period",{year:year.value,month:month.currentIndex+1})
+        }
     }
     function configuration() {
         return {year:year.value, month:month.currentIndex+1, modes:page.selectedModes(), name:tableName.text,
@@ -116,7 +134,7 @@ ScrollView {
             limit:limit.value, input:input.text, sheet:sheet.text, max_retries:retries.value,
             inputMode:inputMode.currentIndex===0 ? "knowledge" : "file", knowledgePeriods:page.selectedKnowledge}
     }
-    Component.onCompleted: loadConfig()
+    Component.onCompleted: { loadConfig(); page.periodReady = true }
     property double refreshClock: Date.now()
     function refreshDuration() {
         let info = moduleBridge.refreshSaved
@@ -129,7 +147,7 @@ ScrollView {
         function onEventReceived(event) {
             if(event.flow === moduleBridge.flow && event.event === "result" && event.command === "view") { page.syncView(); return }
             if(event.flow === moduleBridge.flow && (event.event === "ready" ||
-               (event.event === "result" && ["configure","refresh","select","import_progress","run","retry_empty","knowledge_empty","delete"].indexOf(event.command) >= 0))) loadConfig()
+               (event.event === "result" && ["configure","refresh","select","select_period","import_progress","run","retry_empty","knowledge_empty","delete"].indexOf(event.command) >= 0))) loadConfig()
         }
     }
     ColumnLayout {
@@ -143,17 +161,17 @@ ScrollView {
             ActionButton { visible:!page.isBls; text:"Crear base para BLs"; onClicked:baseDialog.open() }
             ActionButton { text:"Más"; onClicked:more.open(); Menu {
                 id:more
-                MenuItem { text:"Generar CSV de esta ejecución"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("export",{}) }
+                MenuItem { text:"Generar CSV de esta ejecución"; enabled:!periodTimer.running && !moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("export",{}) }
                 MenuItem {
                     objectName:"blsRetryEmpty"; text:"Reconsultar BLs con 0 filas…"; visible:page.isBls
                     enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running &&
                         moduleBridge.activeId!=="" && (moduleBridge.summary.empty || 0)>0
                     onTriggered:{ emptyRetry.recordId=moduleBridge.activeId; emptyRetry.count=moduleBridge.summary.empty || 0; emptyRetry.open() }
                 }
-                MenuItem { text:"Pendientes y exclusiones"; enabled:!moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("review",{}) }
+                MenuItem { text:"Pendientes y exclusiones"; enabled:!periodTimer.running && !moduleBridge.busy && moduleBridge.activeId!==""; onTriggered:moduleBridge.command("review",{}) }
                 MenuItem { text:"Importar progreso SQLite…"; visible:!page.isBls && ["conocimientos","duas","movimientos"].indexOf(moduleBridge.flow)>=0; enabled:!moduleBridge.busy; onTriggered:progressFile.open() }
                 MenuItem { text:"Dividir CSV para Excel"; enabled:!moduleBridge.busy; onTriggered:splitFile.open() }
-                MenuItem { objectName:"batchDeleteDatabase"; text:"Eliminar base de datos…"; enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running && moduleBridge.activeId!==""; onTriggered:page.requestDelete() }
+                MenuItem { objectName:"batchDeleteDatabase"; text:"Eliminar base de datos…"; enabled:!periodTimer.running && moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing && !moduleBridge.manualReview.running && moduleBridge.activeId!==""; onTriggered:page.requestDelete() }
                 MenuItem { text:"Reconectar"; enabled:!moduleBridge.busy; onTriggered:moduleBridge.refreshModule() }
             } }
         }
@@ -208,8 +226,8 @@ ScrollView {
                     visible:!page.isBls
                     Layout.fillWidth:true
                     Text { text: "Período:"; color: Theme.text; font.family: Theme.family; font.pixelSize: 12 }
-                    Select { id:month; objectName:"manifestMonth"; Layout.preferredWidth:145; model:["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]; enabled:!moduleBridge.busy }
-                    NumberField { id:year; objectName:"manifestYear"; from:2000; to:2100; value:2026; editable:true; enabled:!moduleBridge.busy; Layout.preferredWidth:115 }
+                    Select { id:month; objectName:"manifestMonth"; Layout.preferredWidth:145; model:["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]; enabled:!moduleBridge.busy && !moduleBridge.manualReview.running; onCurrentIndexChanged:page.periodChanged() }
+                    NumberField { id:year; objectName:"manifestYear"; from:2000; to:2100; value:2026; editable:true; enabled:!moduleBridge.busy && !moduleBridge.manualReview.running; Layout.preferredWidth:115; onValueChanged:page.periodChanged() }
                     Item { Layout.fillWidth: true }
                 }
                 RowLayout {
@@ -238,7 +256,7 @@ ScrollView {
                     Layout.fillWidth:true
             Text { visible:!page.isBls; text:"Tabla:"; color:Theme.text; font.family:Theme.family; font.pixelSize:12 }
             Field { id:tableName; objectName:"manifestTableName"; Layout.fillWidth:true; text:page.isBls ? "" : page.automaticName(); readOnly:!page.isBls; placeholderText:page.isBls ? "Nombre de la tabla (opcional)" : "Seleccione un período y modalidad válidos"; enabled:!moduleBridge.busy }
-                    ActionButton { text:moduleBridge.busy ? "En ejecución…" : page.resumesBls && moduleBridge.summary.pending>0 ? "Continuar pendientes" : "Iniciar consulta"; objectName:"manifestStart"; primary:true; enabled:moduleBridge.ready && !moduleBridge.busy && (!page.isBls || inputMode.currentIndex===1 || page.knowledgeSelectionReady); onClicked:moduleBridge.command("run",{config:page.configuration()}) }
+                    ActionButton { text:moduleBridge.busy ? "En ejecución…" : page.resumesBls && moduleBridge.summary.pending>0 ? "Continuar pendientes" : "Iniciar consulta"; objectName:"manifestStart"; primary:true; enabled:!periodTimer.running && moduleBridge.ready && !moduleBridge.busy && (!page.isBls || inputMode.currentIndex===1 || page.knowledgeSelectionReady); onClicked:moduleBridge.command("run",{config:page.configuration()}) }
                     ActionButton { text:"Detener"; enabled:moduleBridge.busy; onClicked:moduleBridge.stop() }
                 }
                 RowLayout {
@@ -247,7 +265,7 @@ ScrollView {
                     ActionButton {
                         id:refreshSavedButton; objectName:"manifestRefreshSaved"
                         text:moduleBridge.refreshSaved.active ? "Actualizando guardados…" : "Actualizar guardados"
-                        enabled:moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing &&
+                        enabled:!periodTimer.running && moduleBridge.ready && !moduleBridge.busy && !moduleBridge.closing &&
                             !moduleBridge.manualReview.running && moduleBridge.activeId!=="" && moduleBridge.summary.succeeded>0
                         background:Rectangle { radius:8; color:refreshSavedButton.hovered ? "#6d28d9" : "#7c3aed"; border.color:refreshSavedButton.activeFocus ? "#c4b5fd" : "transparent"; border.width:2 }
                         contentItem:Text { text:refreshSavedButton.text; color:"#ffffff"; font.family:Theme.family; font.pixelSize:12; font.weight:Font.DemiBold; horizontalAlignment:Text.AlignHCenter; verticalAlignment:Text.AlignVCenter }
@@ -318,7 +336,7 @@ ScrollView {
                     RowLayout {
                         Layout.fillWidth:true
                         Item { Layout.fillWidth:true }
-                        ActionButton { text:"Guardar configuración"; primary:true; enabled:!moduleBridge.busy; onClicked:moduleBridge.command("configure",{config:page.configuration()}) }
+                        ActionButton { text:"Guardar configuración"; primary:true; enabled:!periodTimer.running && !moduleBridge.busy; onClicked:moduleBridge.command("configure",{config:page.configuration()}) }
                     }
                 }
             }
@@ -326,8 +344,8 @@ ScrollView {
         RowLayout {
             Layout.fillWidth:true
             visible: !page.optionsVisible
-            Select { id:history; objectName:"manifestHistory"; Layout.fillWidth:true; model:moduleBridge.history; textRole:"label"; placeholder:"Ejecuciones guardadas"; enabled:!moduleBridge.busy; onActivated:moduleBridge.command("select",{id:moduleBridge.history[currentIndex].id}) }
-            ActionButton { text:"Ver resultados"; enabled:moduleBridge.activeId!==""; onClicked:moduleBridge.openResults() }
+            Select { id:history; objectName:"manifestHistory"; Layout.fillWidth:true; model:moduleBridge.history; textRole:"label"; placeholder:!page.isBls && moduleBridge.ready && moduleBridge.activeId==="" ? "Sin descargas de este período" : "Ejecuciones guardadas"; enabled:!periodTimer.running && !moduleBridge.busy; onActivated:moduleBridge.command("select",{id:moduleBridge.history[currentIndex].id}) }
+            ActionButton { text:"Ver resultados"; enabled:!periodTimer.running && !moduleBridge.loading && moduleBridge.activeId!==""; onClicked:moduleBridge.openResults() }
         }
         Panel {
             objectName: "batchProgressPanel"; visible: !page.optionsVisible

@@ -147,5 +147,5 @@ COMMANDS={'run':'Ejecutando consultas','refresh_saved':'Actualizando manifiestos
           'knowledge_build':'Preparando base BLs desde Conocimientos','knowledge_catalog':'Buscando Conocimientos terminados',
           'base_build':'Generando base BLs','base_load':'Leyendo fuentes de Conocimientos','import':'Importando base',
           'view':'Leyendo lista de consultas','detail':'Leyendo detalle guardado','daily_calendar':'Leyendo calendario',
-          'configure':'Guardando configuración','select':'Abriendo tabla seleccionada',
+          'configure':'Guardando configuración','select':'Abriendo tabla seleccionada','select_period':'Leyendo descargas del período',
           'review':'Preparando pendientes y exclusiones','knowledge_empty':'Preparando lote BLs sin registros'}

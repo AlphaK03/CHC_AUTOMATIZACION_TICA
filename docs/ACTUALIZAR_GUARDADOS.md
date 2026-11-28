@@ -6,13 +6,15 @@ medirlo y pidió un botón visible púrpura o celeste. Se añadió **Actualizar 
 púrpura y fuera de menús, en Conocimientos y DUAs por manifiesto. Desde el
 28/11/2026 también está disponible en Movimientos por petición del usuario.
 
-No hay tarea al cambiar de fecha ni al abrir la app. **Iniciar consulta** mantiene
+No hay reconsulta a TICA al cambiar de fecha ni al abrir la app. **Iniciar consulta** mantiene
 la acumulación normal de nuevos/pendientes. Esta acción permite revisar guardados
 varias veces el mismo día, porque TICA puede modificarlos a cualquier hora.
 
 ## Uso
 
 1. Entrar en Manifiestos → Conocimientos, DUAs o Movimientos y seleccionar la ejecución guardada.
+   Cambiar el mes/año ya carga su progreso local; el selector permite elegir
+   otro histórico. Si no hay descargas de ese período, se muestra la vista vacía.
 2. Mantener el año/mes de esa ejecución y marcar las modalidades que se revisarán.
    Para repetir la medición corta, elegir octubre de 2026 y solo Marítimo.
 3. Pulsar **Actualizar guardados**, debajo de los botones de consulta.

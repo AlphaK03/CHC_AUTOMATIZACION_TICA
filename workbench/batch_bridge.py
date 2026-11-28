@@ -108,7 +108,7 @@ class BatchChannel(QObject):
         if command not in ('stop','shutdown'):
             self.active_command = command
             self.console.begin()
-            if command in {'refresh','select','knowledge_catalog'}:
+            if command in {'refresh','select','select_period','knowledge_catalog'}:
                 self.load_timer.start()
             else:
                 self.load_timer.stop()
@@ -190,7 +190,7 @@ class BatchChannel(QObject):
         self.process.kill()
 
     def load_timeout(self):
-        if self.closing or not self.busy or self.active_command not in {'refresh','select','knowledge_catalog'}:
+        if self.closing or not self.busy or self.active_command not in {'refresh','select','select_period','knowledge_catalog'}:
             return
         self._load_expired = True
         self.pending = None
@@ -270,7 +270,7 @@ class BatchBridge(QObject):
         if channel.busy and channel.active_command in {'run','retry_empty','refresh_saved'}:
             return False
         if not channel.error and (not channel.ready or
-                (channel.busy and channel.active_command in {'refresh','select','import_progress'})):
+                (channel.busy and channel.active_command in {'refresh','select','select_period','import_progress'})):
             return True
         # Los auxiliares tienen su propio indicador en el diálogo/selector.
         # No ocultar una sección lista por la carga de otra base.
@@ -374,6 +374,8 @@ class BatchBridge(QObject):
 
     @Slot(str, 'QVariantMap', result=bool)
     def command(self, name, data):
+        if name == 'select_period' and (self.busy or self._closing or self._review.running):
+            return False
         if name == 'refresh_saved' and (self.busy or self._closing or self._review.running):
             return False
         if self.isBls and name == 'retry_empty':

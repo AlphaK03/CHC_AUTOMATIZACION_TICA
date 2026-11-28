@@ -275,9 +275,12 @@ class BatchService:
                 self.message = 'No hay BLs guardados con 0 filas en este lote.'
             else:
                 self.run(retry_empty=True)
+        elif command == 'select_period':
+            return self.select_period(request)
         elif command == 'select':
             if not any(item['id'] == request['id'] for item in self.index['history']):
                 raise ValueError('No se encontró la ejecución')
+            self.message = ''
             self.index['active'] = request['id']
             self.refresh_saved_info = {}
             selected=dict(self.active()['config'])
@@ -359,6 +362,39 @@ class BatchService:
             raise ValueError('Comando desconocido')
         if command == 'refresh':
             self.inspect()
+        return {'snapshot':self.snapshot()}
+
+    def select_period(self, request):
+        """Selecciona progreso existente; nunca prepara ni consulta un lote."""
+        if self.flow not in ('tabla','conocimientos','duas','movimientos','contenedores') or self.processing:
+            raise ValueError('Termine la consulta activa antes de cambiar el período.')
+        year, month = int(request['year']), int(request['month'])
+        if not 2000 <= year <= 2100 or not 1 <= month <= 12:
+            raise ValueError('Período inválido.')
+        candidates = [r for r in self.index['history']
+                      if (r.get('spec',{}).get('year'),r.get('spec',{}).get('month')) == (year,month)]
+        normal = [r for r in candidates if not r['spec'].get('ids') and not r['spec'].get('limit')]
+        pool = normal or candidates
+        populated = [r for r in pool if r.get('databases')]
+        pool = populated or pool
+        selected = next((r for r in candidates if r['id']==self.index['active']), None)
+        if selected is None and pool:
+            courier = self.index['config'].get('courier','todos')
+            matching = [r for r in pool if r.get('config',{}).get('courier','todos')==courier]
+            selected = max(reversed(matching or pool),key=lambda r:r.get('summary',{}).get('succeeded',0))
+        self.message = ''
+        if selected:
+            return self.execute('select',{'id':selected['id']})
+        self.index['active'] = ''
+        self.index['config'].update(year=year,month=month,name='',start='',end='')
+        self._jobs = {}
+        self._result_counts = {}
+        self._database_summaries = {}
+        self._view_offset = 0
+        self._view_search = ''
+        self.refresh_saved_info = {}
+        self.message = 'No hay descargas guardadas para este período.'
+        self.save()
         return {'snapshot':self.snapshot()}
 
     def import_progress(self, source):

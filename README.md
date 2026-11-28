@@ -28,6 +28,10 @@ C. [Uso, verificación y borrado pendiente](docs/EXPORTACION_MANUAL.md).
 Contenedores consulta solo **Marítimo**, también en el inicio mensual; los
 históricos aéreos se conservan fuera de su avance. Cambio aplicado a la
 instalación local de C y verificado con portales locales, sin consultar TICA.
+En los cinco procedimientos de **Manifiestos**, cambiar mes o año carga el
+progreso y los trabajos guardados de ese período sin iniciar consultas. Si no
+hay descargas, muestra la vista vacía. El selector de ejecuciones permite
+revisar otros lotes históricos del mismo mes sin fusionarlos.
 XMovimientos guarda evidencia resumida de vacíos y errores, limitada a 32 KiB
 por HTML. `Resumir_Evidencias_XMovimientos.bat` revisa y convierte diagnósticos
 anteriores con confirmación `BORRAR`, conservando sus rutas, SQLite y CSV.
