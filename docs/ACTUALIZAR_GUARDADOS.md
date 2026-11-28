@@ -3,7 +3,8 @@
 Implementado el 24/10/2026 en desarrollo, por petición del usuario tras comprobar
 filas nuevas en manifiestos ya Guardado. El usuario eligió control manual para
 medirlo y pidió un botón visible púrpura o celeste. Se añadió **Actualizar guardados**,
-púrpura y fuera de menús, en Conocimientos y DUAs por manifiesto.
+púrpura y fuera de menús, en Conocimientos y DUAs por manifiesto. Desde el
+28/11/2026 también está disponible en Movimientos por petición del usuario.
 
 No hay tarea al cambiar de fecha ni al abrir la app. **Iniciar consulta** mantiene
 la acumulación normal de nuevos/pendientes. Esta acción permite revisar guardados
@@ -11,7 +12,7 @@ varias veces el mismo día, porque TICA puede modificarlos a cualquier hora.
 
 ## Uso
 
-1. Entrar en Manifiestos → Conocimientos o DUAs y seleccionar la ejecución guardada.
+1. Entrar en Manifiestos → Conocimientos, DUAs o Movimientos y seleccionar la ejecución guardada.
 2. Mantener el año/mes de esa ejecución y marcar las modalidades que se revisarán.
    Para repetir la medición corta, elegir octubre de 2026 y solo Marítimo.
 3. Pulsar **Actualizar guardados**, debajo de los botones de consulta.
@@ -30,8 +31,10 @@ Dentro de cada una, la cohorte son todos los Guardado confirmados existentes al
 comenzar, incluidos los vacíos válidos. No incluye pendientes/excluidos ni añade
 el detalle de manifiestos nuevos del listado. Se obtiene el listado del mes para
 reencontrar la cohorte completa, aunque la última consulta normal fue un subrango.
-Conserva la selección Courier de cada SQLite. Los otros tres procedimientos no
-incorporan esta acción.
+Conserva la selección Courier de cada SQLite. Listado y Contenedores no
+incorporan esta acción. Para recuperar Movimientos de octubre de 2026, elegir
+su ejecución existente, octubre de 2026 y únicamente Marítimo. Se revisan todos
+sus guardados del mes, incluidos los vacíos; no se limita a los días sospechosos.
 
 ## Conservación y confirmación
 
@@ -40,6 +43,8 @@ sin importar motores en Qt. Adquiere todos los bloqueos de las fuentes antes de
 congelar la referencia. `manifest_refresh_audit.py` aporta la cohorte de solo lectura,
 firmas con multiplicidad y extracción completa desde la primera página, con hasta
 cuatro consultas simultáneas. DUAs mantiene cliente independiente y espera ilimitada.
+Movimientos usa su enlace `vVMOVSTK`, parser propio, 15 columnas almacenadas e
+identidad en la última columna; conserva los plazos y recuperación de su cliente.
 La consulta no reutiliza checkpoints antiguos ni cambia las fuentes durante esa fase.
 
 Antes de aplicar, se crea una copia SQLite consistente por fuente, fuera de jobs:
@@ -74,7 +79,23 @@ respaldo y aplicación. El estado resumido se conserva en el índice de la ejecu
 CSV y SharePoint requieren sus acciones explícitas; no hay publicación automática.
 BLs no se ejecuta ni recibe una base nueva automáticamente.
 
-## Verificación y entrega
+## Ampliación a Movimientos — 28/11/2026
+
+Pasaron 17 pruebas offline distintas: 15 de actualización y auditoría, una del
+botón QML real → worker → portal local en los tres procedimientos y una de
+geometría global en 1280×774, 1000×680 y 1000×600. Se verificaron repetición sin
+duplicar, vacío que obtiene filas, identidad/columnas, respaldo, cancelación,
+rollback y conservación de pendientes, CSV y modalidad no seleccionada. Cero
+avisos QML. La herramienta experimental conserva sus dos procedimientos por
+defecto; Movimientos se puede solicitar explícitamente.
+
+No se consultó TICA ni se refrescaron bases reales. Las pruebas usaron portales
+locales y SQLite sintéticos temporales. Al cierre no había app abierta; se abrió
+una sola instancia de desarrollo antes de documentar, sin iniciar consultas.
+La distribución empaquetada no se actualizó. Evidencia pequeña privada en
+`runtime/diagnostics/movement-refresh-20261128/`.
+
+## Verificación y entrega original — 24/10/2026
 
 Se completaron 21 pruebas distintas: 19 de auditoría, actualización transaccional
 y acumulación; una del botón QML real → worker → portal local en ambos procedimientos;

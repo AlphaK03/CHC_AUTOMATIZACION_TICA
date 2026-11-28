@@ -1,3 +1,24 @@
+## Movimientos: actualizar guardados — 28/11/2026
+
+El usuario pidió habilitar en Movimientos la actualización manual ya disponible
+en DUAs. **Manifiestos → Movimientos → Actualizar guardados** revisa todos los
+Guardado de la ejecución y modalidades elegidas, incluidos vacíos, usando el
+listado del mes completo. Para octubre de 2026 elegir la ejecución existente,
+octubre/2026 y solo Marítimo; no basta Iniciar consulta para revisar guardados.
+La acción usa el enlace/parser de Movimientos, valida sus 15 columnas e identidad,
+crea respaldo y reemplaza cada manifiesto completo en transacción. Fallos
+conservan el resultado anterior; pendientes y otras modalidades se conservan.
+No genera CSV ni sube a SharePoint; esas acciones siguen siendo manuales.
+
+Pasaron 17 pruebas offline distintas: actualización/auditoría (15), recorrido
+QML → worker → portal local en los tres procedimientos y geometría global en
+tres tamaños. Incluyen vacío que obtiene filas, rollback, cancelación, repetición
+y CSV/modalidad no elegida intactos. No se consultó TICA ni se actualizaron datos
+reales. Al cierre no había instancia interactiva; se abrió una sola app de
+desarrollo antes de documentar, sin consultas. No se actualizó el instalador.
+Evidencia privada pequeña en `runtime/diagnostics/movement-refresh-20261128/`.
+Ver [uso y garantías](ACTUALIZAR_GUARDADOS.md).
+
 ## SharePoint: catálogo y selección múltiple de descargas — 25/11/2026
 
 El usuario aclaró que no quiere buscar archivos: la app debe mostrar sus descargas,

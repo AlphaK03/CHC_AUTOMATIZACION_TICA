@@ -554,8 +554,8 @@ class BatchService:
 
     def refresh_saved(self, request):
         record = self.active()
-        if self.flow not in ('conocimientos','duas') or not record or request.get('recordId') != record['id']:
-            raise ValueError('Seleccione una ejecución guardada de Conocimientos o DUAs.')
+        if self.flow not in ('conocimientos','duas','movimientos') or not record or request.get('recordId') != record['id']:
+            raise ValueError('Seleccione una ejecución guardada de Conocimientos, DUAs o Movimientos.')
         if self.processing:
             raise ValueError('Primero termine la consulta activa.')
         if (request.get('year'),request.get('month')) != (record['spec']['year'],record['spec']['month']):

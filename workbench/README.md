@@ -731,7 +731,7 @@ La revisión autorizada de octubre Marítimo confirmó +5.256 filas de Conocimie
 y +32.081 de DUAs en los manifiestos comparables. [Experimento y límites](../docs/EXPERIMENTO_REFRESCO_MANIFIESTOS.md).
 
 Desde el 24/10, **Actualizar guardados** es un botón púrpura visible en Conocimientos
-y DUAs. Elegir la ejecución, su período y modalidades; para una medición corta,
+y DUAs; desde el 28/11 también en Movimientos. Elegir la ejecución, su período y modalidades; para una medición corta,
 marcar solo Marítimo. Muestra revisados/total y tiempo; sustituye cada manifiesto
 únicamente tras confirmar toda la extracción y crear respaldo. Fallos conservan
 el resultado anterior. No consulta nuevos, inicia calendarios ni genera CSV.

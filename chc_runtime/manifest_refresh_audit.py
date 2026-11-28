@@ -18,7 +18,9 @@ import zlib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FLOWS = ('conocimientos', 'duas')
+DEFAULT_FLOWS = ('conocimientos', 'duas')
+FLOWS = (*DEFAULT_FLOWS, 'movimientos')
+ROW_WIDTHS = {'conocimientos': 15, 'duas': 11, 'movimientos': 15}
 IDENTITY_LABELS = ('Trans.', 'Ing Sal', 'Manifiesto', 'Cod Ubicacion', 'Fecha')
 
 
@@ -39,9 +41,11 @@ def unpacked(value):
 
 
 def fingerprints(rows, flow, mid):
+    if flow not in ROW_WIDTHS:
+        raise ValueError('Procedimiento no permitido')
     result = Counter()
     for row in rows:
-        if (not isinstance(row, list) or len(row) != (15 if flow == 'conocimientos' else 11)
+        if (not isinstance(row, list) or len(row) != ROW_WIDTHS[flow]
                 or row[0 if flow == 'conocimientos' else -1] != mid):
             raise ValueError('Identidad o columnas inválidas; comparación sin confirmar')
         result[hashlib.sha256(encoded(row)).hexdigest()] += 1
@@ -65,7 +69,7 @@ def open_audit(path):
     return db
 
 
-def freeze(root, output, year, month, mode, flows=FLOWS, limit=0, record_id=None,
+def freeze(root, output, year, month, mode, flows=DEFAULT_FLOWS, limit=0, record_id=None,
            full_month=False):
     """Congela la cohorte por base con una transacción de lectura consistente."""
     root, output = Path(root).resolve(), Path(output).resolve()
@@ -172,6 +176,7 @@ def failure(db, target, status, error, seconds):
 
 def report(path):
     with closing(open_audit(path)) as db:
+        flows = json.loads(db.execute('SELECT value FROM metadata').fetchone()[0]).get('flows', DEFAULT_FLOWS)
         groups = [dict(r) for r in db.execute('''SELECT s.flow,s.path,s.saved,s.skipped,
             count(t.id) selected,coalesce(sum(t.old_count),0) old_rows,
             coalesce(sum(t.historical_seconds),0) historical_seconds FROM sources s
@@ -182,7 +187,7 @@ def report(path):
             JOIN sources s ON s.id=t.source LEFT JOIN observations o ON o.target=t.id
             ORDER BY s.id,t.ordinal''')]
         comparison = []
-        for flow in FLOWS:
+        for flow in flows:
             selected = [r for r in rows if r['flow'] == flow]
             confirmed = [r for r in selected if r['new_count'] is not None]
             comparison.append(dict(flow=flow, selected=len(selected), compared=len(confirmed),
@@ -261,7 +266,7 @@ async def _run(path, workers=4, retry_errors=False, fixture_factory=None, progre
                     scraper.conoc_dates = [datetime.strptime(scope[k], '%Y-%m-%d') for k in ('desde','hasta')]
                     scraper._conoc_link_lock = asyncio.Lock()
                     scraper._conoc_link_refreshed = 0
-                    scraper._conoc_link_field = 'vVCONS' if flow == 'conocimientos' else 'vVDUAS'
+                    scraper._conoc_link_field = {'conocimientos':'vVCONS','duas':'vVDUAS','movimientos':'vVMOVSTK'}[flow]
                     portal = fixture_factory(scraper, source) if fixture_factory else None
                     try:
                         await scraper.open_page()
@@ -297,15 +302,16 @@ async def _run(path, workers=4, retry_errors=False, fixture_factory=None, progre
                                         continue
                                     options = dict(courier=scope.get('courier'), checkpoint=None,
                                         renew_link=lambda: scraper._renew_conoc_link(mid))
-                                    if flow == 'duas':
+                                    if flow in ('duas','movimientos'):
                                         request = IsolatedTableRequest(pw.request, scraper.context, agent)
                                         async def renew():
                                             link = await scraper._renew_conoc_link(mid)
                                             await request.refresh()
                                             return link
-                                        options.update(courier=None, parse_html=lambda html, expected: parse_table(html, expected, 'duas'),
+                                        options.update(courier=None, parse_html=lambda html, expected: parse_table(html, expected, flow),
                                             sequence_key=lambda row, position: position, sort_rows=False,
-                                            request_attempts=1, recover_errors=False, expected_status=200,
+                                            request_attempts=1 if flow=='duas' else 3,
+                                            recover_errors=flow!='duas', expected_status=200 if flow=='duas' else None,
                                             parse_in_thread=True, renew_link=renew)
                                     rows, stats = await extract_table(request or scraper.context.request,
                                         href, mid, 0 if flow == 'duas' else 120, **options)
@@ -369,7 +375,7 @@ def main():
     if args.command == 'freeze':
         if args.limit < 0:
             parser.error('--limit debe ser cero o positivo')
-        value = freeze(args.root, args.output, args.year, args.month, args.mode, args.flow or FLOWS, args.limit)
+        value = freeze(args.root, args.output, args.year, args.month, args.mode, args.flow or DEFAULT_FLOWS, args.limit)
     elif args.command == 'run':
         value = asyncio.run(run(args.reference, args.workers, args.retry_errors))
     elif args.command == 'differences':

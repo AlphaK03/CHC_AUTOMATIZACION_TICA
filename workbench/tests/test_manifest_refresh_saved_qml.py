@@ -12,7 +12,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 
 class RefreshSavedQMLTests(unittest.TestCase):
-    def test_purple_button_two_flows_progress_and_manual_only(self):
+    def test_purple_button_three_flows_progress_and_manual_only(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
             bridge=BatchBridge(storage_root=root/'manifiestos',offline_fixture=True)
@@ -33,7 +33,7 @@ class RefreshSavedQMLTests(unittest.TestCase):
             events=[]
             bridge.eventReceived.connect(events.append)
             try:
-                for flow in ('conocimientos','duas'):
+                for flow in ('conocimientos','duas','movimientos'):
                     bridge.setFlow(flow)
                     wait_until(lambda:bridge.ready and not bridge.busy)
                     self.assertTrue(bridge.command('run',dict(config=dict(year=2026,month=9,modes=['maritimo'],

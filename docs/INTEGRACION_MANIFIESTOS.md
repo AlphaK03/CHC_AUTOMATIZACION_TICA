@@ -7,6 +7,15 @@ y pruebas, más requisitos y documentación de referencia, a `bots/manifiestos/`
 Los hashes de esos 28 archivos están en `source_manifest.json`; sus extractores
 permanecen intactos. Los cambios funcionales viven en adaptadores nuevos.
 
+## Actualizar guardados (ampliado el 28/11/2026)
+
+Conocimientos, DUAs y Movimientos tienen un botón púrpura **Actualizar guardados**.
+Reconsulta los Guardado existentes del mes y modalidades de la ejecución elegida,
+incluidos vacíos, sin incorporar pendientes ni otros lotes. Movimientos conserva
+su enlace y parser propios. Respaldo verificado y reemplazo completo transaccional;
+fallos conservan las filas anteriores. No genera CSV ni sube archivos.
+Ver [uso, recuperación y verificación offline](ACTUALIZAR_GUARDADOS.md).
+
 ## CSV manuales (22/10/2026)
 
 Consultar, reintentar, detener e importar progreso guardan solo en SQLite; ya no

@@ -19,6 +19,13 @@ from chc_runtime.manifest_fixture import FixturePortal
 
 
 class RefreshAuditTests(unittest.TestCase):
+    def test_movement_fingerprint_requires_fifteen_columns_and_last_column_identity(self):
+        mid='1-0-20260001-P027-01/10/26'
+        row=['0001','002','2026','ENT','01/10/26','ING','0','1','PKG','1.000','0.000','J','0000123','Nombre',mid]
+        self.assertEqual(sum(fingerprints([row,row],'movimientos',mid).values()),2)
+        for bad in (row[:-1],row+['extra'],[mid,*row[1:-1],'wrong-manifest']):
+            with self.assertRaises(ValueError):fingerprints([bad],'movimientos',mid)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

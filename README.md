@@ -338,7 +338,7 @@ La herramienta independiente conserva las bases actuales y descarga detalles sol
 de los guardados congelados. No incorpora datos al bot ni añade refresco automático.
 [Experimento, alcance, resultados y uso](docs/EXPERIMENTO_REFRESCO_MANIFIESTOS.md).
 
-Para revisar y aplicar cambios, Conocimientos y DUAs ofrecen **Actualizar guardados**,
+Para revisar y aplicar cambios, Conocimientos, DUAs y Movimientos ofrecen **Actualizar guardados**,
 un botón púrpura visible con progreso y tiempo. Actúa por petición manual sobre
 los guardados de la ejecución/modalidades elegidas, con respaldo y reemplazo
 transaccional completo; conserva el anterior ante fallos. No se activa al cambiar

@@ -242,7 +242,7 @@ ScrollView {
                     ActionButton { text:"Detener"; enabled:moduleBridge.busy; onClicked:moduleBridge.stop() }
                 }
                 RowLayout {
-                    visible:!page.isBls && ["conocimientos","duas"].indexOf(moduleBridge.flow)>=0
+                    visible:!page.isBls && ["conocimientos","duas","movimientos"].indexOf(moduleBridge.flow)>=0
                     Layout.fillWidth:true; spacing:12
                     ActionButton {
                         id:refreshSavedButton; objectName:"manifestRefreshSaved"

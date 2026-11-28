@@ -8,7 +8,7 @@ import sqlite3
 import time
 import uuid
 
-from .manifest_refresh_audit import freeze, run, report, reader, open_audit, unpacked, fingerprints, now
+from .manifest_refresh_audit import FLOWS, freeze, run, report, reader, open_audit, unpacked, fingerprints, now
 
 
 def apply_manifest(db, target, observation, run_id):
@@ -48,8 +48,8 @@ def apply_manifest(db, target, observation, run_id):
 
 
 async def refresh_saved(root, record, flow, modes, workers, notify, fixture=False):
-    if flow not in ('conocimientos','duas'):
-        raise ValueError('Actualizar guardados solo está disponible en Conocimientos y DUAs')
+    if flow not in FLOWS:
+        raise ValueError('Actualizar guardados solo está disponible en Conocimientos, DUAs y Movimientos')
     from conocimientos_queue import OutputLock
     from .manifest_fixture import FixturePortal
     root = Path(root).resolve()

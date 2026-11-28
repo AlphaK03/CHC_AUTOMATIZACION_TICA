@@ -27,10 +27,10 @@ class ManualRefreshTests(unittest.TestCase):
         self.services = []
         self.addCleanup(lambda:[s.close() for s in self.services])
 
-    def prepare(self,flow):
+    def prepare(self,flow,modes=None):
         service = BatchService(self.root,flow,lambda *args,**kwargs:None,Event(),True)
         self.services.append(service)
-        service.execute('run',dict(config=dict(year=2026,month=9,modes=['maritimo'],
+        service.execute('run',dict(config=dict(year=2026,month=9,modes=modes or ['maritimo'],
             headless=True,timeout=5,workers=2)))
         return service,Path(service.active()['databases'][0])
 
@@ -41,8 +41,8 @@ class ManualRefreshTests(unittest.TestCase):
         with closing(sqlite3.connect(path)) as db:
             return list(db.execute('SELECT * FROM rows ORDER BY manifest,sequence'))
 
-    def test_two_flows_replace_complete_preserve_pending_csv_backup_and_repeat(self):
-        for flow in ('conocimientos','duas'):
+    def test_three_flows_replace_complete_preserve_pending_csv_backup_and_repeat(self):
+        for flow in ('conocimientos','duas','movimientos'):
             with self.subTest(flow=flow):
                 service,path = self.prepare(flow)
                 before = self.rows(path)
@@ -68,19 +68,21 @@ class ManualRefreshTests(unittest.TestCase):
                 self.assertEqual(service.snapshot()['refreshSaved']['unchanged'],2)
 
     def test_invalid_download_preserves_saved_rows_and_states(self):
-        service,path = self.prepare('duas')
-        before = self.rows(path)
-        original = FixturePortal.response
-        def response(portal,path,query,post,form):
-            if portal.refresh_details and path != '/hcicgmic.aspx' and query.get('n')==['1']:
-                return '<html>Incompleta</html>','text/html'
-            return original(portal,path,query,post,form)
-        with patch.object(FixturePortal,'response',response):
-            service.execute('refresh_saved',self.request(service))
-        self.assertEqual(self.rows(path),before)
-        self.assertEqual(service.snapshot()['refreshSaved']['failed'],1)
-        with closing(sqlite3.connect(path)) as db:
-            self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE state='Guardado'").fetchone()[0],2)
+        for flow in ('duas','movimientos'):
+            with self.subTest(flow=flow):
+                service,path = self.prepare(flow)
+                before = self.rows(path)
+                original = FixturePortal.response
+                def response(portal,path,query,post,form):
+                    if portal.refresh_details and path != '/hcicgmic.aspx' and query.get('n')==['1']:
+                        return '<html>Incompleta</html>','text/html'
+                    return original(portal,path,query,post,form)
+                with patch.object(FixturePortal,'response',response):
+                    service.execute('refresh_saved',self.request(service))
+                self.assertEqual(self.rows(path),before)
+                self.assertEqual(service.snapshot()['refreshSaved']['failed'],1)
+                with closing(sqlite3.connect(path)) as db:
+                    self.assertEqual(db.execute("SELECT count(*) FROM jobs WHERE state='Guardado'").fetchone()[0],2)
 
     def test_stale_selection_rejected_without_modifying_sqlite(self):
         service,path = self.prepare('conocimientos')
@@ -91,14 +93,51 @@ class ManualRefreshTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),before)
 
     def test_cancellation_before_apply_does_not_modify_sources(self):
-        service,path = self.prepare('duas')
-        before = hashlib.sha256(path.read_bytes()).hexdigest()
-        def notify(event):
-            if event['stage']=='done':
-                raise asyncio.CancelledError()
-        with self.assertRaises(asyncio.CancelledError):
-            asyncio.run(refresh_saved(self.root,service.active(),'duas',['maritimo'],2,notify,True))
-        self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),before)
+        for flow in ('duas','movimientos'):
+            with self.subTest(flow=flow):
+                service,path = self.prepare(flow)
+                before = hashlib.sha256(path.read_bytes()).hexdigest()
+                def notify(event):
+                    if event['stage']=='done':
+                        raise asyncio.CancelledError()
+                with self.assertRaises(asyncio.CancelledError):
+                    asyncio.run(refresh_saved(self.root,service.active(),flow,['maritimo'],2,notify,True))
+                self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),before)
+
+    def test_movement_empty_becomes_complete_without_changing_other_modes_or_csv(self):
+        service,path=self.prepare('movimientos',['maritimo','aereo'])
+        other=Path(service.active()['databases'][1]);other_before=other.read_bytes()
+        service.execute('export',{})
+        csvs={p:p.read_bytes() for p in self.root.rglob('*.CSV')}
+        with closing(sqlite3.connect(path)) as db:
+            empty=db.execute("SELECT id FROM jobs WHERE state='Guardado' AND kept_count=0").fetchone()[0]
+        before=self.rows(path);original=FixturePortal.response
+        def response(portal,url,query,post,form):
+            if portal.refresh_details and url=='/hcgmovi.aspx' and query.get('n')==['2']:
+                query={**query,'n':['1']}
+            return original(portal,url,query,post,form)
+        with patch.object(FixturePortal,'response',response):
+            service.execute('refresh_saved',self.request(service))
+        with closing(sqlite3.connect(path)) as db:
+            rows=[json.loads(r[0]) for r in db.execute('SELECT data FROM rows WHERE manifest=? ORDER BY sequence',(empty,))]
+            self.assertEqual(len(rows),2)
+            self.assertTrue(all(len(row)==15 and row[-1]==empty and row[0]=='0001' for row in rows))
+            self.assertEqual(db.execute('SELECT state,kept_count FROM jobs WHERE id=?',(empty,)).fetchone(),('Guardado',2))
+        self.assertEqual({p:p.read_bytes() for p in csvs},csvs)
+        self.assertEqual(other.read_bytes(),other_before)
+        backups=list((self.root/'data/backups/refresh_saved').rglob('*-'+path.name))
+        self.assertEqual(self.rows(backups[-1]),before)
+
+    def test_movement_failed_insert_rolls_back_complete_previous_manifest(self):
+        service,path=self.prepare('movimientos');before=self.rows(path);mid=before[0][0]
+        old=[json.loads(row[2]) for row in before if row[0]==mid]
+        target=dict(flow='movimientos',manifest=mid,hashes=packed(fingerprints(old,'movimientos',mid)))
+        fresh=[list(old[0])];fresh[0][0]='0002'
+        observation=dict(rows=packed(fresh),stats=json.dumps(dict(kept=1,pages=1,read=1)),new_count=1,checked=now())
+        with closing(sqlite3.connect(path)) as db:
+            db.execute("CREATE TEMP TRIGGER reject_refresh BEFORE INSERT ON rows BEGIN SELECT RAISE(ABORT,'forced insert failure'); END")
+            with self.assertRaises(sqlite3.IntegrityError):apply_manifest(db,target,observation,'test')
+        self.assertEqual(self.rows(path),before)
 
     def test_failed_insert_rolls_back_all_old_rows(self):
         service,path = self.prepare('conocimientos')
